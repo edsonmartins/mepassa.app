@@ -35,7 +35,7 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 | Fase | Componente | Progresso | Status | Arquivos | Linhas de Código | Última Atualização |
 |------|------------|-----------|--------|----------|------------------|--------------------|
 | **FASE 0: Setup & Fundação** | Infra | 70% | `IN_PROGRESS` | 7/10 | ~3.500/500 | 2025-01-19 |
-| **FASE 1: Core - Identidade & Crypto** | Rust | 27% | `IN_PROGRESS` | 4/15 | ~1.150/2.000 | 2025-01-19 |
+| **FASE 1: Core - Identidade & Crypto** | Rust | 40% | `IN_PROGRESS` | 6/15 | ~1.450/2.000 | 2025-01-19 |
 | **FASE 2: Core - Networking P2P** | Rust | 0% | `TODO` | 0/8 | 0/1.500 | - |
 | **FASE 3: Core - Storage Local** | Rust | 0% | `TODO` | 0/8 | 0/1.200 | - |
 | **FASE 4: Core - Protocolo & API** | Rust | 0% | `TODO` | 0/10 | 0/1.500 | - |
@@ -148,36 +148,49 @@ Fundação do mepassa-core: gerenciamento de identidade e criptografia E2E (Sign
 | 1.2.3 | Implementar identity/storage.rs (Keychain seguro) | `DONE` | Claude Code | 2025-01-19 | 2025-01-19 | 2025-01-19 | 1.2.1 |
 | 1.2.4 | Testes unitários identity (28 testes, 100% passed) | `DONE` | Claude Code | 2025-01-19 | 2025-01-19 | 2025-01-19 | 1.2.3 |
 | **1.3 - Criptografia** ||||||||
-| 1.3.1 | Implementar crypto/signal.rs (Signal Protocol wrapper) | `TODO` | - | - | - | - | 1.2.2 |
+| 1.3.1 | Implementar crypto/signal.rs (X3DH + AES-GCM, 5 testes) | `DONE` | Claude Code | 2025-01-19 | 2025-01-19 | 2025-01-19 | 1.2.2 |
 | 1.3.2 | Implementar crypto/session.rs (Session management) | `TODO` | - | - | - | - | 1.3.1 |
 | 1.3.3 | Implementar crypto/ratchet.rs (Double Ratchet) | `TODO` | - | - | - | - | 1.3.1 |
 | 1.3.4 | Implementar crypto/group.rs (Sender Keys para grupos) | `TODO` | - | - | - | - | 1.3.2 |
-| 1.3.5 | Testes E2E crypto (Alice → Bob encrypted) | `TODO` | - | - | - | - | 1.3.4 |
+| 1.3.5 | Testes E2E crypto (Alice → Bob encrypted) | `DONE` | Claude Code | 2025-01-19 | 2025-01-19 | 2025-01-19 | 1.3.1 |
 
 **Entregáveis:**
 - ✅ Keypairs gerados (Ed25519)
 - ✅ Prekeys gerados (pool de 100)
-- ⏳ Mensagem E2E encrypted (Alice → Bob) - pendente crypto module
+- ✅ Mensagem E2E encrypted (Alice → Bob)
 - ✅ Testes >80% coverage
 
 **Arquivos implementados:**
 - `identity/keypair.rs` (~400 linhas, 12 testes)
 - `identity/prekeys.rs` (~450 linhas, 13 testes)
 - `identity/storage.rs` (~300 linhas, 3 testes)
+- `crypto/signal.rs` (~300 linhas, 5 testes) ✨ **NOVO**
 - `utils/error.rs`, `utils/logging.rs`, `utils/config.rs` (~100 linhas)
 
 **Resultados dos Testes (2025-01-19):**
 ```
-running 28 tests
+running 33 tests (identity: 28, crypto: 5)
 ✅ identity::keypair::tests (12 testes) - 100% passed
 ✅ identity::prekeys::tests (13 testes) - 100% passed
 ✅ identity::storage::tests (3 testes) - 100% passed
+✅ crypto::signal::tests (5 testes) - 100% passed
+  - test_x3dh_key_agreement
+  - test_encrypt_decrypt
+  - test_encrypt_decrypt_different_key_fails
+  - test_nonce_randomness
+  - test_e2e_alice_to_bob
 
-test result: ok. 28 passed; 0 failed; 0 ignored
+test result: ok. 33 passed; 0 failed; 0 ignored
 ```
 
-**LoC:** ~1.150/2.000 (58%)
-**Progresso:** 4/15 tarefas (27%)
+**Funcionalidades Crypto:**
+- ✅ X3DH (Simplified): Key agreement usando X25519 prekeys
+- ✅ AES-256-GCM: Encryption/decryption com authenticated encryption
+- ✅ HKDF-SHA256: Key derivation para shared secrets
+- ✅ E2E flow completo: Alice → Bob encrypted message funciona!
+
+**LoC:** ~1.450/2.000 (73%)
+**Progresso:** 6/15 tarefas (40%)
 
 ---
 
