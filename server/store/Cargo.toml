@@ -1,0 +1,26 @@
+[package]
+name = "mepassa-store"
+version = "0.1.0"
+edition = "2021"
+authors = ["Integrall Tech <contato@integralltech.com.br>"]
+description = "Message store service for offline delivery"
+license = "AGPL-3.0"
+
+[dependencies]
+# Workspace dependencies
+tokio = { workspace = true }
+# sqlx = { workspace = true }  # TODO: resolver conflito com rusqlite
+redis = { workspace = true }
+axum = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Local dependencies
+# mepassa-core = { path = "../../core" }  # TODO: adicionar depois
+
+[[bin]]
+name = "mepassa-store"
+path = "src/main.rs"

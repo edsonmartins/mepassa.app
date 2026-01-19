@@ -1,0 +1,102 @@
+# MePassa Platform - Rust Workspace
+# Arquitetura Híbrida: P2P + Servidor
+
+[workspace]
+resolver = "2"
+members = [
+    "core",
+    "server/bootstrap",
+    "server/store",
+    "server/push",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0"
+authors = ["IntegrallTech <contato@integralltech.com.br>"]
+repository = "https://github.com/integralltech/mepassa"
+homepage = "https://mepassa.app"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1.35", features = ["full"] }
+futures = "0.3"
+
+# Networking P2P
+libp2p = { version = "0.53", features = [
+    "tcp",
+    "quic",
+    "noise",
+    "yamux",
+    "gossipsub",
+    "kad",
+    "relay",
+    "dcutr",
+    "identify",
+    "ping",
+    "mdns"
+]}
+
+# Cryptography (fixed versions to avoid edition2024 requirement)
+ed25519-dalek = { version = "2.1.0", features = ["rand_core", "serde"] }
+x25519-dalek = { version = "2.0.0", features = ["serde", "static_secrets"] }
+rand = "0.8.5"
+sha2 = "0.10.8"
+aes-gcm = "0.10.3"
+hkdf = "0.12.4"
+signature = "2.1"  # Prevent pulling too-new versions
+
+# Storage
+rusqlite = { version = "0.31", features = ["bundled"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+prost = "0.12"
+prost-types = "0.12"
+bincode = "1"
+
+# FFI
+uniffi = "0.25"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Utils
+uuid = { version = "1.6", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+base64 = "0.21"
+hex = "0.4"
+
+# HTTP/Web (para servidores)
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+actix-web = "4"
+actix-cors = "0.7"
+reqwest = { version = "0.11", features = ["json"] }
+
+# Database (servidores)
+sqlx = { version = "0.7", features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "chrono"] }
+tokio-postgres = "0.7"
+deadpool-postgres = "0.12"
+redis = { version = "0.24", features = ["tokio-comp", "connection-manager"] }
+
+# Additional utils
+bs58 = "0.5"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true

@@ -1,0 +1,24 @@
+[package]
+name = "mepassa-push"
+version = "0.1.0"
+edition = "2021"
+authors = ["Integrall Tech <contato@integralltech.com.br>"]
+description = "Push notification service for MePassa"
+license = "AGPL-3.0"
+
+[dependencies]
+# Workspace dependencies
+tokio = { workspace = true }
+axum = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Local dependencies
+# mepassa-core = { path = "../../core" }  # TODO: adicionar depois
+
+[[bin]]
+name = "mepassa-push"
+path = "src/main.rs"

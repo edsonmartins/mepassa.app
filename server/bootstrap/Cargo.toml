@@ -1,0 +1,24 @@
+[package]
+name = "mepassa-bootstrap"
+version = "0.1.0"
+edition = "2021"
+authors = ["Integrall Tech <contato@integralltech.com.br>"]
+description = "Bootstrap node for MePassa P2P network"
+license = "AGPL-3.0"
+
+[dependencies]
+# Workspace dependencies
+libp2p = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Local dependencies
+# mepassa-core = { path = "../../core" }  # TODO: adicionar depois
+
+[[bin]]
+name = "mepassa-bootstrap"
+path = "src/main.rs"

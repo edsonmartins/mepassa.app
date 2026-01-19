@@ -1,0 +1,70 @@
+[package]
+name = "mepassa-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Core library for MePassa P2P chat platform"
+
+[lib]
+name = "mepassa_core"
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[dependencies]
+# Workspace dependencies
+tokio = { workspace = true }
+futures = { workspace = true }
+libp2p = { workspace = true }
+ed25519-dalek = { workspace = true }
+x25519-dalek = { workspace = true }
+rand = { workspace = true }
+sha2 = { workspace = true }
+aes-gcm = { workspace = true }
+hkdf = { workspace = true }
+rusqlite = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+prost = { workspace = true }
+prost-types = { workspace = true }
+bincode = { workspace = true }
+uniffi = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+base64 = { workspace = true }
+hex = { workspace = true }
+
+# Signal Protocol (E2E encryption) - TODO: implementar depois
+# libsignal-protocol = "0.1"
+
+# CRDTs for sync - TODO: implementar depois
+# automerge = "0.5"
+
+# WebRTC for VoIP - TODO: implementar depois
+# webrtc = "0.9"
+# opus = "0.3"
+
+# Additional dependencies
+bs58 = { workspace = true }
+
+[dev-dependencies]
+proptest = "1.4"
+criterion = "0.5"
+tempfile = "3.8"
+
+[build-dependencies]
+prost-build = "0.12"
+uniffi = { workspace = true, features = ["build"] }
+
+# Benchmarks (TODO: create benchmark files)
+# [[bench]]
+# name = "crypto_bench"
+# harness = false
+
+# [[bench]]
+# name = "network_bench"
+# harness = false

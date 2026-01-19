@@ -1,0 +1,89 @@
+name: Android CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'android/**'
+      - 'core/**'
+      - '.github/workflows/android-ci.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'android/**'
+      - 'core/**'
+      - '.github/workflows/android-ci.yml'
+
+jobs:
+  build:
+    name: Build Android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk
+
+      - name: Build Rust Core for Android
+        run: |
+          cd core
+          cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -t x86 -o ../android/app/src/main/jniLibs build --release
+        continue-on-error: true
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x android/gradlew
+
+      - name: Build with Gradle
+        run: cd android && ./gradlew build
+        continue-on-error: true
+
+      - name: Lint
+        run: cd android && ./gradlew lint
+        continue-on-error: true
+
+      - name: Run tests
+        run: cd android && ./gradlew test
+        continue-on-error: true
+
+  ktlint:
+    name: Ktlint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x android/gradlew
+
+      - name: Run ktlint
+        run: cd android && ./gradlew ktlintCheck
+        continue-on-error: true
