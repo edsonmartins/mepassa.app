@@ -5,11 +5,12 @@
 pub mod signal;
 pub mod session;
 pub mod ratchet;
-// pub mod group;
+pub mod group;
 
 pub use signal::{X3DH, EncryptedMessage, encrypt_message, decrypt_message};
 pub use session::{Session, SessionManager};
 pub use ratchet::RatchetState;
+pub use group::{SenderKey, GroupSession, GroupSessionManager};
 
 use thiserror::Error;
 

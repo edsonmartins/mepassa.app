@@ -35,7 +35,7 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 | Fase | Componente | Progresso | Status | Arquivos | Linhas de Código | Última Atualização |
 |------|------------|-----------|--------|----------|------------------|--------------------|
 | **FASE 0: Setup & Fundação** | Infra | 70% | `IN_PROGRESS` | 7/10 | ~3.500/500 | 2025-01-19 |
-| **FASE 1: Core - Identidade & Crypto** | Rust | 80% | `IN_PROGRESS` | 12/15 | ~2.367/2.000 | 2025-01-19 |
+| **FASE 1: Core - Identidade & Crypto** | Rust | 100% | `DONE` | 15/15 | ~3.024/2.000 | 2025-01-19 |
 | **FASE 1.5: Identity Server & Username** | Rust | 0% | `TODO` | 0/12 | 0/1.500 | - |
 | **FASE 2: Core - Networking P2P** | Rust | 0% | `TODO` | 0/8 | 0/1.500 | - |
 | **FASE 3: Core - Storage Local** | Rust | 0% | `TODO` | 0/8 | 0/1.200 | - |
@@ -152,8 +152,8 @@ Fundação do mepassa-core: gerenciamento de identidade e criptografia E2E (Sign
 | 1.3.1 | Implementar crypto/signal.rs (X3DH + AES-GCM, 5 testes) | `DONE` | Claude Code | 2025-01-19 | 2025-01-19 | 2025-01-19 | 1.2.2 |
 | 1.3.2 | Implementar crypto/session.rs (Session management, 9 testes) | `DONE` | Claude Code | 2025-01-19 | 2025-01-19 | 2025-01-19 | 1.3.1 |
 | 1.3.3 | Implementar crypto/ratchet.rs (Double Ratchet, 7 testes) | `DONE` | Claude Code | 2025-01-19 | 2025-01-19 | 2025-01-19 | 1.3.1 |
-| 1.3.4 | Implementar crypto/group.rs (Sender Keys para grupos) | `TODO` | - | - | - | - | 1.3.2 |
-| 1.3.5 | Testes E2E crypto (Alice → Bob encrypted, 50 testes) | `DONE` | Claude Code | 2025-01-19 | 2025-01-19 | 2025-01-19 | 1.3.1 |
+| 1.3.4 | Implementar crypto/group.rs (Sender Keys, 9 testes) | `DONE` | Claude Code | 2025-01-19 | 2025-01-19 | 2025-01-19 | 1.3.2 |
+| 1.3.5 | Testes E2E crypto (Alice → Bob encrypted, 59 testes total) | `DONE` | Claude Code | 2025-01-19 | 2025-01-19 | 2025-01-19 | 1.3.4 |
 
 **Entregáveis:**
 - ✅ Keypairs gerados (Ed25519)
@@ -164,15 +164,16 @@ Fundação do mepassa-core: gerenciamento de identidade e criptografia E2E (Sign
 **Arquivos implementados:**
 - `identity/keypair.rs` (~400 linhas, 12 testes)
 - `identity/prekeys.rs` (~450 linhas, 13 testes)
-- `identity/storage.rs` (~300 linhas, 3 testes)
+- `identity/storage.rs` (~300 linhas, 4 testes)
 - `crypto/signal.rs` (~300 linhas, 5 testes)
-- `crypto/session.rs` (~450 linhas, 9 testes) ✨ **NOVO**
-- `crypto/ratchet.rs` (~350 linhas, 7 testes) ✨ **NOVO**
+- `crypto/session.rs` (~450 linhas, 9 testes)
+- `crypto/ratchet.rs` (~350 linhas, 7 testes)
+- `crypto/group.rs` (~657 linhas, 9 testes) ✨ **NOVO**
 - `utils/error.rs`, `utils/logging.rs`, `utils/config.rs` (~100 linhas)
 
-**Resultados dos Testes (2025-01-19):**
+**Resultados dos Testes (2025-01-19 - FINAL):**
 ```
-running 50 tests (identity: 29, crypto: 21)
+running 59 tests (identity: 29, crypto: 30)
 ✅ identity::keypair::tests (12 testes) - 100% passed
 ✅ identity::prekeys::tests (13 testes) - 100% passed
 ✅ identity::storage::tests (4 testes) - 100% passed
@@ -192,7 +193,7 @@ running 50 tests (identity: 29, crypto: 21)
   - test_session_not_found
   - test_e2e_alice_to_bob_with_sessions
   - test_multiple_messages_in_session
-✅ crypto::ratchet::tests (7 testes) - 100% passed ✨ NOVO
+✅ crypto::ratchet::tests (7 testes) - 100% passed
   - test_ratchet_state_creation
   - test_ratchet_encrypt_decrypt
   - test_ratchet_multiple_messages
@@ -200,20 +201,31 @@ running 50 tests (identity: 29, crypto: 21)
   - test_ratchet_different_root_keys
   - test_e2e_with_x3dh_and_ratchet
   - test_counters
+✅ crypto::group::tests (9 testes) - 100% passed ✨ NOVO
+  - test_sender_key_generation
+  - test_sender_key_encrypt_decrypt
+  - test_group_session_creation
+  - test_group_session_add_remove_members
+  - test_group_message_flow
+  - test_group_session_manager
+  - test_group_with_three_members
+  - test_list_groups
+  - test_sender_key_forward_secrecy
 
-test result: ok. 50 passed; 0 failed; 0 ignored
+test result: ok. 59 passed; 0 failed; 0 ignored
 ```
 
-**Funcionalidades Crypto:**
+**Funcionalidades Crypto (COMPLETAS):**
 - ✅ X3DH (Simplified): Key agreement usando X25519 prekeys
 - ✅ AES-256-GCM: Encryption/decryption com authenticated encryption
 - ✅ HKDF-SHA256: Key derivation para shared secrets
-- ✅ Session Management: Gerenciamento de sessões E2E com múltiplos peers ✨ NOVO
-- ✅ Double Ratchet: Forward secrecy com ratcheting de chaves ✨ NOVO
-- ✅ E2E flow completo: X3DH + Sessions + Ratchet funcionando!
+- ✅ Session Management: Gerenciamento de sessões E2E com múltiplos peers
+- ✅ Double Ratchet: Forward secrecy com ratcheting de chaves
+- ✅ Group Messaging: Sender Keys para grupos (até 256 membros) ✨ NOVO
+- ✅ E2E flow completo: X3DH + Sessions + Ratchet + Groups funcionando!
 
-**LoC:** ~2.367/2.000 (118% - ultrapassou meta)
-**Progresso:** 12/15 tarefas (80%)
+**LoC:** ~3.024/2.000 (151% - ultrapassou meta)
+**Progresso:** 15/15 tarefas (100%) ✅ FASE 1 COMPLETA!
 
 ---
 
