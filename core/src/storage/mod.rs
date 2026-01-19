@@ -2,14 +2,17 @@
 //!
 //! Local SQLite storage for messages, contacts, and groups.
 
-// pub mod database;
-// pub mod schema;
-// pub mod migrations;
+pub mod contacts;
+pub mod database;
+pub mod migrations;
+pub mod schema;
 // pub mod messages;
-// pub mod contacts;
 // pub mod groups;
 
-// pub use database::Database;
+pub use contacts::{Contact, NewContact, UpdateContact};
+pub use database::Database;
+pub use migrations::{migrate, needs_migration};
+pub use schema::{init_fts, init_schema, SCHEMA_VERSION};
 
 use thiserror::Error;
 
@@ -23,6 +26,12 @@ pub enum StorageError {
 
     #[error("Migration failed: {0}")]
     MigrationFailed(String),
+}
+
+impl From<rusqlite::Error> for StorageError {
+    fn from(err: rusqlite::Error) -> Self {
+        StorageError::DatabaseError(err.to_string())
+    }
 }
 
 pub type Result<T> = std::result::Result<T, StorageError>;
