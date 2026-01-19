@@ -36,7 +36,7 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 |------|------------|-----------|--------|----------|------------------|--------------------|
 | **FASE 0: Setup & Fundação** | Infra | 70% | `IN_PROGRESS` | 7/10 | ~3.500/500 | 2025-01-19 |
 | **FASE 1: Core - Identidade & Crypto** | Rust | 100% | `DONE` | 15/15 | ~3.024/2.000 | 2025-01-19 |
-| **FASE 1.5: Identity Server & Username** | Rust | 44% | `IN_PROGRESS` | 8/18 | ~1.200/1.500 | 2025-01-19 |
+| **FASE 1.5: Identity Server & Username** | Rust | 72% | `IN_PROGRESS` | 13/18 | ~1.700/1.500 | 2025-01-19 |
 | **FASE 2: Core - Networking P2P** | Rust | 0% | `TODO` | 0/8 | 0/1.500 | - |
 | **FASE 3: Core - Storage Local** | Rust | 0% | `TODO` | 0/8 | 0/1.200 | - |
 | **FASE 4: Core - Protocolo & API** | Rust | 0% | `TODO` | 0/10 | 0/1.500 | - |
@@ -255,12 +255,12 @@ Sistema de @username para identificação user-friendly (como Telegram/Signal), 
 | 1.5.1.7 | Rate limiting (Redis) - anti-spam | `DONE` | - | 2025-01-19 | 2025-01-19 | 2025-01-19 | 1.5.1.3 |
 | 1.5.1.8 | Health check endpoint (/health) | `DONE` | - | 2025-01-19 | 2025-01-19 | 2025-01-19 | 1.5.1.1 |
 | **1.5.2 - Client Integration** ||||||||
-| 1.5.2.1 | Core: Implementar identity_client.rs (HTTP client) | `TODO` | - | - | - | - | 1.5.1.4 |
-| 1.5.2.2 | Core: register_username(username, peer_id, prekey_bundle) | `TODO` | - | - | - | - | 1.5.2.1 |
-| 1.5.2.3 | Core: lookup_username(username) → (peer_id, prekey_bundle) | `TODO` | - | - | - | - | 1.5.2.1 |
-| 1.5.2.4 | Core: update_prekeys() | `TODO` | - | - | - | - | 1.5.2.1 |
+| 1.5.2.1 | Core: Implementar identity_client.rs (HTTP client) | `DONE` | - | 2025-01-19 | 2025-01-19 | 2025-01-19 | 1.5.1.4 |
+| 1.5.2.2 | Core: register_username(username, peer_id, prekey_bundle) | `DONE` | - | 2025-01-19 | 2025-01-19 | 2025-01-19 | 1.5.2.1 |
+| 1.5.2.3 | Core: lookup_username(username) → (peer_id, prekey_bundle) | `DONE` | - | 2025-01-19 | 2025-01-19 | 2025-01-19 | 1.5.2.1 |
+| 1.5.2.4 | Core: update_prekeys() | `DONE` | - | 2025-01-19 | 2025-01-19 | 2025-01-19 | 1.5.2.1 |
 | **1.5.3 - Database Schemas** ||||||||
-| 1.5.3.1 | PostgreSQL: CREATE TABLE usernames | `TODO` | - | - | - | - | 1.5.1.2 |
+| 1.5.3.1 | PostgreSQL: CREATE TABLE usernames | `DONE` | - | 2025-01-19 | 2025-01-19 | 2025-01-19 | 1.5.1.2 |
 | 1.5.3.2 | SQLite (client): ALTER TABLE contacts ADD COLUMN username | `TODO` | - | - | - | - | 3.1.3 |
 | **1.5.4 - Testes** ||||||||
 | 1.5.4.1 | Teste: registro username único funciona | `TODO` | - | - | - | - | 1.5.1.3 |

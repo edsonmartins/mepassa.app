@@ -50,6 +50,7 @@ hex = { workspace = true }
 
 # Additional dependencies
 bs58 = { workspace = true }
+reqwest = { workspace = true }
 
 [dev-dependencies]
 proptest = "1.4"
