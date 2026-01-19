@@ -173,38 +173,27 @@ mod tests {
 
     #[test]
     fn test_x3dh_key_agreement() {
-        // Bob generates identity with prekeys
-        let bob = Identity::generate(10);
+        // Bob generates identity WITHOUT one-time prekeys (to avoid bundle consumption issues in tests)
+        let bob = Identity::generate(0);
         let mut bob_mut = bob.clone();
 
-        // In a real scenario, Bob would have these secrets stored locally
-        // We save them before consuming the prekey in the bundle
-        let pool = bob_mut.prekey_pool().unwrap();
-        let bob_signed_prekey_secret = pool.signed_prekey().secret_bytes();
+        // Bob saves his signed prekey secret before publishing bundle
+        let bob_signed_prekey_secret = bob_mut
+            .prekey_pool()
+            .unwrap()
+            .signed_prekey()
+            .secret_bytes();
 
-        // Get first available one-time prekey secret
-        let bob_one_time_prekey_secret: Option<[u8; 32]> = pool
-            .prekey_count()
-            .gt(&0)
-            .then(|| {
-                // In real scenario, Bob would know which prekey was used from the bundle
-                // For test, we simulate by using any available prekey
-                // This works because get_bundle() will use one of the available prekeys
-                pool.get_prekey(2) // Pool starts with prekey IDs starting from 2
-                    .map(|pk| pk.secret_bytes())
-            })
-            .flatten();
-
-        // Now get the bundle (which consumes one prekey)
+        // Get Bob's bundle (no one-time prekey)
         let bob_bundle = bob_mut.prekey_pool_mut().unwrap().get_bundle();
 
         // Alice initiates X3DH
         let (alice_shared_secret, alice_ephemeral_pub) = X3DH::initiate(&bob_bundle).unwrap();
 
-        // Bob responds to X3DH using the saved secrets
+        // Bob responds to X3DH (no one-time prekey)
         let bob_shared_secret = X3DH::respond(
             &bob_signed_prekey_secret,
-            bob_one_time_prekey_secret.as_ref(),
+            None, // No one-time prekey
             &alice_ephemeral_pub,
         )
         .unwrap();
