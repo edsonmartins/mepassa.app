@@ -131,6 +131,32 @@ CREATE TABLE IF NOT EXISTS message_stats (
 -- Index for message_stats
 CREATE INDEX idx_message_stats_date ON message_stats(date DESC);
 
+-- Usernames (Identity Server) - ADR 001
+CREATE TABLE IF NOT EXISTS usernames (
+    -- Username (unique, 3-20 chars, lowercase alphanumeric + underscore)
+    username TEXT PRIMARY KEY,
+
+    -- Peer ID mapping
+    peer_id TEXT NOT NULL UNIQUE,
+
+    -- Public key (for verification)
+    public_key BYTEA NOT NULL,
+
+    -- Prekey bundle for X3DH (stored as JSONB)
+    prekey_bundle JSONB NOT NULL,
+
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    last_updated TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+
+    -- Username format validation (3-20 chars, lowercase alphanumeric + underscore)
+    CONSTRAINT username_format CHECK (username ~ '^[a-z0-9_]{3,20}$')
+);
+
+-- Indexes for usernames
+CREATE INDEX idx_usernames_peer_id ON usernames(peer_id);
+CREATE INDEX idx_usernames_created_at ON usernames(created_at DESC);
+
 -- ============================================================================
 -- FUNCTIONS
 -- ============================================================================
@@ -263,6 +289,7 @@ COMMENT ON TABLE offline_messages IS 'Stores encrypted messages for offline reci
 COMMENT ON TABLE push_tokens IS 'Push notification tokens for FCM/APNs';
 COMMENT ON TABLE user_presence IS 'User online/offline status (backup to Redis)';
 COMMENT ON TABLE message_stats IS 'Daily aggregated message delivery statistics';
+COMMENT ON TABLE usernames IS 'Username → peer_id mapping for Identity Server (ADR 001) with prekey bundles for X3DH';
 
 COMMENT ON FUNCTION delete_expired_messages() IS 'Deletes messages older than TTL (14 days)';
 COMMENT ON FUNCTION mark_message_delivered(TEXT) IS 'Marks message as delivered and sets delivery timestamp';
@@ -285,9 +312,10 @@ BEGIN
     RAISE NOTICE 'MePassa Database Initialization Complete';
     RAISE NOTICE '==========================================================';
     RAISE NOTICE 'Database: mepassa';
-    RAISE NOTICE 'Tables created: 4 (offline_messages, push_tokens, user_presence, message_stats)';
+    RAISE NOTICE 'Tables created: 5 (offline_messages, push_tokens, user_presence, message_stats, usernames)';
     RAISE NOTICE 'Functions created: 4';
     RAISE NOTICE 'TTL: 14 days for offline messages';
+    RAISE NOTICE 'Identity Server: username → peer_id mapping enabled';
     RAISE NOTICE '==========================================================';
 END
 $$;

@@ -36,6 +36,7 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 |------|------------|-----------|--------|----------|------------------|--------------------|
 | **FASE 0: Setup & Fundação** | Infra | 70% | `IN_PROGRESS` | 7/10 | ~3.500/500 | 2025-01-19 |
 | **FASE 1: Core - Identidade & Crypto** | Rust | 40% | `IN_PROGRESS` | 6/15 | ~1.450/2.000 | 2025-01-19 |
+| **FASE 1.5: Identity Server & Username** | Rust | 0% | `TODO` | 0/12 | 0/1.500 | - |
 | **FASE 2: Core - Networking P2P** | Rust | 0% | `TODO` | 0/8 | 0/1.500 | - |
 | **FASE 3: Core - Storage Local** | Rust | 0% | `TODO` | 0/8 | 0/1.200 | - |
 | **FASE 4: Core - Protocolo & API** | Rust | 0% | `TODO` | 0/10 | 0/1.500 | - |
@@ -54,10 +55,10 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 | **FASE 17: Multi-Device Sync** | Rust | 0% | `TODO` | 0/10 | 0/1.500 | - |
 
 **TOTAIS:**
-- **Fases:** 18
-- **Arquivos estimados:** ~250
-- **Linhas de código:** ~35.000
-- **Duração:** ~6 meses
+- **Fases:** 19 (incluindo FASE 1.5 - Identity Server)
+- **Arquivos estimados:** ~244
+- **Linhas de código:** ~32.700
+- **Duração:** ~6-7 meses
 
 ---
 
@@ -191,6 +192,101 @@ test result: ok. 33 passed; 0 failed; 0 ignored
 
 **LoC:** ~1.450/2.000 (73%)
 **Progresso:** 6/15 tarefas (40%)
+
+---
+
+## 🆔 FASE 1.5: IDENTITY SERVER & USERNAME SYSTEM (Mês 2-3)
+
+### Objetivo
+Sistema de @username para identificação user-friendly (como Telegram/Signal), substituindo o peer_id criptográfico impossível de compartilhar.
+
+**CONTEXTO:** WhatsApp usa números de telefone, mas isso:
+- ❌ Expõe informação pessoal (privacidade ruim)
+- ❌ Requer SMS gateway (custo + complexidade)
+- ❌ Permite metadata leaking
+
+**DECISÃO:** @username system (ADR 001) - privacidade boa + UX aceitável + custo zero.
+
+### Tarefas
+
+| # | Tarefa | Status | Responsável | Data Início | Data Fim | Última Atualização | Dependências |
+|---|--------|--------|-------------|-------------|----------|--------------------|--------------|
+| **1.5.1 - Identity Server (Backend)** ||||||||
+| 1.5.1.1 | Criar server/identity/ (Rust + Axum) | `TODO` | - | - | - | - | 0.2 |
+| 1.5.1.2 | Setup PostgreSQL schema (usernames table) | `TODO` | - | - | - | - | 1.5.1.1 |
+| 1.5.1.3 | Implementar POST /api/v1/register (username → peer_id) | `TODO` | - | - | - | - | 1.5.1.2 |
+| 1.5.1.4 | Implementar GET /api/v1/lookup?username=X | `TODO` | - | - | - | - | 1.5.1.3 |
+| 1.5.1.5 | Implementar PUT /api/v1/prekeys (atualizar prekeys) | `TODO` | - | - | - | - | 1.5.1.3 |
+| 1.5.1.6 | Username validation (regex: ^[a-z0-9_]{3,20}$) | `TODO` | - | - | - | - | 1.5.1.3 |
+| 1.5.1.7 | Rate limiting (Redis) - anti-spam | `TODO` | - | - | - | - | 1.5.1.3 |
+| 1.5.1.8 | Health check endpoint (/health) | `TODO` | - | - | - | - | 1.5.1.1 |
+| **1.5.2 - Client Integration** ||||||||
+| 1.5.2.1 | Core: Implementar identity_client.rs (HTTP client) | `TODO` | - | - | - | - | 1.5.1.4 |
+| 1.5.2.2 | Core: register_username(username, peer_id, prekey_bundle) | `TODO` | - | - | - | - | 1.5.2.1 |
+| 1.5.2.3 | Core: lookup_username(username) → (peer_id, prekey_bundle) | `TODO` | - | - | - | - | 1.5.2.1 |
+| 1.5.2.4 | Core: update_prekeys() | `TODO` | - | - | - | - | 1.5.2.1 |
+| **1.5.3 - Database Schemas** ||||||||
+| 1.5.3.1 | PostgreSQL: CREATE TABLE usernames | `TODO` | - | - | - | - | 1.5.1.2 |
+| 1.5.3.2 | SQLite (client): ALTER TABLE contacts ADD COLUMN username | `TODO` | - | - | - | - | 3.1.3 |
+| **1.5.4 - Testes** ||||||||
+| 1.5.4.1 | Teste: registro username único funciona | `TODO` | - | - | - | - | 1.5.1.3 |
+| 1.5.4.2 | Teste: lookup retorna peer_id correto | `TODO` | - | - | - | - | 1.5.1.4 |
+| 1.5.4.3 | Teste: username duplicado retorna erro 409 | `TODO` | - | - | - | - | 1.5.1.3 |
+| 1.5.4.4 | Teste: rate limiting funciona (anti-spam) | `TODO` | - | - | - | - | 1.5.1.7 |
+
+**Entregáveis:**
+- ✅ Identity Server rodando (identity.mepassa.app)
+- ✅ Usuário pode registrar @username
+- ✅ Outro usuário pode buscar @username e obter peer_id
+- ✅ Prekey bundle retornado junto para X3DH
+- ✅ Rate limiting funciona (anti-spam)
+
+**Schema PostgreSQL:**
+```sql
+CREATE TABLE usernames (
+    username TEXT PRIMARY KEY,
+    peer_id TEXT NOT NULL UNIQUE,
+    public_key BYTEA NOT NULL,
+    prekey_bundle JSONB NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW(),
+    last_updated TIMESTAMP DEFAULT NOW(),
+
+    CONSTRAINT username_format CHECK (username ~ '^[a-z0-9_]{3,20}$')
+);
+```
+
+**Schema SQLite (Client):**
+```sql
+-- Atualização na tabela contacts
+ALTER TABLE contacts ADD COLUMN username TEXT UNIQUE;
+ALTER TABLE contacts ADD COLUMN prekey_bundle_json TEXT;
+CREATE INDEX idx_contacts_username ON contacts(username);
+```
+
+**API Endpoints:**
+- `POST /api/v1/register` - Registrar username
+- `GET /api/v1/lookup?username=joao` - Buscar peer_id
+- `PUT /api/v1/prekeys` - Atualizar prekeys
+- `GET /health` - Health check
+
+**Flow de Uso:**
+1. Alice registra @alice no primeiro uso
+2. Bob quer adicionar Alice
+3. Bob digita "@alice" no app
+4. App busca no Identity Server
+5. App obtém peer_id + prekey_bundle
+6. App estabelece X3DH + P2P connection
+
+**Arquivos criados:**
+- `server/identity/src/main.rs` (~400 linhas)
+- `server/identity/src/db.rs` (~200 linhas)
+- `server/identity/src/api.rs` (~300 linhas)
+- `core/src/identity/identity_client.rs` (~200 linhas)
+
+**LoC:** ~1.500
+**Progresso:** 0/18 tarefas (0%)
+
+**Referência:** ADR 001 (docs/decisions/001-username-identity-system.md)
 
 ---
 
@@ -851,6 +947,7 @@ Sincronizar mensagens entre múltiplos devices do mesmo usuário.
 |------|-----------|----------|-----|---------|--------|
 | 0 | Setup & Fundação | 10 | 500 | 2 semanas | `TODO` |
 | 1 | Core - Identidade & Crypto | 15 | 2.000 | 2 semanas | `TODO` |
+| 1.5 | Identity Server & Username | 12 | 1.500 | 1 semana | `TODO` |
 | 2 | Core - Networking P2P | 8 | 1.500 | 1 semana | `TODO` |
 | 3 | Core - Storage Local | 8 | 1.200 | 1 semana | `TODO` |
 | 4 | Core - Protocolo & API | 10 | 1.500 | 1 semana | `TODO` |
@@ -867,7 +964,7 @@ Sincronizar mensagens entre múltiplos devices do mesmo usuário.
 | 15 | Grupos | 15 | 2.000 | 2 semanas | `TODO` |
 | 16 | Mídia & Polimento | 20 | 2.500 | 2 semanas | `TODO` |
 | 17 | Multi-Device Sync | 10 | 1.500 | 1 semana | `TODO` |
-| **TOTAL** | **Todos** | **~232** | **~31.200** | **~26 semanas** | **0%** |
+| **TOTAL** | **Todos** | **~244** | **~32.700** | **~27 semanas** | **0%** |
 
 **Estimativa:** ~6 meses (considerando 1 dev full-time + 2-3 devs part-time + comunidade)
 

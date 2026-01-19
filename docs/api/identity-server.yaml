@@ -1,0 +1,510 @@
+openapi: 3.0.3
+info:
+  title: MePassa Identity Server API
+  description: |
+    Identity Server for username → peer_id mapping (ADR 001)
+
+    ## Overview
+    The Identity Server provides a lightweight mapping service from user-friendly
+    @usernames to cryptographic peer_ids, enabling easy contact discovery without
+    exposing phone numbers or other personal information.
+
+    ## Authentication
+    All endpoints are public except username registration, which requires proof of
+    peer_id ownership via signature.
+
+    ## Rate Limiting
+    - Registration: 5 requests per IP per hour
+    - Lookup: 100 requests per IP per hour
+    - Prekey updates: 10 requests per username per hour
+
+  version: 1.0.0
+  contact:
+    name: MePassa Team
+    url: https://mepassa.app
+  license:
+    name: MIT
+
+servers:
+  - url: https://identity.mepassa.app/api/v1
+    description: Production server
+  - url: http://localhost:8080/api/v1
+    description: Local development server
+
+tags:
+  - name: username
+    description: Username registration and lookup
+  - name: prekeys
+    description: Prekey bundle management
+  - name: health
+    description: Health checks and monitoring
+
+paths:
+  /register:
+    post:
+      tags:
+        - username
+      summary: Register a new username
+      description: |
+        Registers a unique @username and associates it with a peer_id and prekey bundle.
+
+        **Requirements:**
+        - Username must be unique (returns 409 if taken)
+        - Username format: 3-20 characters, lowercase alphanumeric + underscore
+        - Must provide valid Ed25519 signature to prove peer_id ownership
+
+        **Rate Limit:** 5 requests per IP per hour
+      operationId: registerUsername
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            examples:
+              validRequest:
+                summary: Valid registration request
+                value:
+                  username: "joao_silva"
+                  peer_id: "mepassa_BfvwEnRx79B9LQYdYyyABHirY3y6GzPHVNAkbbTy66ta"
+                  public_key: "MCowBQYDK2VwAyEA..."
+                  prekey_bundle:
+                    identity_key: "MCowBQYDK2VwAyEA..."
+                    signed_prekey_id: 1
+                    signed_prekey: "MCowBQYDK2VuAyEA..."
+                    signed_prekey_signature: "c2lnbmF0dXJl..."
+                    one_time_prekey:
+                      id: 2
+                      public_key: "MCowBQYDK2VuAyEA..."
+                  signature: "c2lnbmF0dXJlX2RhdGFfaGVyZQ=="
+      responses:
+        '201':
+          description: Username registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+        '400':
+          description: Invalid request (malformed data, invalid username format)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalidUsername:
+                  summary: Invalid username format
+                  value:
+                    error: "INVALID_USERNAME"
+                    message: "Username must be 3-20 characters, lowercase alphanumeric and underscore only"
+                invalidSignature:
+                  summary: Invalid signature
+                  value:
+                    error: "INVALID_SIGNATURE"
+                    message: "Signature verification failed - peer_id ownership not proven"
+        '409':
+          description: Username already taken
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "USERNAME_TAKEN"
+                message: "Username 'joao_silva' is already registered"
+                suggestions:
+                  - "joao_silva1"
+                  - "joao_silva_"
+                  - "joaosilva"
+        '429':
+          description: Rate limit exceeded
+          headers:
+            X-RateLimit-Limit:
+              description: Maximum requests per hour
+              schema:
+                type: integer
+              example: 5
+            X-RateLimit-Remaining:
+              description: Remaining requests in current window
+              schema:
+                type: integer
+              example: 0
+            X-RateLimit-Reset:
+              description: Unix timestamp when rate limit resets
+              schema:
+                type: integer
+              example: 1642521600
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "RATE_LIMIT_EXCEEDED"
+                message: "Too many registration attempts. Try again in 3600 seconds"
+
+  /lookup:
+    get:
+      tags:
+        - username
+      summary: Lookup peer_id by username
+      description: |
+        Retrieves the peer_id and prekey bundle associated with a username.
+
+        **Rate Limit:** 100 requests per IP per hour
+      operationId: lookupUsername
+      parameters:
+        - name: username
+          in: query
+          required: true
+          description: The username to lookup (without @ prefix)
+          schema:
+            type: string
+            pattern: '^[a-z0-9_]{3,20}$'
+          example: "joao_silva"
+      responses:
+        '200':
+          description: Username found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LookupResponse'
+        '400':
+          description: Invalid username format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Username not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "USERNAME_NOT_FOUND"
+                message: "Username 'joao_silva' does not exist"
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /prekeys:
+    put:
+      tags:
+        - prekeys
+      summary: Update prekey bundle
+      description: |
+        Updates the prekey bundle for an existing username.
+        This should be called periodically to refresh prekeys.
+
+        **Rate Limit:** 10 requests per username per hour
+      operationId: updatePrekeys
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePrekeysRequest'
+      responses:
+        '200':
+          description: Prekeys updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdatePrekeysResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized (invalid signature)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Username not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /health:
+    get:
+      tags:
+        - health
+      summary: Health check endpoint
+      description: Returns the health status of the Identity Server
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Server is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /metrics:
+    get:
+      tags:
+        - health
+      summary: Prometheus metrics endpoint
+      description: Returns metrics in Prometheus format
+      operationId: getMetrics
+      responses:
+        '200':
+          description: Metrics data
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: |
+                # HELP identity_registrations_total Total number of username registrations
+                # TYPE identity_registrations_total counter
+                identity_registrations_total 12345
+
+                # HELP identity_lookups_total Total number of username lookups
+                # TYPE identity_lookups_total counter
+                identity_lookups_total 67890
+
+components:
+  schemas:
+    RegisterRequest:
+      type: object
+      required:
+        - username
+        - peer_id
+        - public_key
+        - prekey_bundle
+        - signature
+      properties:
+        username:
+          type: string
+          pattern: '^[a-z0-9_]{3,20}$'
+          description: Username (3-20 chars, lowercase alphanumeric + underscore)
+          example: "joao_silva"
+        peer_id:
+          type: string
+          description: Peer ID (base58-encoded public key with mepassa_ prefix)
+          example: "mepassa_BfvwEnRx79B9LQYdYyyABHirY3y6GzPHVNAkbbTy66ta"
+        public_key:
+          type: string
+          format: byte
+          description: Ed25519 public key (base64-encoded)
+          example: "MCowBQYDK2VwAyEA..."
+        prekey_bundle:
+          $ref: '#/components/schemas/PreKeyBundle'
+        signature:
+          type: string
+          format: byte
+          description: |
+            Ed25519 signature of the registration payload to prove peer_id ownership.
+            Signs: username + peer_id + timestamp
+          example: "c2lnbmF0dXJlX2RhdGFfaGVyZQ=="
+        timestamp:
+          type: integer
+          format: int64
+          description: Unix timestamp (must be within 5 minutes of server time)
+          example: 1642521600
+
+    RegisterResponse:
+      type: object
+      properties:
+        username:
+          type: string
+          example: "joao_silva"
+        peer_id:
+          type: string
+          example: "mepassa_BfvwEnRx79B9LQYdYyyABHirY3y6GzPHVNAkbbTy66ta"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-01-19T10:00:00Z"
+
+    LookupResponse:
+      type: object
+      properties:
+        username:
+          type: string
+          example: "joao_silva"
+        peer_id:
+          type: string
+          example: "mepassa_BfvwEnRx79B9LQYdYyyABHirY3y6GzPHVNAkbbTy66ta"
+        prekey_bundle:
+          $ref: '#/components/schemas/PreKeyBundle'
+        last_updated:
+          type: string
+          format: date-time
+          description: Timestamp when prekeys were last updated
+          example: "2025-01-19T10:00:00Z"
+
+    UpdatePrekeysRequest:
+      type: object
+      required:
+        - peer_id
+        - prekey_bundle
+        - signature
+      properties:
+        peer_id:
+          type: string
+          description: Peer ID (for authentication)
+          example: "mepassa_BfvwEnRx79B9LQYdYyyABHirY3y6GzPHVNAkbbTy66ta"
+        prekey_bundle:
+          $ref: '#/components/schemas/PreKeyBundle'
+        signature:
+          type: string
+          format: byte
+          description: Ed25519 signature to prove ownership
+          example: "c2lnbmF0dXJlX2RhdGFfaGVyZQ=="
+        timestamp:
+          type: integer
+          format: int64
+          example: 1642521600
+
+    UpdatePrekeysResponse:
+      type: object
+      properties:
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-01-19T10:30:00Z"
+
+    PreKeyBundle:
+      type: object
+      description: Prekey bundle for X3DH key agreement
+      required:
+        - identity_key
+        - signed_prekey_id
+        - signed_prekey
+        - signed_prekey_signature
+      properties:
+        identity_key:
+          type: string
+          format: byte
+          description: Identity public key (base64-encoded)
+          example: "MCowBQYDK2VwAyEA..."
+        signed_prekey_id:
+          type: integer
+          description: ID of the signed prekey
+          example: 1
+        signed_prekey:
+          type: string
+          format: byte
+          description: Signed prekey public key (base64-encoded)
+          example: "MCowBQYDK2VuAyEA..."
+        signed_prekey_signature:
+          type: string
+          format: byte
+          description: Signature of the signed prekey (base64-encoded)
+          example: "c2lnbmF0dXJl..."
+        one_time_prekey:
+          $ref: '#/components/schemas/OneTimePreKey'
+
+    OneTimePreKey:
+      type: object
+      description: One-time prekey (optional, consumed after use)
+      required:
+        - id
+        - public_key
+      properties:
+        id:
+          type: integer
+          description: One-time prekey ID
+          example: 2
+        public_key:
+          type: string
+          format: byte
+          description: One-time prekey public key (base64-encoded)
+          example: "MCowBQYDK2VuAyEA..."
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy, degraded]
+          example: "healthy"
+        version:
+          type: string
+          example: "1.0.0"
+        uptime_seconds:
+          type: integer
+          example: 86400
+        database:
+          type: object
+          properties:
+            status:
+              type: string
+              enum: [healthy, unhealthy]
+              example: "healthy"
+            latency_ms:
+              type: number
+              example: 2.5
+        redis:
+          type: object
+          properties:
+            status:
+              type: string
+              enum: [healthy, unhealthy]
+              example: "healthy"
+            latency_ms:
+              type: number
+              example: 1.2
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-01-19T10:00:00Z"
+
+    Error:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error code
+          enum:
+            - INVALID_USERNAME
+            - USERNAME_TAKEN
+            - USERNAME_NOT_FOUND
+            - INVALID_SIGNATURE
+            - RATE_LIMIT_EXCEEDED
+            - INTERNAL_ERROR
+          example: "USERNAME_TAKEN"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Username 'joao_silva' is already registered"
+        suggestions:
+          type: array
+          description: Suggested alternative usernames (for USERNAME_TAKEN)
+          items:
+            type: string
+          example:
+            - "joao_silva1"
+            - "joao_silva_"
+
+  securitySchemes:
+    SignatureAuth:
+      type: apiKey
+      in: header
+      name: X-Signature
+      description: Ed25519 signature for authenticating requests
+
+security:
+  - SignatureAuth: []
