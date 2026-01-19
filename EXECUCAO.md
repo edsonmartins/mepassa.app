@@ -36,7 +36,7 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 |------|------------|-----------|--------|----------|------------------|--------------------|
 | **FASE 0: Setup & Fundação** | Infra | 70% | `IN_PROGRESS` | 7/10 | ~3.500/500 | 2025-01-19 |
 | **FASE 1: Core - Identidade & Crypto** | Rust | 100% | `DONE` | 15/15 | ~3.024/2.000 | 2025-01-19 |
-| **FASE 1.5: Identity Server & Username** | Rust | 0% | `TODO` | 0/12 | 0/1.500 | - |
+| **FASE 1.5: Identity Server & Username** | Rust | 44% | `IN_PROGRESS` | 8/18 | ~1.200/1.500 | 2025-01-19 |
 | **FASE 2: Core - Networking P2P** | Rust | 0% | `TODO` | 0/8 | 0/1.500 | - |
 | **FASE 3: Core - Storage Local** | Rust | 0% | `TODO` | 0/8 | 0/1.200 | - |
 | **FASE 4: Core - Protocolo & API** | Rust | 0% | `TODO` | 0/10 | 0/1.500 | - |
@@ -246,14 +246,14 @@ Sistema de @username para identificação user-friendly (como Telegram/Signal), 
 | # | Tarefa | Status | Responsável | Data Início | Data Fim | Última Atualização | Dependências |
 |---|--------|--------|-------------|-------------|----------|--------------------|--------------|
 | **1.5.1 - Identity Server (Backend)** ||||||||
-| 1.5.1.1 | Criar server/identity/ (Rust + Axum) | `TODO` | - | - | - | - | 0.2 |
-| 1.5.1.2 | Setup PostgreSQL schema (usernames table) | `TODO` | - | - | - | - | 1.5.1.1 |
-| 1.5.1.3 | Implementar POST /api/v1/register (username → peer_id) | `TODO` | - | - | - | - | 1.5.1.2 |
-| 1.5.1.4 | Implementar GET /api/v1/lookup?username=X | `TODO` | - | - | - | - | 1.5.1.3 |
-| 1.5.1.5 | Implementar PUT /api/v1/prekeys (atualizar prekeys) | `TODO` | - | - | - | - | 1.5.1.3 |
-| 1.5.1.6 | Username validation (regex: ^[a-z0-9_]{3,20}$) | `TODO` | - | - | - | - | 1.5.1.3 |
-| 1.5.1.7 | Rate limiting (Redis) - anti-spam | `TODO` | - | - | - | - | 1.5.1.3 |
-| 1.5.1.8 | Health check endpoint (/health) | `TODO` | - | - | - | - | 1.5.1.1 |
+| 1.5.1.1 | Criar server/identity/ (Rust + Axum) | `DONE` | - | 2025-01-19 | 2025-01-19 | 2025-01-19 | 0.2 |
+| 1.5.1.2 | Setup PostgreSQL schema (usernames table) | `DONE` | - | 2025-01-19 | 2025-01-19 | 2025-01-19 | 1.5.1.1 |
+| 1.5.1.3 | Implementar POST /api/v1/register (username → peer_id) | `DONE` | - | 2025-01-19 | 2025-01-19 | 2025-01-19 | 1.5.1.2 |
+| 1.5.1.4 | Implementar GET /api/v1/lookup?username=X | `DONE` | - | 2025-01-19 | 2025-01-19 | 2025-01-19 | 1.5.1.3 |
+| 1.5.1.5 | Implementar PUT /api/v1/prekeys (atualizar prekeys) | `DONE` | - | 2025-01-19 | 2025-01-19 | 2025-01-19 | 1.5.1.3 |
+| 1.5.1.6 | Username validation (regex: ^[a-z0-9_]{3,20}$) | `DONE` | - | 2025-01-19 | 2025-01-19 | 2025-01-19 | 1.5.1.3 |
+| 1.5.1.7 | Rate limiting (Redis) - anti-spam | `DONE` | - | 2025-01-19 | 2025-01-19 | 2025-01-19 | 1.5.1.3 |
+| 1.5.1.8 | Health check endpoint (/health) | `DONE` | - | 2025-01-19 | 2025-01-19 | 2025-01-19 | 1.5.1.1 |
 | **1.5.2 - Client Integration** ||||||||
 | 1.5.2.1 | Core: Implementar identity_client.rs (HTTP client) | `TODO` | - | - | - | - | 1.5.1.4 |
 | 1.5.2.2 | Core: register_username(username, peer_id, prekey_bundle) | `TODO` | - | - | - | - | 1.5.2.1 |
