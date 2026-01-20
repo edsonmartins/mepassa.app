@@ -1,6 +1,9 @@
 package com.mepassa.ui.navigation
 
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -14,6 +17,8 @@ import com.mepassa.ui.screens.call.IncomingCallScreen
 import com.mepassa.ui.screens.chat.ChatScreen
 import com.mepassa.ui.screens.conversations.ConversationsScreen
 import com.mepassa.ui.screens.onboarding.OnboardingScreen
+import com.mepassa.ui.utils.getPermissionDeniedMessage
+import com.mepassa.ui.utils.rememberVoipPermissions
 import kotlinx.coroutines.launch
 
 /**
@@ -87,6 +92,38 @@ fun MePassaNavHost(
         ) { backStackEntry ->
             val peerId = backStackEntry.arguments?.getString("peerId") ?: return@composable
             val scope = rememberCoroutineScope()
+            val snackbarHostState = remember { SnackbarHostState() }
+
+            // Gerenciamento de permissões VoIP
+            val voipPermissions = rememberVoipPermissions(
+                onPermissionsGranted = {
+                    // Permissões concedidas - iniciar chamada
+                    scope.launch {
+                        val result = MePassaClientWrapper.startCall(peerId)
+                        result.onSuccess { callId ->
+                            navController.navigate(Screen.ActiveCall.createRoute(callId, peerId))
+                        }.onFailure { error ->
+                            scope.launch {
+                                snackbarHostState.showSnackbar(
+                                    message = "Erro ao iniciar chamada: ${error.message}",
+                                    duration = SnackbarDuration.Short
+                                )
+                            }
+                            android.util.Log.e("ChatScreen", "Failed to start call: ${error.message}")
+                        }
+                    }
+                },
+                onPermissionsDenied = { deniedPermissions ->
+                    // Permissões negadas - mostrar mensagem
+                    scope.launch {
+                        val message = getPermissionDeniedMessage(deniedPermissions)
+                        snackbarHostState.showSnackbar(
+                            message = message,
+                            duration = SnackbarDuration.Long
+                        )
+                    }
+                }
+            )
 
             ChatScreen(
                 peerId = peerId,
@@ -94,15 +131,26 @@ fun MePassaNavHost(
                     navController.popBackStack()
                 },
                 onStartCall = {
-                    // Inicia chamada e navega para ActiveCall
-                    scope.launch {
-                        val result = MePassaClientWrapper.startCall(peerId)
-                        result.onSuccess { callId ->
-                            navController.navigate(Screen.ActiveCall.createRoute(callId, peerId))
-                        }.onFailure { error ->
-                            // TODO: Mostrar erro (Snackbar ou Toast)
-                            android.util.Log.e("ChatScreen", "Failed to start call: ${error.message}")
+                    // Verificar e solicitar permissões antes de iniciar chamada
+                    if (voipPermissions.hasPermissions) {
+                        // Já tem permissões - iniciar chamada diretamente
+                        scope.launch {
+                            val result = MePassaClientWrapper.startCall(peerId)
+                            result.onSuccess { callId ->
+                                navController.navigate(Screen.ActiveCall.createRoute(callId, peerId))
+                            }.onFailure { error ->
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        message = "Erro ao iniciar chamada: ${error.message}",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                }
+                                android.util.Log.e("ChatScreen", "Failed to start call: ${error.message}")
+                            }
                         }
+                    } else {
+                        // Solicitar permissões primeiro
+                        voipPermissions.requestPermissions()
                     }
                 }
             )
