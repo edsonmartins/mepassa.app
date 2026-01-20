@@ -5,6 +5,7 @@ import { homeDir } from '@tauri-apps/api/path'
 import OnboardingView from './views/OnboardingView'
 import ConversationsView from './views/ConversationsView'
 import ChatView from './views/ChatView'
+import CallView from './views/CallView'
 
 function App() {
   const [isInitialized, setIsInitialized] = useState(false)
@@ -66,6 +67,7 @@ function App() {
       <Route path="/onboarding" element={<OnboardingView localPeerId={localPeerId} />} />
       <Route path="/conversations" element={<ConversationsView localPeerId={localPeerId} />} />
       <Route path="/chat/:peerId" element={<ChatView localPeerId={localPeerId} />} />
+      <Route path="/call/:callId/:remotePeerId" element={<CallView localPeerId={localPeerId} />} />
       <Route path="*" element={<Navigate to={isInitialized ? "/conversations" : "/onboarding"} replace />} />
     </Routes>
   )

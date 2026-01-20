@@ -1,0 +1,118 @@
+.call-view {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.call-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: 48px 32px;
+  max-width: 600px;
+  width: 100%;
+  min-height: 600px;
+}
+
+.call-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin-top: 64px;
+}
+
+.peer-avatar {
+  margin-bottom: 16px;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.peer-name {
+  font-size: 32px;
+  font-weight: bold;
+  margin: 0;
+  text-align: center;
+}
+
+.call-status {
+  font-size: 18px;
+  opacity: 0.9;
+  margin: 0;
+}
+
+.call-timer {
+  font-size: 40px;
+  font-weight: 500;
+  margin-top: 24px;
+  color: #60a5fa;
+  font-variant-numeric: tabular-nums;
+}
+
+.call-controls {
+  display: flex;
+  gap: 32px;
+  align-items: center;
+  margin-bottom: 48px;
+}
+
+.control-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.control-btn:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+  transform: scale(1.05);
+}
+
+.control-btn:active {
+  transform: scale(0.95);
+}
+
+.control-btn.muted {
+  background-color: #ef4444;
+}
+
+.control-btn.muted:hover {
+  background-color: #dc2626;
+}
+
+.control-btn.speaker-on {
+  background-color: #3b82f6;
+}
+
+.control-btn.speaker-on:hover {
+  background-color: #2563eb;
+}
+
+.control-btn.hangup {
+  width: 88px;
+  height: 88px;
+  background-color: #ef4444;
+}
+
+.control-btn.hangup:hover {
+  background-color: #dc2626;
+}

@@ -231,3 +231,102 @@ pub async fn show_notification(
 
     Ok(())
 }
+
+// ============================================================================
+// VoIP Commands (FASE 12)
+// ============================================================================
+
+#[tauri::command]
+pub async fn start_call(
+    state: State<'_, ClientState>,
+    to_peer_id: String,
+) -> Result<String, String> {
+    tracing::info!("Starting call to peer: {}", to_peer_id);
+
+    let client_guard = state.lock().map_err(|e| e.to_string())?;
+    let client = client_guard
+        .as_ref()
+        .ok_or_else(|| "Client not initialized".to_string())?;
+
+    client.start_call(&to_peer_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn accept_call(
+    state: State<'_, ClientState>,
+    call_id: String,
+) -> Result<(), String> {
+    tracing::info!("Accepting call: {}", call_id);
+
+    let client_guard = state.lock().map_err(|e| e.to_string())?;
+    let client = client_guard
+        .as_ref()
+        .ok_or_else(|| "Client not initialized".to_string())?;
+
+    client.accept_call(&call_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn reject_call(
+    state: State<'_, ClientState>,
+    call_id: String,
+    reason: Option<String>,
+) -> Result<(), String> {
+    tracing::info!("Rejecting call: {} (reason: {:?})", call_id, reason);
+
+    let client_guard = state.lock().map_err(|e| e.to_string())?;
+    let client = client_guard
+        .as_ref()
+        .ok_or_else(|| "Client not initialized".to_string())?;
+
+    client
+        .reject_call(&call_id, reason.as_deref())
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn hangup_call(
+    state: State<'_, ClientState>,
+    call_id: String,
+) -> Result<(), String> {
+    tracing::info!("Hanging up call: {}", call_id);
+
+    let client_guard = state.lock().map_err(|e| e.to_string())?;
+    let client = client_guard
+        .as_ref()
+        .ok_or_else(|| "Client not initialized".to_string())?;
+
+    client.hangup_call(&call_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn toggle_mute(
+    state: State<'_, ClientState>,
+    call_id: String,
+) -> Result<bool, String> {
+    tracing::info!("Toggling mute for call: {}", call_id);
+
+    let client_guard = state.lock().map_err(|e| e.to_string())?;
+    let client = client_guard
+        .as_ref()
+        .ok_or_else(|| "Client not initialized".to_string())?;
+
+    client.toggle_mute(&call_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn toggle_speakerphone(
+    state: State<'_, ClientState>,
+    call_id: String,
+) -> Result<bool, String> {
+    tracing::info!("Toggling speakerphone for call: {}", call_id);
+
+    let client_guard = state.lock().map_err(|e| e.to_string())?;
+    let client = client_guard
+        .as_ref()
+        .ok_or_else(|| "Client not initialized".to_string())?;
+
+    client
+        .toggle_speakerphone(&call_id)
+        .map_err(|e| e.to_string())
+}

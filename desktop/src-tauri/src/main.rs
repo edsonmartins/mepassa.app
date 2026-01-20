@@ -59,6 +59,13 @@ fn main() {
             commands::get_connected_peers_count,
             commands::bootstrap,
             commands::show_notification,
+            // VoIP commands (FASE 12)
+            commands::start_call,
+            commands::accept_call,
+            commands::reject_call,
+            commands::hangup_call,
+            commands::toggle_mute,
+            commands::toggle_speakerphone,
         ])
         .setup(|app| {
             // Setup app-specific initialization here
