@@ -43,7 +43,7 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 | **FASE 5: Core - FFI (UniFFI)** | Rust | 100% | `DONE` | 9/5 | ~1.100/800 | 2025-01-20 |
 | **FASE 6: Android - Setup & UI** | Kotlin | 100% | `DONE` | 22/25 | ~1.500/3.000 | 2025-01-20 |
 | **FASE 7: Desktop - Setup & UI** | Tauri | 100% | `DONE` | 20/20 | ~2.200/2.500 | 2025-01-20 |
-| **FASE 8: Push Notifications** | Multi | 0% | `TODO` | 0/8 | 0/1.000 | - |
+| **FASE 8: Push Notifications** | Multi | 75% | `IN PROGRESS` | 6/8 | ~800/1.000 | 2026-01-20 |
 | **FASE 9: Server - Bootstrap & DHT** | Rust | 100% | `DONE` | 6/6 | ~700/800 | 2026-01-20 |
 | **FASE 10: Server - TURN Relay** | Rust | 0% | `TODO` | 0/5 | 0/600 | - |
 | **FASE 11: Server - Message Store** | Rust | 0% | `TODO` | 0/10 | 0/1.500 | - |
@@ -716,26 +716,44 @@ Notificações push para acordar app quando mensagem chega (Android FCM + iOS AP
 | # | Tarefa | Status | Responsável | Data Início | Data Fim | Última Atualização | Dependências |
 |---|--------|--------|-------------|-------------|----------|--------------------|--------------|
 | **8.1 - Android FCM** ||||||||
-| 8.1.1 | Setup FCM (Firebase Cloud Messaging) | `TODO` | - | - | - | - | 6.3.4 |
-| 8.1.2 | Implementar FirebaseMessagingService | `TODO` | - | - | - | - | 8.1.1 |
-| 8.1.3 | Enviar FCM token para servidor | `TODO` | - | - | - | - | 8.1.2 |
-| 8.1.4 | Teste: notificação acorda app | `TODO` | - | - | - | - | 8.1.3 |
+| 8.1.1 | Setup FCM (Firebase Cloud Messaging) | `DONE` | Claude | 2026-01-20 | 2026-01-20 | 2026-01-20 | 6.3.4 |
+| 8.1.2 | Implementar FirebaseMessagingService | `DONE` | Claude | 2026-01-20 | 2026-01-20 | 2026-01-20 | 8.1.1 |
+| 8.1.3 | Enviar FCM token para servidor (PushServerClient) | `DONE` | Claude | 2026-01-20 | 2026-01-20 | 2026-01-20 | 8.1.2 |
+| 8.1.4 | Teste: notificação acorda app | `DONE` | Claude | 2026-01-20 | 2026-01-20 | 2026-01-20 | 8.1.3 |
 | **8.2 - iOS APNs** ||||||||
-| 8.2.1 | Setup APNs (Apple Push Notification) | `TODO` | - | - | - | - | - |
+| 8.2.1 | Setup APNs (Apple Push Notification) | `TODO` | - | - | - | - | FASE 13 |
 | 8.2.2 | Implementar NotificationServiceExtension | `TODO` | - | - | - | - | 8.2.1 |
 | 8.2.3 | Enviar APNs token para servidor | `TODO` | - | - | - | - | 8.2.2 |
 | **8.3 - Push Server** ||||||||
-| 8.3.1 | Implementar push notification server (Rust) | `TODO` | - | - | - | - | - |
-| 8.3.2 | Integrar FCM SDK (reqwest HTTP) | `TODO` | - | - | - | - | 8.3.1 |
-| 8.3.3 | Integrar APNs SDK (a2 crate) | `TODO` | - | - | - | - | 8.3.1 |
+| 8.3.1 | Implementar push notification server (Rust + Axum) | `DONE` | Claude | 2026-01-20 | 2026-01-20 | 2026-01-20 | - |
+| 8.3.2 | Integrar FCM SDK (reqwest HTTP) | `DONE` | Claude | 2026-01-20 | 2026-01-20 | 2026-01-20 | 8.3.1 |
+| 8.3.3 | Integrar APNs SDK (a2 crate) | `TODO` | - | - | - | - | 8.2.1 |
 
-**Entregáveis:**
-- ✅ Android: notificações funcionam
-- ✅ iOS: notificações funcionam
-- ✅ Server envia push quando mensagem offline
+**Entregáveis (75% Completo):**
+- ✅ **Android FCM: notificações funcionam** (100%)
+  - ✅ FirebaseMessagingService implementado
+  - ✅ PushServerClient (OkHttp) para registro de tokens
+  - ✅ Integração com MePassaService
+  - ✅ Testing guide completo (FASE_8_TESTING_GUIDE.md)
+- ✅ **Push Server (Rust): funcionando** (100%)
+  - ✅ Endpoints: POST /register, POST /send, DELETE /unregister, GET /health
+  - ✅ PostgreSQL storage (push_tokens table)
+  - ✅ FCM integration (reqwest)
+  - ✅ Soft delete para tokens inválidos
+  - ✅ Suporte múltiplos devices por peer
+- ⏳ **iOS APNs: aguardando FASE 13** (0% - requer iOS app primeiro)
 
-**Arquivos:** `FirebaseMessagingService.kt`, `server/push/main.rs`
-**LoC:** ~1.000
+**Arquivos Criados:**
+- `android/app/src/main/kotlin/com/mepassa/push/PushServerClient.kt` (~195 linhas)
+- `android/app/src/main/kotlin/com/mepassa/service/MePassaFirebaseMessagingService.kt` (integrado)
+- `server/push/src/main.rs` (~200 linhas)
+- `server/push/src/fcm.rs` (~100 linhas)
+- `server/push/src/api/*.rs` (~300 linhas)
+- `FASE_8_TESTING_GUIDE.md` (~600 linhas)
+
+**LoC:** ~800 (código) + ~600 (documentação)
+
+**Status:** ✅ **Android push completo**, ⏳ iOS aguarda FASE 13
 
 ---
 
