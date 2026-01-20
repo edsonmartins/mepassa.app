@@ -93,6 +93,33 @@ impl NetworkManager {
         self.swarm.connected_peers().count()
     }
 
+    /// Send a message to a peer
+    pub fn send_message(&mut self, peer_id: PeerId, message: crate::protocol::Message) -> Result<()> {
+        let request_id = self
+            .swarm
+            .behaviour_mut()
+            .request_response
+            .send_request(&peer_id, message);
+
+        tracing::info!("Sent message to {} (request_id: {:?})", peer_id, request_id);
+        Ok(())
+    }
+
+    /// Send an ACK response to a peer
+    pub fn send_ack(
+        &mut self,
+        channel: libp2p::request_response::ResponseChannel<crate::protocol::Message>,
+        ack_message: crate::protocol::Message,
+    ) -> Result<()> {
+        self.swarm
+            .behaviour_mut()
+            .request_response
+            .send_response(channel, ack_message)
+            .map_err(|e| MePassaError::Network(format!("Failed to send ACK: {:?}", e)))?;
+
+        Ok(())
+    }
+
     /// Run the event loop (blocking)
     pub async fn run(&mut self) -> Result<()> {
         loop {
