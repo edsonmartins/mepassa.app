@@ -37,7 +37,7 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 | **FASE 0: Setup & Fundação** | Infra | 70% | `IN_PROGRESS` | 7/10 | ~3.500/500 | 2025-01-19 |
 | **FASE 1: Core - Identidade & Crypto** | Rust | 100% | `DONE` | 15/15 | ~3.024/2.000 | 2025-01-19 |
 | **FASE 1.5: Identity Server & Username** | Rust | 100% | `DONE` | 18/18 | ~2.800/1.500 | 2025-01-19 |
-| **FASE 2: Core - Networking P2P** | Rust | 67% | `IN_PROGRESS` | 3/8 | ~412/1.500 | 2025-01-19 |
+| **FASE 2: Core - Networking P2P** | Rust | 100% | `DONE` | 8/8 | ~1.150/1.500 | 2025-01-20 |
 | **FASE 3: Core - Storage Local** | Rust | 0% | `TODO` | 0/8 | 0/1.200 | - |
 | **FASE 4: Core - Protocolo & API** | Rust | 0% | `TODO` | 0/10 | 0/1.500 | - |
 | **FASE 5: Core - FFI (UniFFI)** | Rust | 0% | `TODO` | 0/5 | 0/800 | - |
@@ -344,9 +344,9 @@ Conectividade P2P básica usando libp2p (conexão direta, sem relay ainda).
 | 2.2.3 | Implementar peer routing | `DONE` | Claude | 2025-01-19 | 2025-01-19 | 2025-01-19 | 2.2.2 |
 | **2.3 - P2P Direto** ||||||||
 | 2.3.1 | Implementar conexão P2P direta (swarm) | `DONE` | Claude | 2025-01-19 | 2025-01-19 | 2025-01-19 | 2.2.3 |
-| 2.3.2 | Implementar envio de mensagem P2P | `TODO` | - | - | - | - | 2.3.1 |
-| 2.3.3 | Implementar ACK de mensagem | `TODO` | - | - | - | - | 2.3.2 |
-| 2.3.4 | Teste E2E: 2 peers conectam e trocam mensagem | `TODO` | - | - | - | - | 2.3.3 |
+| 2.3.2 | Implementar envio de mensagem P2P | `DONE` | Claude | 2025-01-20 | 2025-01-20 | 2025-01-20 | 2.3.1 |
+| 2.3.3 | Implementar ACK de mensagem | `DONE` | Claude | 2025-01-20 | 2025-01-20 | 2025-01-20 | 2.3.2 |
+| 2.3.4 | Teste E2E: 2 peers conectam e trocam mensagem | `DONE` | Claude | 2025-01-20 | 2025-01-20 | 2025-01-20 | 2.3.3 |
 
 **Entregáveis:**
 - ✅ 2 peers conectam P2P direto (localhost)
