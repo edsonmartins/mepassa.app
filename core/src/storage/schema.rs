@@ -5,7 +5,7 @@
 use super::{Database, Result};
 
 /// Current schema version
-pub const SCHEMA_VERSION: i32 = 1;
+pub const SCHEMA_VERSION: i32 = 2;
 
 /// Initialize database schema (version 1)
 pub fn init_schema(db: &Database) -> Result<()> {
@@ -143,6 +143,25 @@ pub fn init_schema(db: &Database) -> Result<()> {
             value TEXT NOT NULL,
             updated_at INTEGER NOT NULL DEFAULT (unixepoch())
         );
+
+        -- Call history table: record of voice/video calls (FASE 12)
+        CREATE TABLE IF NOT EXISTS call_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            call_id TEXT NOT NULL UNIQUE,
+            peer_id TEXT NOT NULL,
+            call_type TEXT NOT NULL DEFAULT 'audio',
+            direction TEXT NOT NULL,
+            status TEXT NOT NULL,
+            started_at INTEGER NOT NULL,
+            ended_at INTEGER,
+            duration_seconds INTEGER,
+            end_reason TEXT,
+            FOREIGN KEY (peer_id) REFERENCES contacts(peer_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_call_history_peer ON call_history(peer_id, started_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_call_history_started ON call_history(started_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_call_history_status ON call_history(status);
         "#,
     )?;
 

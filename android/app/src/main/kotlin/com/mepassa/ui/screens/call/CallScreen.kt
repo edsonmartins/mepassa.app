@@ -10,10 +10,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mepassa.core.MePassaClientWrapper
+import com.mepassa.voip.CallAudioManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.seconds
@@ -33,11 +35,23 @@ fun CallScreen(
     onCallEnded: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    // Audio manager para controle de áudio durante chamada
+    val audioManager = remember { CallAudioManager(context) }
 
     var isMuted by remember { mutableStateOf(false) }
     var isSpeakerOn by remember { mutableStateOf(false) }
     var callDuration by remember { mutableStateOf(0) } // em segundos
     var isCallActive by remember { mutableStateOf(true) }
+
+    // Iniciar gerenciamento de áudio
+    DisposableEffect(Unit) {
+        audioManager.startCall()
+        onDispose {
+            audioManager.stopCall()
+        }
+    }
 
     // Timer para duração da chamada
     LaunchedEffect(Unit) {
@@ -122,9 +136,10 @@ fun CallScreen(
                 IconButton(
                     onClick = {
                         scope.launch {
-                            if (MePassaClientWrapper.toggleMute(callId)) {
-                                isMuted = !isMuted
-                            }
+                            // Toggle mute no backend
+                            MePassaClientWrapper.toggleMute(callId)
+                            // Toggle mute local (AudioManager)
+                            isMuted = audioManager.toggleMute()
                         }
                     },
                     modifier = Modifier
@@ -170,9 +185,10 @@ fun CallScreen(
                 IconButton(
                     onClick = {
                         scope.launch {
-                            if (MePassaClientWrapper.toggleSpeakerphone(callId)) {
-                                isSpeakerOn = !isSpeakerOn
-                            }
+                            // Toggle speaker no backend (futuro)
+                            // MePassaClientWrapper.toggleSpeakerphone(callId)
+                            // Toggle speaker local (AudioManager)
+                            isSpeakerOn = audioManager.toggleSpeakerphone()
                         }
                     },
                     modifier = Modifier
