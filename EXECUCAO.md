@@ -38,7 +38,7 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 | **FASE 1: Core - Identidade & Crypto** | Rust | 100% | `DONE` | 15/15 | ~3.024/2.000 | 2025-01-19 |
 | **FASE 1.5: Identity Server & Username** | Rust | 100% | `DONE` | 18/18 | ~2.800/1.500 | 2025-01-19 |
 | **FASE 2: Core - Networking P2P** | Rust | 100% | `DONE` | 8/8 | ~1.150/1.500 | 2025-01-20 |
-| **FASE 3: Core - Storage Local** | Rust | 0% | `TODO` | 0/8 | 0/1.200 | - |
+| **FASE 3: Core - Storage Local** | Rust | 100% | `DONE` | 11/11 | ~1.340/1.200 | 2025-01-20 |
 | **FASE 4: Core - Protocolo & API** | Rust | 0% | `TODO` | 0/10 | 0/1.500 | - |
 | **FASE 5: Core - FFI (UniFFI)** | Rust | 0% | `TODO` | 0/5 | 0/800 | - |
 | **FASE 6: Android - Setup & UI** | Kotlin | 0% | `TODO` | 0/25 | 0/3.000 | - |
@@ -368,18 +368,18 @@ Persistência local de mensagens, contatos e configurações em SQLite.
 | # | Tarefa | Status | Responsável | Data Início | Data Fim | Última Atualização | Dependências |
 |---|--------|--------|-------------|-------------|----------|--------------------|--------------|
 | **3.1 - Database Setup** ||||||||
-| 3.1.1 | Implementar storage/database.rs (SQLite wrapper) | `TODO` | - | - | - | - | 1.1.3 |
-| 3.1.2 | Definir storage/schema.rs (tabelas: messages, contacts, groups) | `TODO` | - | - | - | - | 3.1.1 |
-| 3.1.3 | Implementar storage/migrations.rs (schema evolution) | `TODO` | - | - | - | - | 3.1.2 |
+| 3.1.1 | Implementar storage/database.rs (SQLite wrapper) | `DONE` | Claude | 2025-01-19 | 2025-01-19 | 2025-01-20 | 1.1.3 |
+| 3.1.2 | Definir storage/schema.rs (tabelas: messages, contacts, groups) | `DONE` | Claude | 2025-01-19 | 2025-01-19 | 2025-01-20 | 3.1.1 |
+| 3.1.3 | Implementar storage/migrations.rs (schema evolution) | `DONE` | Claude | 2025-01-19 | 2025-01-19 | 2025-01-20 | 3.1.2 |
 | **3.2 - CRUD Operations** ||||||||
-| 3.2.1 | Implementar storage/messages.rs (messages CRUD) | `TODO` | - | - | - | - | 3.1.3 |
-| 3.2.2 | Implementar storage/contacts.rs (contacts CRUD) | `TODO` | - | - | - | - | 3.1.3 |
-| 3.2.3 | Implementar storage/groups.rs (groups CRUD) | `TODO` | - | - | - | - | 3.1.3 |
-| 3.2.4 | Setup WAL mode (Write-Ahead Logging) | `TODO` | - | - | - | - | 3.1.1 |
-| 3.2.5 | Setup FTS5 (full-text search) | `TODO` | - | - | - | - | 3.2.1 |
+| 3.2.1 | Implementar storage/messages.rs (messages CRUD) | `DONE` | Claude | 2025-01-20 | 2025-01-20 | 2025-01-20 | 3.1.3 |
+| 3.2.2 | Implementar storage/contacts.rs (contacts CRUD) | `DONE` | Claude | 2025-01-19 | 2025-01-19 | 2025-01-20 | 3.1.3 |
+| 3.2.3 | Implementar storage/groups.rs (groups CRUD) | `DONE` | Claude | 2025-01-20 | 2025-01-20 | 2025-01-20 | 3.1.3 |
+| 3.2.4 | Setup WAL mode (Write-Ahead Logging) | `DONE` | Claude | 2025-01-19 | 2025-01-19 | 2025-01-20 | 3.1.1 |
+| 3.2.5 | Setup FTS5 (full-text search) | `DONE` | Claude | 2025-01-19 | 2025-01-19 | 2025-01-20 | 3.2.1 |
 | **3.3 - Testes** ||||||||
-| 3.3.1 | Testes de persistência (insert/select) | `TODO` | - | - | - | - | 3.2.3 |
-| 3.3.2 | Testes de busca (FTS5) | `TODO` | - | - | - | - | 3.2.5 |
+| 3.3.1 | Testes de persistência (insert/select) | `DONE` | Claude | 2025-01-20 | 2025-01-20 | 2025-01-20 | 3.2.3 |
+| 3.3.2 | Testes de busca (FTS5) | `DONE` | Claude | 2025-01-20 | 2025-01-20 | 2025-01-20 | 3.2.5 |
 
 **Entregáveis:**
 - ✅ Mensagens salvas localmente
