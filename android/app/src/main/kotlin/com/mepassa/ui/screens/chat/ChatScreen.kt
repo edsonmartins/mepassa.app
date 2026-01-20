@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,7 +35,8 @@ import java.util.*
 @Composable
 fun ChatScreen(
     peerId: String,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onStartCall: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
@@ -93,6 +95,16 @@ fun ChatScreen(
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Voltar"
+                        )
+                    }
+                },
+                actions = {
+                    // Botão de chamada de voz
+                    IconButton(onClick = onStartCall) {
+                        Icon(
+                            imageVector = Icons.Default.Phone,
+                            contentDescription = "Iniciar chamada",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     }
                 },

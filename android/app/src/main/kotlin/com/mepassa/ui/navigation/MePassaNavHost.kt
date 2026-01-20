@@ -1,17 +1,20 @@
 package com.mepassa.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.mepassa.core.MePassaClientWrapper
 import com.mepassa.ui.screens.call.CallScreen
 import com.mepassa.ui.screens.call.IncomingCallScreen
 import com.mepassa.ui.screens.chat.ChatScreen
 import com.mepassa.ui.screens.conversations.ConversationsScreen
 import com.mepassa.ui.screens.onboarding.OnboardingScreen
+import kotlinx.coroutines.launch
 
 /**
  * Rotas de navegação do app
@@ -83,11 +86,24 @@ fun MePassaNavHost(
             )
         ) { backStackEntry ->
             val peerId = backStackEntry.arguments?.getString("peerId") ?: return@composable
+            val scope = rememberCoroutineScope()
 
             ChatScreen(
                 peerId = peerId,
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onStartCall = {
+                    // Inicia chamada e navega para ActiveCall
+                    scope.launch {
+                        val result = MePassaClientWrapper.startCall(peerId)
+                        result.onSuccess { callId ->
+                            navController.navigate(Screen.ActiveCall.createRoute(callId, peerId))
+                        }.onFailure { error ->
+                            // TODO: Mostrar erro (Snackbar ou Toast)
+                            android.util.Log.e("ChatScreen", "Failed to start call: ${error.message}")
+                        }
+                    }
                 }
             )
         }
