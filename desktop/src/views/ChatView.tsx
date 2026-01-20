@@ -23,6 +23,7 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
   const [isSending, setIsSending] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const previousMessageCount = useRef<number>(0)
 
   useEffect(() => {
     if (!peerId) return
@@ -49,6 +50,26 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
         limit: 100,
         offset: 0,
       })
+
+      // Detect new received messages
+      if (previousMessageCount.current > 0 && msgs.length > previousMessageCount.current) {
+        const newMessages = msgs.slice(previousMessageCount.current)
+        for (const msg of newMessages) {
+          // Only notify for received messages (not sent by me)
+          if (msg.from_peer_id !== localPeerId) {
+            try {
+              await invoke('show_notification', {
+                title: `Nova mensagem de ${msg.from_peer_id.substring(0, 8)}...`,
+                body: msg.content.substring(0, 100)
+              })
+            } catch (error) {
+              console.error('Failed to show notification:', error)
+            }
+          }
+        }
+      }
+
+      previousMessageCount.current = msgs.length
       setMessages(msgs)
     } catch (error) {
       console.error('Failed to load messages:', error)

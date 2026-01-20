@@ -213,3 +213,21 @@ pub async fn bootstrap(state: State<'_, ClientState>) -> Result<(), String> {
 
     client.bootstrap().map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub async fn show_notification(
+    app: tauri::AppHandle,
+    title: String,
+    body: String,
+) -> Result<(), String> {
+    tracing::info!("Showing notification: {} - {}", title, body);
+
+    app.notification()
+        .builder()
+        .title(title)
+        .body(body)
+        .show()
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
+}

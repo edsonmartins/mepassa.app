@@ -58,6 +58,7 @@ fn main() {
             commands::mark_conversation_read,
             commands::get_connected_peers_count,
             commands::bootstrap,
+            commands::show_notification,
         ])
         .setup(|app| {
             // Setup app-specific initialization here

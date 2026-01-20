@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { invoke } from '@tauri-apps/api/core'
 
@@ -20,6 +20,7 @@ export default function ConversationsView({ localPeerId }: ConversationsViewProp
   const [newPeerId, setNewPeerId] = useState('')
   const [peerCount, setPeerCount] = useState(0)
   const navigate = useNavigate()
+  const previousConversations = useRef<Conversation[]>([])
 
   useEffect(() => {
     loadConversations()
@@ -37,6 +38,29 @@ export default function ConversationsView({ localPeerId }: ConversationsViewProp
   const loadConversations = async () => {
     try {
       const convs = await invoke<Conversation[]>('list_conversations')
+
+      // Detect new messages
+      if (previousConversations.current.length > 0) {
+        for (const newConv of convs) {
+          const oldConv = previousConversations.current.find(c => c.peer_id === newConv.peer_id)
+
+          // New conversation or new unread messages
+          if (!oldConv || (newConv.unread_count > 0 && newConv.unread_count > oldConv.unread_count)) {
+            // Show notification
+            try {
+              await invoke('show_notification', {
+                title: 'Nova mensagem',
+                body: newConv.last_message || `Mensagem de ${newConv.peer_id.substring(0, 8)}...`
+              })
+            } catch (error) {
+              console.error('Failed to show notification:', error)
+            }
+          }
+        }
+      }
+
+      // Update state
+      previousConversations.current = convs
       setConversations(convs)
     } catch (error) {
       console.error('Failed to load conversations:', error)

@@ -1,0 +1,26 @@
+{
+  "_comment": "Este é um arquivo de exemplo.",
+  "_instruction_1": "1. Vá para https://console.firebase.google.com/",
+  "_instruction_2": "2. Crie um projeto ou use um existente",
+  "_instruction_3": "3. Adicione um app Android com package name: com.mepassa",
+  "_instruction_4": "4. Baixe o google-services.json real",
+  "_instruction_5": "5. Renomeie este arquivo para google-services.json.backup",
+  "_instruction_6": "6. Cole o arquivo baixado como google-services.json (sem .example)",
+  "_important": "NUNCA commite o google-services.json real no Git! Ele contém credenciais secretas.",
+
+  "project_info": {
+    "project_number": "XXXXXXXXXX",
+    "project_id": "mepassa-XXXXX",
+    "storage_bucket": "mepassa-XXXXX.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:XXXXXXXXXX:android:XXXXXXXXXXXXXXXX",
+        "android_client_info": {
+          "package_name": "com.mepassa"
+        }
+      }
+    }
+  ]
+}

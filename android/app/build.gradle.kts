@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -99,6 +100,10 @@ dependencies {
 
     // Accompanist (permissions, etc)
     implementation("com.google.accompanist:accompanist-permissions:0.32.0")
+
+    // Firebase (Push Notifications)
+    implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
+    implementation("com.google.firebase:firebase-messaging-ktx")
 
     // JNA (necessário para UniFFI)
     implementation("net.java.dev.jna:jna:5.14.0@aar")
