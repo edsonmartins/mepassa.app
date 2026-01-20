@@ -58,6 +58,9 @@ proptest = "1.4"
 criterion = "0.5"
 tempfile = "3.8"
 rand = { workspace = true }
+uniffi = { workspace = true, features = ["bindgen"] }
+uniffi_bindgen = "0.31"
+camino = "1.1"
 
 [features]
 integration-tests = []

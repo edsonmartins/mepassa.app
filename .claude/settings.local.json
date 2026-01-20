@@ -20,7 +20,11 @@
       "WebSearch",
       "WebFetch(domain:docs.rs)",
       "WebFetch(domain:crates.io)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(rustup target list:*)",
+      "Bash(export CC_aarch64_linux_android:*)",
+      "Bash(export AR_aarch64_linux_android=\"/Users/edsonmartins/Library/Android/sdk/ndk/26.3.11579264/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ar\")",
+      "Bash(rustup target add:*)"
     ]
   }
 }
