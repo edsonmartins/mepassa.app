@@ -1,0 +1,88 @@
+namespace mepassa {};
+
+// Error types
+[Error]
+interface MePassaFfiError {
+    Identity(string message);
+    Crypto(string message);
+    Network(string message);
+    Storage(string message);
+    Protocol(string message);
+    Io(string message);
+    Other(string message);
+};
+
+// Message status enum
+enum MessageStatus {
+    "Pending",
+    "Sent",
+    "Delivered",
+    "Read",
+    "Failed",
+};
+
+// Message record
+dictionary FfiMessage {
+    string message_id;
+    string conversation_id;
+    string sender_peer_id;
+    string? recipient_peer_id;
+    string message_type;
+    string? content_plaintext;
+    i64 created_at;
+    i64? sent_at;
+    i64? received_at;
+    i64? read_at;
+    MessageStatus status;
+    boolean is_deleted;
+};
+
+// Conversation record
+dictionary FfiConversation {
+    string id;
+    string conversation_type;
+    string? peer_id;
+    string? display_name;
+    string? last_message_id;
+    i64? last_message_at;
+    i32 unread_count;
+    boolean is_muted;
+    boolean is_archived;
+    i64 created_at;
+};
+
+// Client interface (implemented in Rust)
+interface MePassaClient {
+    [Throws=MePassaFfiError]
+    constructor(string data_dir);
+
+    [Throws=MePassaFfiError]
+    string local_peer_id();
+
+    [Throws=MePassaFfiError, Async]
+    void listen_on(string multiaddr);
+
+    [Throws=MePassaFfiError, Async]
+    void connect_to_peer(string peer_id, string multiaddr);
+
+    [Throws=MePassaFfiError, Async]
+    string send_text_message(string to_peer_id, string content);
+
+    [Throws=MePassaFfiError]
+    sequence<FfiMessage> get_conversation_messages(string peer_id, u32? limit, u32? offset);
+
+    [Throws=MePassaFfiError]
+    sequence<FfiConversation> list_conversations();
+
+    [Throws=MePassaFfiError]
+    sequence<FfiMessage> search_messages(string query, u32? limit);
+
+    [Throws=MePassaFfiError]
+    void mark_conversation_read(string peer_id);
+
+    [Throws=MePassaFfiError, Async]
+    u32 connected_peers_count();
+
+    [Throws=MePassaFfiError, Async]
+    void bootstrap();
+};

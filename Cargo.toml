@@ -63,7 +63,7 @@ prost-types = "0.12"
 bincode = "1"
 
 # FFI
-uniffi = "0.25"
+uniffi = "0.31"
 
 # Logging
 tracing = "0.1"

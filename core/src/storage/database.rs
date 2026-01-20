@@ -4,12 +4,13 @@
 
 use rusqlite::{Connection, OpenFlags};
 use std::path::Path;
+use std::sync::{Arc, Mutex};
 
 use super::{Result, StorageError};
 
-/// SQLite database wrapper
+/// SQLite database wrapper (thread-safe)
 pub struct Database {
-    conn: Connection,
+    conn: Arc<Mutex<Connection>>,
 }
 
 impl Database {
@@ -55,7 +56,9 @@ impl Database {
                 StorageError::DatabaseError(format!("Failed to enable foreign keys: {}", e))
             })?;
 
-        Ok(Self { conn })
+        Ok(Self {
+            conn: Arc::new(Mutex::new(conn)),
+        })
     }
 
     /// Open an in-memory database (for testing)
@@ -68,37 +71,35 @@ impl Database {
                 StorageError::DatabaseError(format!("Failed to enable foreign keys: {}", e))
             })?;
 
-        Ok(Self { conn })
-    }
-
-    /// Get a reference to the connection
-    pub fn conn(&self) -> &Connection {
-        &self.conn
-    }
-
-    /// Get a mutable reference to the connection
-    pub fn conn_mut(&mut self) -> &mut Connection {
-        &mut self.conn
+        Ok(Self {
+            conn: Arc::new(Mutex::new(conn)),
+        })
     }
 
     /// Execute a SQL statement
     pub fn execute(&self, sql: &str) -> Result<usize> {
-        self.conn
-            .execute(sql, [])
+        let conn = self.conn.lock().map_err(|e| {
+            StorageError::DatabaseError(format!("Failed to lock connection: {}", e))
+        })?;
+        conn.execute(sql, [])
             .map_err(|e| StorageError::DatabaseError(format!("Execute failed: {}", e)))
     }
 
     /// Execute a batch of SQL statements
     pub fn execute_batch(&self, sql: &str) -> Result<()> {
-        self.conn
-            .execute_batch(sql)
+        let conn = self.conn.lock().map_err(|e| {
+            StorageError::DatabaseError(format!("Failed to lock connection: {}", e))
+        })?;
+        conn.execute_batch(sql)
             .map_err(|e| StorageError::DatabaseError(format!("Execute batch failed: {}", e)))
     }
 
     /// Check if a table exists
     pub fn table_exists(&self, table_name: &str) -> Result<bool> {
-        let mut stmt = self
-            .conn
+        let conn = self.conn.lock().map_err(|e| {
+            StorageError::DatabaseError(format!("Failed to lock connection: {}", e))
+        })?;
+        let mut stmt = conn
             .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?1")
             .map_err(|e| StorageError::DatabaseError(format!("Prepare failed: {}", e)))?;
 
@@ -111,8 +112,10 @@ impl Database {
 
     /// Get current database version
     pub fn get_version(&self) -> Result<i32> {
-        let version: i32 = self
-            .conn
+        let conn = self.conn.lock().map_err(|e| {
+            StorageError::DatabaseError(format!("Failed to lock connection: {}", e))
+        })?;
+        let version: i32 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .map_err(|e| StorageError::DatabaseError(format!("Failed to get version: {}", e)))?;
 
@@ -121,8 +124,10 @@ impl Database {
 
     /// Set database version
     pub fn set_version(&self, version: i32) -> Result<()> {
-        self.conn
-            .execute(&format!("PRAGMA user_version = {}", version), [])
+        let conn = self.conn.lock().map_err(|e| {
+            StorageError::DatabaseError(format!("Failed to lock connection: {}", e))
+        })?;
+        conn.execute(&format!("PRAGMA user_version = {}", version), [])
             .map_err(|e| StorageError::DatabaseError(format!("Failed to set version: {}", e)))?;
 
         Ok(())
@@ -130,9 +135,33 @@ impl Database {
 
     /// Close the database connection
     pub fn close(self) -> Result<()> {
-        self.conn
-            .close()
+        let conn = Arc::try_unwrap(self.conn)
+            .map_err(|_| {
+                StorageError::DatabaseError("Cannot close: connection still has references".to_string())
+            })?
+            .into_inner()
+            .map_err(|e| {
+                StorageError::DatabaseError(format!("Failed to lock connection: {}", e))
+            })?;
+        conn.close()
             .map_err(|(_, e)| StorageError::DatabaseError(format!("Failed to close: {}", e)))
+    }
+
+    /// Get access to the connection (for internal storage module use)
+    pub(crate) fn conn(&self) -> std::sync::MutexGuard<'_, Connection> {
+        self.conn.lock().expect("Failed to lock database connection")
+    }
+
+    /// Execute a query with the connection (for testing/internal use)
+    #[cfg(test)]
+    pub(crate) fn with_connection<F, R>(&self, f: F) -> Result<R>
+    where
+        F: FnOnce(&Connection) -> rusqlite::Result<R>,
+    {
+        let conn = self.conn.lock().map_err(|e| {
+            StorageError::DatabaseError(format!("Failed to lock connection: {}", e))
+        })?;
+        f(&conn).map_err(|e| StorageError::DatabaseError(format!("Query failed: {}", e)))
     }
 }
 
@@ -170,8 +199,7 @@ mod tests {
         let db = Database::in_memory().unwrap();
 
         let mode: String = db
-            .conn()
-            .query_row("PRAGMA journal_mode", [], |row| row.get(0))
+            .with_connection(|conn| conn.query_row("PRAGMA journal_mode", [], |row| row.get(0)))
             .unwrap();
 
         // In-memory databases can't use WAL, but file-based databases should
@@ -183,8 +211,7 @@ mod tests {
         let db = Database::in_memory().unwrap();
 
         let enabled: i32 = db
-            .conn()
-            .query_row("PRAGMA foreign_keys", [], |row| row.get(0))
+            .with_connection(|conn| conn.query_row("PRAGMA foreign_keys", [], |row| row.get(0)))
             .unwrap();
 
         assert_eq!(enabled, 1);

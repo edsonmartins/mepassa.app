@@ -26,9 +26,15 @@
 pub use identity::{Identity, Keypair, PublicKey};
 // pub use protocol::{Message, MessageContent, MessageType};
 
+// Re-export FFI types (required by UniFFI scaffolding)
+pub use ffi::{
+    FfiConversation, FfiMessage, MePassaClient, MePassaFfiError, MessageStatus,
+};
+
 // Public modules
 pub mod api;
 pub mod crypto;
+pub mod ffi;
 pub mod identity;
 pub mod identity_client;
 pub mod network;
@@ -38,12 +44,8 @@ pub mod sync;
 pub mod voip;
 pub mod utils;
 
-// FFI exports (UniFFI) - TODO: Implement
-// #[cfg(feature = "ffi")]
-// pub mod ffi;
-
-// #[cfg(feature = "ffi")]
-// uniffi::include_scaffolding!("mepassa");
+// Include UniFFI scaffolding (must be at crate root)
+uniffi::include_scaffolding!("mepassa");
 
 /// Library version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

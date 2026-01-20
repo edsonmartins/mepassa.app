@@ -212,8 +212,8 @@ impl Database {
 
     /// List all contacts
     pub fn list_contacts(&self) -> Result<Vec<Contact>> {
-        let mut stmt = self
-            .conn()
+        let conn = self.conn();
+        let mut stmt = conn
             .prepare(
                 r#"
                 SELECT id, peer_id, username, display_name, public_key, prekey_bundle_json,
@@ -261,8 +261,8 @@ impl Database {
     pub fn search_contacts(&self, query: &str) -> Result<Vec<Contact>> {
         let search_pattern = format!("%{}%", query);
 
-        let mut stmt = self
-            .conn()
+        let conn = self.conn();
+        let mut stmt = conn
             .prepare(
                 r#"
                 SELECT id, peer_id, username, display_name, public_key, prekey_bundle_json,
