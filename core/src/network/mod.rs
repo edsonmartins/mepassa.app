@@ -2,15 +2,16 @@
 //!
 //! Implements P2P networking using libp2p (Kademlia DHT, GossipSub, Relay).
 
-// pub mod transport;
-// pub mod behaviour;
+pub mod behaviour;
+pub mod swarm;
+pub mod transport;
 // pub mod dht;
 // pub mod gossip;
 // pub mod relay;
 // pub mod nat;
 
-// pub use transport::MePassaTransport;
-// pub use behaviour::MePassaBehaviour;
+pub use behaviour::MePassaBehaviour;
+pub use swarm::NetworkManager;
 
 use thiserror::Error;
 
@@ -27,6 +28,12 @@ pub enum NetworkError {
 
     #[error("Timeout")]
     Timeout,
+}
+
+impl From<NetworkError> for crate::utils::error::MePassaError {
+    fn from(err: NetworkError) -> Self {
+        crate::utils::error::MePassaError::Network(err.to_string())
+    }
 }
 
 pub type Result<T> = std::result::Result<T, NetworkError>;

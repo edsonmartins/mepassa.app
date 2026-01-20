@@ -36,7 +36,10 @@ libp2p = { version = "0.53", features = [
     "dcutr",
     "identify",
     "ping",
-    "mdns"
+    "mdns",
+    "tokio",
+    "async-std",
+    "macros"
 ]}
 
 # Cryptography (fixed versions to avoid edition2024 requirement)
