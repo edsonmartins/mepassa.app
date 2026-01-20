@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MePassa</string>
+
+    <!-- Service -->
+    <string name="service_notification_title">MePassa</string>
+    <string name="service_notification_text">Conectado - %d peers</string>
+    <string name="service_channel_name">MePassa Service</string>
+    <string name="service_channel_description">Mantém conexão P2P ativa</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_title">Bem-vindo ao MePassa</string>
+    <string name="onboarding_subtitle">Mensagens privadas e seguras via P2P</string>
+    <string name="onboarding_button">Começar</string>
+    <string name="onboarding_generating">Gerando identidade…</string>
+
+    <!-- Conversations -->
+    <string name="conversations_title">Conversas</string>
+    <string name="conversations_empty">Nenhuma conversa ainda</string>
+    <string name="conversations_new">Nova conversa</string>
+
+    <!-- Chat -->
+    <string name="chat_input_hint">Mensagem…</string>
+    <string name="chat_send">Enviar</string>
+    <string name="chat_status_connecting">Conectando…</string>
+    <string name="chat_status_connected">Online</string>
+    <string name="chat_status_offline">Offline</string>
+
+    <!-- Errors -->
+    <string name="error_generic">Algo deu errado</string>
+    <string name="error_network">Erro de conexão</string>
+    <string name="error_send_message">Falha ao enviar mensagem</string>
+
+    <!-- Common -->
+    <string name="ok">OK</string>
+    <string name="cancel">Cancelar</string>
+    <string name="retry">Tentar novamente</string>
+</resources>

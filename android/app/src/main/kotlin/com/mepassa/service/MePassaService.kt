@@ -1,0 +1,163 @@
+package com.mepassa.service
+
+import android.app.*
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import android.os.IBinder
+import android.util.Log
+import androidx.core.app.NotificationCompat
+import com.mepassa.R
+import com.mepassa.core.MePassaClientWrapper
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.collect
+
+/**
+ * Foreground Service para manter conexão P2P ativa
+ *
+ * Responsabilidades:
+ * - Manter processo vivo em background
+ * - Monitorar contagem de peers conectados
+ * - Atualizar notificação com status
+ * - Gerenciar lifecycle do MePassaClient
+ */
+class MePassaService : Service() {
+
+    companion object {
+        private const val TAG = "MePassaService"
+        private const val NOTIFICATION_ID = 1
+        private const val CHANNEL_ID = "mepassa_service_channel"
+
+        fun start(context: Context) {
+            val intent = Intent(context, MePassaService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        }
+
+        fun stop(context: Context) {
+            val intent = Intent(context, MePassaService::class.java)
+            context.stopService(intent)
+        }
+    }
+
+    private val serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private var monitoringJob: Job? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        Log.i(TAG, "Service created")
+
+        createNotificationChannel()
+        startForeground(NOTIFICATION_ID, createNotification(0u))
+
+        // Inicializar client se ainda não foi
+        serviceScope.launch {
+            if (!MePassaClientWrapper.isClientReady()) {
+                Log.i(TAG, "Initializing MePassaClient from service")
+                val success = MePassaClientWrapper.initialize(applicationContext)
+                if (!success) {
+                    Log.e(TAG, "Failed to initialize client, stopping service")
+                    stopSelf()
+                    return@launch
+                }
+            }
+
+            // Iniciar escuta P2P
+            Log.i(TAG, "Starting P2P listener")
+            MePassaClientWrapper.listenOn("/ip4/0.0.0.0/tcp/0")
+
+            // Bootstrap (conectar a nodes conhecidos)
+            Log.i(TAG, "Starting bootstrap")
+            MePassaClientWrapper.bootstrap()
+
+            // Iniciar monitoramento de peers
+            startPeerMonitoring()
+        }
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        Log.i(TAG, "Service start command received")
+        return START_STICKY // Service reinicia se o sistema matar
+    }
+
+    override fun onBind(intent: Intent?): IBinder? {
+        return null // Unbound service
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        Log.i(TAG, "Service destroyed")
+
+        monitoringJob?.cancel()
+        serviceScope.cancel()
+
+        // NÃO fazer shutdown do client aqui, pois pode ser usado pela UI
+    }
+
+    /**
+     * Cria notification channel (Android O+)
+     */
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                getString(R.string.service_channel_name),
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = getString(R.string.service_channel_description)
+                setShowBadge(false)
+            }
+
+            val notificationManager = getSystemService(NotificationManager::class.java)
+            notificationManager.createNotificationChannel(channel)
+        }
+    }
+
+    /**
+     * Cria notificação do foreground service
+     */
+    private fun createNotification(connectedPeers: UInt): Notification {
+        // TODO: Adicionar PendingIntent para abrir MainActivity quando clicar
+        val contentText = getString(R.string.service_notification_text, connectedPeers)
+
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle(getString(R.string.service_notification_title))
+            .setContentText(contentText)
+            .setSmallIcon(android.R.drawable.ic_dialog_info) // TODO: Substituir por ícone real
+            .setOngoing(true)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build()
+    }
+
+    /**
+     * Atualiza notificação com nova contagem de peers
+     */
+    private fun updateNotification(connectedPeers: UInt) {
+        val notification = createNotification(connectedPeers)
+        val notificationManager = getSystemService(NotificationManager::class.java)
+        notificationManager.notify(NOTIFICATION_ID, notification)
+    }
+
+    /**
+     * Inicia monitoramento periódico de peers conectados
+     */
+    private fun startPeerMonitoring() {
+        monitoringJob = serviceScope.launch {
+            while (isActive) {
+                try {
+                    val count = MePassaClientWrapper.getConnectedPeersCount()
+                    Log.d(TAG, "Connected peers: $count")
+                    updateNotification(count)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error monitoring peers", e)
+                }
+
+                delay(10_000) // Atualiza a cada 10 segundos
+            }
+        }
+    }
+}
