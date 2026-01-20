@@ -12,7 +12,11 @@
       "Bash(grep:*)",
       "Bash(find:*)",
       "Bash(wc:*)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(git remote add:*)",
+      "Bash(git push:*)",
+      "Bash(git remote set-url:*)",
+      "Bash(brew install:*)"
     ]
   }
 }

@@ -1,0 +1,90 @@
+// MePassa Protocol Messages
+// Version 1.0.0
+//
+// Defines message types for P2P communication between peers.
+
+syntax = "proto3";
+
+package mepassa.protocol;
+
+// Message envelope - top-level container for all messages
+message Message {
+  // Unique message ID (UUID v4)
+  string id = 1;
+
+  // Sender's peer ID
+  string sender_peer_id = 2;
+
+  // Recipient's peer ID
+  string recipient_peer_id = 3;
+
+  // Unix timestamp (milliseconds)
+  int64 timestamp = 4;
+
+  // Message type
+  MessageType type = 5;
+
+  // Message payload (one of the following)
+  oneof payload {
+    TextMessage text = 10;
+    AckMessage ack = 11;
+    TypingIndicator typing = 12;
+    ReadReceipt read_receipt = 13;
+  }
+}
+
+// Message type enum
+enum MessageType {
+  MESSAGE_TYPE_UNSPECIFIED = 0;
+  MESSAGE_TYPE_TEXT = 1;
+  MESSAGE_TYPE_ACK = 2;
+  MESSAGE_TYPE_TYPING = 3;
+  MESSAGE_TYPE_READ_RECEIPT = 4;
+}
+
+// Text message
+message TextMessage {
+  // Message content (plaintext - encryption handled at transport layer)
+  string content = 1;
+
+  // Optional: reply to another message
+  string reply_to_id = 2;
+
+  // Optional: message metadata
+  map<string, string> metadata = 3;
+}
+
+// Acknowledgment message
+message AckMessage {
+  // ID of the message being acknowledged
+  string message_id = 1;
+
+  // Acknowledgment status
+  AckStatus status = 2;
+
+  // Optional: error message if status is ERROR
+  string error = 3;
+}
+
+// ACK status enum
+enum AckStatus {
+  ACK_STATUS_UNSPECIFIED = 0;
+  ACK_STATUS_RECEIVED = 1;  // Message received by peer
+  ACK_STATUS_DELIVERED = 2; // Message stored locally
+  ACK_STATUS_ERROR = 3;     // Error processing message
+}
+
+// Typing indicator
+message TypingIndicator {
+  // Whether user is typing
+  bool is_typing = 1;
+}
+
+// Read receipt
+message ReadReceipt {
+  // ID of the message that was read
+  string message_id = 1;
+
+  // Unix timestamp when message was read
+  int64 read_at = 2;
+}

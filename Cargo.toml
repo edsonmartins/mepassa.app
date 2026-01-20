@@ -37,6 +37,7 @@ libp2p = { version = "0.53", features = [
     "identify",
     "ping",
     "mdns",
+    "request-response",
     "tokio",
     "async-std",
     "macros"
@@ -94,6 +95,7 @@ redis = { version = "0.24", features = ["tokio-comp", "connection-manager"] }
 
 # Additional utils
 bs58 = "0.5"
+async-trait = "0.1"
 
 [profile.release]
 opt-level = 3

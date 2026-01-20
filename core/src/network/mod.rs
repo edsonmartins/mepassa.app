@@ -3,6 +3,7 @@
 //! Implements P2P networking using libp2p (Kademlia DHT, GossipSub, Relay).
 
 pub mod behaviour;
+pub mod messaging;
 pub mod swarm;
 pub mod transport;
 // pub mod dht;
@@ -11,6 +12,7 @@ pub mod transport;
 // pub mod nat;
 
 pub use behaviour::MePassaBehaviour;
+pub use messaging::MePassaCodec;
 pub use swarm::NetworkManager;
 
 use thiserror::Error;

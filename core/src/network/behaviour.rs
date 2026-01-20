@@ -8,11 +8,12 @@
 //! - GossipSub (will be used for group messaging)
 
 use libp2p::{
-    gossipsub, identify, kad, mdns, ping, PeerId,
+    gossipsub, identify, kad, mdns, ping, request_response, PeerId, StreamProtocol,
 };
 use libp2p::swarm::NetworkBehaviour;
 use std::time::Duration;
 
+use super::messaging::MePassaCodec;
 use crate::utils::error::MePassaError;
 
 /// MePassa network behaviour
@@ -28,6 +29,8 @@ pub struct MePassaBehaviour {
     pub ping: ping::Behaviour,
     /// GossipSub for pub/sub messaging (groups)
     pub gossipsub: gossipsub::Behaviour,
+    /// Request/Response for direct messaging
+    pub request_response: request_response::Behaviour<MePassaCodec>,
 }
 
 impl MePassaBehaviour {
@@ -76,12 +79,24 @@ impl MePassaBehaviour {
         )
         .map_err(|e| MePassaError::Network(format!("Failed to create GossipSub behaviour: {}", e)))?;
 
+        // Request/Response for direct messaging
+        let protocols = std::iter::once((
+            StreamProtocol::new("/mepassa/message/1.0.0"),
+            request_response::ProtocolSupport::Full,
+        ));
+        let request_response = request_response::Behaviour::with_codec(
+            MePassaCodec::default(),
+            protocols,
+            request_response::Config::default(),
+        );
+
         Ok(Self {
             kademlia,
             mdns,
             identify,
             ping,
             gossipsub,
+            request_response,
         })
     }
 }

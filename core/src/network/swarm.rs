@@ -159,6 +159,67 @@ impl NetworkManager {
             MePassaBehaviourEvent::Gossipsub(gossipsub_event) => {
                 tracing::debug!("GossipSub event: {:?}", gossipsub_event);
             }
+            MePassaBehaviourEvent::RequestResponse(rr_event) => {
+                match rr_event {
+                    libp2p::request_response::Event::Message { peer, message } => {
+                        match message {
+                            libp2p::request_response::Message::Request {
+                                request_id,
+                                request,
+                                channel: _,
+                            } => {
+                                tracing::info!(
+                                    "Received message from {}: {:?} (request_id: {:?})",
+                                    peer,
+                                    request.id,
+                                    request_id
+                                );
+                                // TODO: Process message and send response (FASE 4)
+                                // For now, just log the request
+                            }
+                            libp2p::request_response::Message::Response {
+                                request_id,
+                                response,
+                            } => {
+                                tracing::info!(
+                                    "Received response from {}: {:?} (request_id: {:?})",
+                                    peer,
+                                    response.id,
+                                    request_id
+                                );
+                                // TODO: Process acknowledgment (FASE 4)
+                            }
+                        }
+                    }
+                    libp2p::request_response::Event::OutboundFailure {
+                        peer,
+                        request_id,
+                        error,
+                    } => {
+                        tracing::warn!(
+                            "Outbound request failed to {}: {:?} (request_id: {:?})",
+                            peer,
+                            error,
+                            request_id
+                        );
+                    }
+                    libp2p::request_response::Event::InboundFailure {
+                        peer,
+                        request_id,
+                        error,
+                    } => {
+                        tracing::warn!(
+                            "Inbound request failed from {}: {:?} (request_id: {:?})",
+                            peer,
+                            error,
+                            request_id
+                        );
+                    }
+                    libp2p::request_response::Event::ResponseSent { peer, request_id } => {
+                        tracing::debug!("Response sent to {} (request_id: {:?})", peer, request_id);
+                    }
+                }
+            }
         }
 
         Ok(())
