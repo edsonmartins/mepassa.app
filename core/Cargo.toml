@@ -56,6 +56,10 @@ reqwest = { workspace = true }
 proptest = "1.4"
 criterion = "0.5"
 tempfile = "3.8"
+rand = { workspace = true }
+
+[features]
+integration-tests = []
 
 [build-dependencies]
 prost-build = "0.12"
