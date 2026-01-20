@@ -12,6 +12,7 @@
     <!-- Permissões para foreground service -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
@@ -50,12 +51,12 @@
             </intent-filter>
         </activity>
 
-        <!-- MePassa Foreground Service (para manter conexão P2P) -->
+        <!-- MePassa Foreground Service (para manter conexão P2P + VoIP) -->
         <service
             android:name=".service.MePassaService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="dataSync"
+            android:foregroundServiceType="dataSync|phoneCall"
             android:stopWithTask="false" />
 
         <!-- Firebase Cloud Messaging Service (Push Notifications) -->
