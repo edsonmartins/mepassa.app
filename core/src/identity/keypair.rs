@@ -258,9 +258,7 @@ impl PublicKey {
     /// Returns error if peer ID format is invalid
     pub fn from_peer_id(peer_id: &str) -> Result<Self> {
         if !peer_id.starts_with("mepassa_") {
-            return Err(MePassaError::Identity(format!(
-                "Invalid peer ID format: must start with 'mepassa_'"
-            )));
+            return Err(MePassaError::Identity("Invalid peer ID format: must start with 'mepassa_'".to_string()));
         }
 
         let encoded = &peer_id[8..]; // Skip "mepassa_" prefix

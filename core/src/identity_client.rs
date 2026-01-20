@@ -32,13 +32,13 @@ impl PreKeyBundle {
     /// Convert from core PreKeyBundle to API format
     pub fn from_core(bundle: &CorePreKeyBundle) -> Self {
         Self {
-            identity_key: general_purpose::STANDARD.encode(&bundle.identity_key),
+            identity_key: general_purpose::STANDARD.encode(bundle.identity_key),
             signed_prekey_id: bundle.signed_prekey_id as i32,
-            signed_prekey: general_purpose::STANDARD.encode(&bundle.signed_prekey),
-            signed_prekey_signature: general_purpose::STANDARD.encode(&bundle.signed_prekey_signature),
+            signed_prekey: general_purpose::STANDARD.encode(bundle.signed_prekey),
+            signed_prekey_signature: general_purpose::STANDARD.encode(bundle.signed_prekey_signature),
             one_time_prekey: bundle.one_time_prekey.as_ref().map(|opk| OneTimePreKey {
                 id: opk.id as i32,
-                public_key: general_purpose::STANDARD.encode(&opk.public_key),
+                public_key: general_purpose::STANDARD.encode(opk.public_key),
             }),
         }
     }
@@ -192,7 +192,7 @@ impl IdentityClient {
             peer_id: peer_id.to_string(),
             public_key: general_purpose::STANDARD.encode(identity.keypair().public_key_bytes()),
             prekey_bundle: PreKeyBundle::from_core(&prekey_bundle),
-            signature: general_purpose::STANDARD.encode(&signature),
+            signature: general_purpose::STANDARD.encode(signature),
             timestamp,
         };
 
@@ -266,7 +266,7 @@ impl IdentityClient {
         let request = UpdatePrekeysRequest {
             peer_id: peer_id.to_string(),
             prekey_bundle: PreKeyBundle::from_core(&prekey_bundle),
-            signature: general_purpose::STANDARD.encode(&signature),
+            signature: general_purpose::STANDARD.encode(signature),
             timestamp,
         };
 

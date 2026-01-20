@@ -85,7 +85,7 @@ impl MePassaBehaviour {
             request_response::ProtocolSupport::Full,
         ));
         let request_response = request_response::Behaviour::with_codec(
-            MePassaCodec::default(),
+            MePassaCodec,
             protocols,
             request_response::Config::default(),
         );

@@ -99,7 +99,7 @@ impl Client {
     /// Connect to a peer
     pub async fn connect_to_peer(&self, peer_id: PeerId, addr: Multiaddr) -> Result<()> {
         let mut network = self.network.write().await;
-        network.add_peer_to_dht(peer_id.clone(), addr.clone());
+        network.add_peer_to_dht(peer_id, addr.clone());
         network.dial(peer_id, addr)?;
 
         self.emit_event(ClientEvent::PeerConnected { peer_id }).await;
@@ -129,7 +129,7 @@ impl Client {
         // Send via network
         {
             let mut network = self.network.write().await;
-            network.send_message(to.clone(), proto_message)?;
+            network.send_message(to, proto_message)?;
         }
 
         // Store in database
