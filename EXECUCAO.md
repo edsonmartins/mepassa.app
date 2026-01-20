@@ -47,7 +47,7 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 | **FASE 9: Server - Bootstrap & DHT** | Rust | 100% | `DONE` | 6/6 | ~700/800 | 2026-01-20 |
 | **FASE 10: Server - TURN Relay** | Rust | 100% | `DONE` | 18/5 | ~1.650/600 | 2026-01-20 |
 | **FASE 11: Server - Message Store** | Rust | 100% | `DONE` | 7/10 | ~900/1.500 | 2026-01-20 |
-| **FASE 12: VOIP - Chamadas** 🔥 | Multi | 75% | `IN PROGRESS` | 14/24 | ~3.091/2.500 | 2026-01-20 |
+| **FASE 12: VOIP - Chamadas** 🔥 | Multi | 80% | `IN PROGRESS` | 16/24 | ~3.758/2.500 | 2026-01-20 |
 | **FASE 13: iOS App** | Swift | 0% | `TODO` | 0/30 | 0/4.000 | - |
 | **FASE 14: Videochamadas** | Multi | 0% | `TODO` | 0/12 | 0/1.800 | - |
 | **FASE 15: Grupos** | Multi | 0% | `TODO` | 0/15 | 0/2.000 | - |
@@ -79,11 +79,11 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 
 **🚧 EM PROGRESSO:**
 - **FASE 8:** Push Notifications (75% - FCM completo, falta APNs iOS)
-- **FASE 12:** 🔥 VoIP - Chamadas de Voz (75% - Backend + Android integração completa) **← ATUALIZADA HOJE**
+- **FASE 12:** 🔥 VoIP - Chamadas de Voz (80% - Backend + Android + Desktop UI completos) **← ATUALIZADA HOJE**
 
 **Estatísticas:**
-- **Arquivos criados:** ~188 arquivos (77% do total)
-- **Linhas de código:** ~21.255 LoC (65% do total)
+- **Arquivos criados:** ~192 arquivos (79% do total)
+- **Linhas de código:** ~21.922 LoC (67% do total)
 - **Testes:** 110+ testes passando (100% sucesso)
 - **Documentação:** 13 documentos principais (~4.100 linhas)
 
@@ -1537,8 +1537,8 @@ Chamadas de voz 1:1 funcionando (P2P + TURN fallback).
 | 12.3.4 | Implementar timer de duração | `DONE` | Claude | 2026-01-20 | 2026-01-20 | LaunchedEffect em CallScreen | 12.3.1 |
 | 12.3.5 | Implementar fullscreen notification (incoming) | `TODO` | - | - | - | Requer BroadcastReceiver | 12.3.2 |
 | **12.4 - Desktop UI** ||||||||
-| 12.4.1 | Implementar CallView (React) | `TODO` | - | - | - | - | 7.2.4 |
-| 12.4.2 | Implementar IncomingCallModal | `TODO` | - | - | - | - | 12.4.1 |
+| 12.4.1 | Implementar CallView (React) | `DONE` | Claude | 2026-01-20 | 2026-01-20 | CallView.tsx + CSS (271 linhas) | 7.2.4 |
+| 12.4.2 | Implementar IncomingCallModal | `DONE` | Claude | 2026-01-20 | 2026-01-20 | IncomingCallModal.tsx + CSS (278 linhas) | 12.4.1 |
 | **12.5 - Background & Bluetooth** ||||||||
 | 12.5.1 | Android: funciona em background (foreground service) | `TODO` | - | - | - | - | 12.3.5 |
 | 12.5.2 | Android: funciona com Bluetooth (AudioManager) | `TODO` | - | - | - | - | 12.3.5 |
@@ -1614,14 +1614,31 @@ ChatScreen → [Click Phone] → startCall(peerId)
   → UI: Timer, Mute, Hangup, Speakerphone
 ```
 
-**🚧 TODO (25% - Desktop UI + Testes Reais):**
+**Desktop UI (8 arquivos, ~667 LoC):**
+- ✅ `CallView.tsx` (152 linhas) - Tela de chamada ativa com timer e botões
+- ✅ `CallView.css` (119 linhas) - Gradiente purple, pulse animations, hover effects
+- ✅ `IncomingCallModal.tsx` (124 linhas) - Modal para incoming calls com ESC handler
+- ✅ `IncomingCallModal.css` (154 linhas) - Backdrop blur, slide-in/ring animations
+- ✅ `commands.rs` (+99 linhas) - 6 comandos Tauri (start_call, accept_call, reject_call, hangup_call, toggle_mute, toggle_speakerphone)
+- ✅ `main.rs` (+6 linhas) - Registro dos comandos VoIP
+- ✅ `App.tsx` (+2 linhas) - Rota /call/:callId/:remotePeerId
+- ✅ `ChatView.tsx` (+11 linhas) - Botão Phone no header + handleStartCall
+
+**Fluxo Desktop Completo:**
+```
+ChatView → [Click Phone] → invoke('start_call', { toPeerId })
+  → Backend: WebRTC PeerConnection + SDP offer
+  → Navigate to /call/:callId/:remotePeerId
+  → CallView: Timer, Mute, Hangup, Speakerphone
+```
+
+**🚧 TODO (20% - Testes Reais + Polimento):**
 - 🔲 12.2.2-12.2.4: Echo cancellation, noise suppression, adaptive bitrate
 - 🔲 12.3.5: Fullscreen notification para incoming calls (BroadcastReceiver)
-- 🔲 12.4.1-12.4.2: Desktop UI (CallView, IncomingCallModal)
 - 🔲 12.5.1-12.5.3: Background service, Bluetooth, histórico
 - 🔲 12.6.1-12.6.5: Testes críticos (latência P2P ~50ms, TURN ~200ms, MOS >4.0)
 
-**Próximo Passo:** 🎯 **Runtime Permissions** + **Listener Incoming Calls** + **Build APK & Teste Real**
+**Próximo Passo:** 🎯 **Runtime Permissions** + **Incoming Call Listener** + **Build & Teste Real em Dispositivos**
 
 ---
 
