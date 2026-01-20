@@ -1,6 +1,7 @@
 //! Error types for MePassa
 
 use thiserror::Error;
+use crate::storage::StorageError;
 
 /// Result type alias
 pub type Result<T> = std::result::Result<T, MePassaError>;
@@ -28,4 +29,10 @@ pub enum MePassaError {
 
     #[error("Other error: {0}")]
     Other(String),
+}
+
+impl From<StorageError> for MePassaError {
+    fn from(err: StorageError) -> Self {
+        MePassaError::Storage(err.to_string())
+    }
 }

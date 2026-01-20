@@ -2,13 +2,13 @@
 //!
 //! Main Client API for MePassa.
 
-// TODO: Implement these modules
-// pub mod client;
-// pub mod events;
-// pub mod callbacks;
+pub mod builder;
+pub mod client;
+pub mod events;
 
-// pub use client::{Client, ClientBuilder};
-// pub use events::Event;
+pub use builder::ClientBuilder;
+pub use client::Client;
+pub use events::{ClientEvent, EventCallback, FunctionCallback};
 
 use thiserror::Error;
 

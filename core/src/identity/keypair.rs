@@ -72,6 +72,34 @@ impl Keypair {
         })
     }
 
+    /// Create a keypair from a libp2p keypair
+    ///
+    /// # Arguments
+    ///
+    /// * `libp2p_keypair` - libp2p Ed25519 keypair
+    ///
+    /// # Errors
+    ///
+    /// Returns error if the libp2p keypair is not Ed25519
+    pub fn from_libp2p_keypair(libp2p_keypair: &libp2p::identity::Keypair) -> Result<Self> {
+        // Clone the keypair since try_into_ed25519 consumes it
+        let kp_clone = libp2p_keypair.clone();
+
+        // Try to convert to Ed25519 keypair
+        let ed25519_kp = kp_clone
+            .try_into_ed25519()
+            .map_err(|_| MePassaError::Identity("Only Ed25519 keypairs are supported".to_string()))?;
+
+        // Get the keypair bytes (64 bytes: 32 secret + 32 public)
+        let keypair_bytes = ed25519_kp.to_bytes();
+
+        // Extract only the secret key (first 32 bytes)
+        let secret_bytes = &keypair_bytes[0..32];
+
+        // Create our keypair from the secret bytes
+        Self::from_bytes(secret_bytes)
+    }
+
     /// Export the secret key as bytes (32 bytes)
     ///
     /// ⚠️ **WARNING**: Keep this secret! Never expose or transmit the secret key.
