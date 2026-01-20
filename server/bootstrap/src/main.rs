@@ -1,8 +1,235 @@
-//! MePassa Bootstrap Node
-//!
-//! DHT bootstrap node for peer discovery
+use anyhow::Result;
+use futures::stream::StreamExt;
+use libp2p::{
+    core::upgrade,
+    identity::Keypair,
+    noise, tcp, yamux,
+    swarm::{Config as SwarmConfig, Swarm, SwarmEvent},
+    Multiaddr, PeerId, Transport,
+};
+use std::time::Duration;
+use tracing::{info, warn};
 
-fn main() {
-    println!("MePassa Bootstrap Node");
-    println!("Coming soon...");
+mod config;
+mod behaviour;
+mod storage;
+mod health;
+
+use config::Config;
+use behaviour::BootstrapBehaviour;
+use storage::DhtStorage;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // 1. Load configuration
+    let config = Config::from_env()?;
+    config.validate()?;
+
+    // 2. Setup logging
+    tracing_subscriber::fmt()
+        .with_env_filter(&config.log_level)
+        .init();
+
+    info!("🚀 MePassa Bootstrap Node starting...");
+    info!("   P2P Port: {}", config.p2p_port);
+    info!("   Health Port: {}", config.health_port);
+    info!("   Data Dir: {:?}", config.data_dir);
+
+    // 3. Generate deterministic keypair
+    let keypair = generate_keypair(&config.peer_id_seed)?;
+    let local_peer_id = PeerId::from(keypair.public());
+    let local_public_key = keypair.public();
+    info!("   Peer ID: {}", local_peer_id);
+
+    // 4. Build transport (TCP + Noise + Yamux)
+    let transport = tcp::tokio::Transport::new(tcp::Config::default())
+        .upgrade(upgrade::Version::V1)
+        .authenticate(noise::Config::new(&keypair)?)
+        .multiplex(yamux::Config::default())
+        .boxed();
+
+    // 5. Create swarm
+    let behaviour = BootstrapBehaviour::new(local_peer_id, local_public_key);
+    let mut swarm = Swarm::new(
+        transport,
+        behaviour,
+        local_peer_id,
+        SwarmConfig::with_tokio_executor()
+            .with_idle_connection_timeout(Duration::from_secs(60)),
+    );
+
+    // 6. Initialize persistent storage
+    let db_path = config.data_dir.join("dht.db");
+    let storage = DhtStorage::new(db_path).await?;
+
+    // Load previously known peers from storage
+    let stored_peers = storage.load_peers().await?;
+    for (peer_id, addrs) in stored_peers {
+        for addr in addrs {
+            swarm.behaviour_mut().kademlia.add_address(&peer_id, addr);
+        }
+    }
+
+    // Cleanup stale peers (older than 7 days)
+    storage.cleanup_stale(7 * 24 * 60 * 60).await?;
+
+    // 7. Listen on configured port
+    let listen_addr: Multiaddr = format!("/ip4/0.0.0.0/tcp/{}", config.p2p_port)
+        .parse()?;
+    swarm.listen_on(listen_addr.clone())?;
+    info!("   Listening on: {}", listen_addr);
+
+    // 8. Start health check server
+    let peer_count = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let health_server = health::start_server(config.health_port, peer_count.clone());
+    tokio::spawn(health_server);
+
+    info!("✅ Bootstrap node ready!");
+
+    // 9. Event loop
+    loop {
+        match swarm.select_next_some().await {
+            SwarmEvent::NewListenAddr { address, .. } => {
+                info!("📡 Listening on: {}", address);
+            }
+
+            SwarmEvent::Behaviour(event) => {
+                handle_behaviour_event(event, &mut swarm, &storage, &peer_count).await;
+            }
+
+            SwarmEvent::IncomingConnection { local_addr, send_back_addr, connection_id } => {
+                info!("📥 Incoming connection from {} to {} (id: {:?})", send_back_addr, local_addr, connection_id);
+            }
+
+            SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. } => {
+                info!("✅ Connection established with {}", peer_id);
+
+                // Add to DHT
+                let addr = endpoint.get_remote_address();
+                swarm.behaviour_mut()
+                    .kademlia
+                    .add_address(&peer_id, addr.clone());
+
+                // Save to persistent storage
+                if let Err(e) = storage.add_peer(&peer_id, addr).await {
+                    warn!("Failed to save peer to storage: {}", e);
+                }
+
+                // Update peer count
+                peer_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            }
+
+            SwarmEvent::ConnectionClosed { peer_id, cause, .. } => {
+                warn!("❌ Connection closed with {}: {:?}", peer_id, cause);
+                peer_count.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+            }
+
+            SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
+                if let Some(peer) = peer_id {
+                    warn!("❌ Outgoing connection error to {}: {}", peer, error);
+                } else {
+                    warn!("❌ Outgoing connection error: {}", error);
+                }
+            }
+
+            SwarmEvent::IncomingConnectionError { local_addr, send_back_addr, error, connection_id } => {
+                warn!("❌ Incoming connection error from {} to {} (id: {:?}): {}",
+                    send_back_addr, local_addr, connection_id, error);
+            }
+
+            _ => {}
+        }
+    }
+}
+
+async fn handle_behaviour_event(
+    event: behaviour::BootstrapBehaviourEvent,
+    swarm: &mut libp2p::Swarm<BootstrapBehaviour>,
+    storage: &DhtStorage,
+    _peer_count: &std::sync::Arc<std::sync::atomic::AtomicUsize>,
+) {
+    match event {
+        // Kademlia events
+        behaviour::BootstrapBehaviourEvent::Kademlia(kad_event) => {
+            match kad_event {
+                libp2p::kad::Event::RoutingUpdated { peer, .. } => {
+                    info!("🔄 DHT routing updated for {}", peer);
+                }
+                libp2p::kad::Event::InboundRequest { request } => {
+                    info!("📨 Inbound DHT request: {:?}", request);
+                }
+                libp2p::kad::Event::OutboundQueryProgressed { result, .. } => {
+                    match result {
+                        libp2p::kad::QueryResult::GetProviders(Ok(_ok)) => {
+                            info!("📦 GetProviders successful");
+                        }
+                        libp2p::kad::QueryResult::GetProviders(Err(err)) => {
+                            warn!("📦 GetProviders failed: {:?}", err);
+                        }
+                        libp2p::kad::QueryResult::GetRecord(Ok(_ok)) => {
+                            info!("📝 GetRecord successful");
+                        }
+                        libp2p::kad::QueryResult::GetRecord(Err(err)) => {
+                            warn!("📝 GetRecord failed: {:?}", err);
+                        }
+                        _ => {}
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        // Identify events
+        behaviour::BootstrapBehaviourEvent::Identify(identify_event) => {
+            if let libp2p::identify::Event::Received { peer_id, info } = identify_event {
+                info!("🆔 Identified peer {}: agent={}, protocols={:?}",
+                    peer_id, info.agent_version, info.protocols);
+
+                // Add addresses to DHT and storage
+                for addr in info.listen_addrs {
+                    swarm.behaviour_mut()
+                        .kademlia
+                        .add_address(&peer_id, addr.clone());
+
+                    // Save to persistent storage
+                    if let Err(e) = storage.add_peer(&peer_id, &addr).await {
+                        warn!("Failed to save peer address to storage: {}", e);
+                    }
+                }
+            }
+        }
+
+        // Ping events
+        behaviour::BootstrapBehaviourEvent::Ping(ping_event) => {
+            match ping_event.result {
+                Ok(rtt) => {
+                    tracing::debug!("🏓 Ping to {} successful: {:?}", ping_event.peer, rtt);
+                }
+                Err(e) => {
+                    warn!("🏓 Ping to {} failed: {}", ping_event.peer, e);
+                }
+            }
+        }
+    }
+}
+
+/// Generate deterministic keypair from seed string
+///
+/// Uses SHA256 to hash the seed into a 32-byte private key,
+/// ensuring the same peer ID is generated on every restart.
+fn generate_keypair(seed: &str) -> Result<Keypair> {
+    use libp2p::identity::ed25519;
+    use sha2::{Sha256, Digest};
+
+    // Hash seed to get 32 bytes
+    let mut hasher = Sha256::new();
+    hasher.update(seed.as_bytes());
+    let hash = hasher.finalize();
+
+    // Create Ed25519 keypair from hash (convert to mutable array)
+    let mut secret_bytes: [u8; 32] = hash.into();
+    let secret_key = ed25519::SecretKey::try_from_bytes(&mut secret_bytes)?;
+    let keypair = ed25519::Keypair::from(secret_key);
+
+    Ok(Keypair::from(keypair))
 }

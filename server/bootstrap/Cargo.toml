@@ -7,14 +7,37 @@ description = "Bootstrap node for MePassa P2P network"
 license = "AGPL-3.0"
 
 [dependencies]
-# Workspace dependencies
+# libp2p (mesma versão do core)
 libp2p = { workspace = true }
-tokio = { workspace = true }
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
-anyhow = { workspace = true }
-serde = { workspace = true }
+
+# Async runtime
+tokio = { workspace = true, features = ["full"] }
+futures = "0.3"
+
+# Serialization
+serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
+bincode = "1.3"
+
+# HTTP health check (lightweight)
+warp = "0.3"
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+
+# Error handling
+anyhow = { workspace = true }
+thiserror = "1.0"
+
+# Environment
+dotenvy = "0.15"
+
+# Crypto for deterministic keypair
+sha2 = "0.10"
+
+# Database (persistent DHT storage) - use rusqlite like core
+rusqlite = { version = "0.31", features = ["bundled"] }
 
 # Local dependencies
 # mepassa-core = { path = "../../core" }  # TODO: adicionar depois

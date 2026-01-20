@@ -68,9 +68,19 @@ services:
     environment:
       - RUST_LOG=${RUST_LOG:-info}
       - BOOTSTRAP_PORT=4001
+      - HEALTH_PORT=8000
       - PEER_ID_SEED=bootstrap-1
+      - DATA_DIR=/app/data
     ports:
-      - "4001:4001"
+      - "4001:4001"    # P2P
+      - "8000:8000"    # Health check
+    volumes:
+      - bootstrap_data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - mepassa-network
     depends_on:
@@ -166,6 +176,8 @@ volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  bootstrap_data:
     driver: local
   prometheus_data:
     driver: local
