@@ -47,7 +47,7 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 | **FASE 9: Server - Bootstrap & DHT** | Rust | 100% | `DONE` | 6/6 | ~700/800 | 2026-01-20 |
 | **FASE 10: Server - TURN Relay** | Rust | 100% | `DONE` | 18/5 | ~1.650/600 | 2026-01-20 |
 | **FASE 11: Server - Message Store** | Rust | 100% | `DONE` | 7/10 | ~900/1.500 | 2026-01-20 |
-| **FASE 12: VOIP - Chamadas** 🔥 | Multi | 60% | `IN PROGRESS` | 9/24 | ~2.500/2.500 | 2026-01-20 |
+| **FASE 12: VOIP - Chamadas** 🔥 | Multi | 70% | `IN PROGRESS` | 13/24 | ~3.057/2.500 | 2026-01-20 |
 | **FASE 13: iOS App** | Swift | 0% | `TODO` | 0/30 | 0/4.000 | - |
 | **FASE 14: Videochamadas** | Multi | 0% | `TODO` | 0/12 | 0/1.800 | - |
 | **FASE 15: Grupos** | Multi | 0% | `TODO` | 0/15 | 0/2.000 | - |
@@ -59,7 +59,7 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 - **Arquivos estimados:** ~244
 - **Linhas de código:** ~32.700
 - **Duração:** ~6-7 meses
-- **✅ Progresso atual:** 11 de 19 fases (58%) | ~20.664 LoC (63%)
+- **✅ Progresso atual:** 11 de 19 fases (58%) | ~21.221 LoC (65%)
 
 ### 📈 Progresso Atual (2026-01-20)
 
@@ -79,11 +79,11 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 
 **🚧 EM PROGRESSO:**
 - **FASE 8:** Push Notifications (75% - FCM completo, falta APNs iOS)
-- **FASE 12:** 🔥 VoIP - Chamadas de Voz (60% - Backend completo, falta UI mobile) **← INICIADA HOJE**
+- **FASE 12:** 🔥 VoIP - Chamadas de Voz (70% - Backend + Android UI completos) **← ATUALIZADA HOJE**
 
 **Estatísticas:**
-- **Arquivos criados:** ~181 arquivos (74% do total)
-- **Linhas de código:** ~20.664 LoC (63% do total)
+- **Arquivos criados:** ~185 arquivos (76% do total)
+- **Linhas de código:** ~21.221 LoC (65% do total)
 - **Testes:** 110+ testes passando (100% sucesso)
 - **Documentação:** 13 documentos principais (~4.100 linhas)
 
@@ -1531,11 +1531,11 @@ Chamadas de voz 1:1 funcionando (P2P + TURN fallback).
 | 12.2.3 | Implementar noise suppression | `TODO` | - | - | - | Requer APM module | 12.2.1 |
 | 12.2.4 | Implementar adaptive bitrate (6-128kbps) | `TODO` | - | - | - | Requer network stats | 12.2.1 |
 | **12.3 - Android UI** ||||||||
-| 12.3.1 | Implementar CallScreen (Compose) | `TODO` | - | - | - | - | 6.2.4 |
-| 12.3.2 | Implementar IncomingCallScreen (fullscreen) | `TODO` | - | - | - | - | 12.3.1 |
-| 12.3.3 | Botões: atender/recusar/desligar/mute | `TODO` | - | - | - | - | 12.3.1 |
-| 12.3.4 | Implementar timer de duração | `TODO` | - | - | - | - | 12.3.1 |
-| 12.3.5 | Implementar fullscreen notification (incoming) | `TODO` | - | - | - | - | 12.3.2 |
+| 12.3.1 | Implementar CallScreen (Compose) | `DONE` | Claude | 2026-01-20 | 2026-01-20 | CallScreen.kt (206 linhas) | 6.2.4 |
+| 12.3.2 | Implementar IncomingCallScreen (fullscreen) | `DONE` | Claude | 2026-01-20 | 2026-01-20 | IncomingCallScreen.kt (189 linhas) | 12.3.1 |
+| 12.3.3 | Botões: atender/recusar/desligar/mute | `DONE` | Claude | 2026-01-20 | 2026-01-20 | Integrado nos screens | 12.3.1 |
+| 12.3.4 | Implementar timer de duração | `DONE` | Claude | 2026-01-20 | 2026-01-20 | LaunchedEffect em CallScreen | 12.3.1 |
+| 12.3.5 | Implementar fullscreen notification (incoming) | `TODO` | - | - | - | Requer BroadcastReceiver | 12.3.2 |
 | **12.4 - Desktop UI** ||||||||
 | 12.4.1 | Implementar CallView (React) | `TODO` | - | - | - | - | 7.2.4 |
 | 12.4.2 | Implementar IncomingCallModal | `TODO` | - | - | - | - | 12.4.1 |
@@ -1598,14 +1598,20 @@ Perguntar aos beta testers: **"Você usaria MePassa como seu chat principal?"**
 - ✅ `voip_integration.rs` (388 linhas) - 5 testes passando
 - ✅ Codec tests: 9 testes unitários (encoding, decoding, FEC)
 
-**🚧 TODO (40% - UI + Testes Reais):**
+**Android UI (4 arquivos, ~557 LoC):**
+- ✅ `MePassaClientWrapper.kt` (+106 linhas) - 6 métodos VoIP (startCall, acceptCall, etc.)
+- ✅ `CallScreen.kt` (206 linhas) - Tela de chamada ativa com timer e botões (mute, hangup, speaker)
+- ✅ `IncomingCallScreen.kt` (189 linhas) - Tela fullscreen com animação e botões (aceitar/rejeitar)
+- ✅ `MePassaNavHost.kt` (+56 linhas) - 2 rotas: incoming_call, active_call
+
+**🚧 TODO (30% - Desktop UI + Testes Reais):**
 - 🔲 12.2.2-12.2.4: Echo cancellation, noise suppression, adaptive bitrate
-- 🔲 12.3.1-12.3.5: Android UI (CallScreen, IncomingCallScreen, botões)
+- 🔲 12.3.5: Fullscreen notification (BroadcastReceiver)
 - 🔲 12.4.1-12.4.2: Desktop UI (CallView, IncomingCallModal)
 - 🔲 12.5.1-12.5.3: Background service, Bluetooth, histórico
 - 🔲 12.6.1-12.6.5: Testes críticos (latência P2P ~50ms, TURN ~200ms, MOS >4.0)
 
-**Próximo Passo:** 🎯 **Android CallScreen** (12.3.1) - UI para iniciar/receber chamadas
+**Próximo Passo:** 🎯 **Botão Call no ChatScreen** + **Permissões RECORD_AUDIO** + **Teste Real**
 
 ---
 
