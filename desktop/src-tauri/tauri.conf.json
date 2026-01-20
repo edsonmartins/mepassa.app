@@ -1,0 +1,82 @@
+{
+  "$schema": "https://schema.tauri.app/config/2.0",
+  "productName": "MePassa",
+  "version": "0.1.0",
+  "identifier": "com.integralltech.mepassa",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "MePassa",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "transparent": false,
+        "center": true,
+        "hiddenTitle": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:"
+    },
+    "trayIcon": {
+      "iconPath": "icons/icon.png",
+      "menuOnLeftClick": false,
+      "tooltip": "MePassa"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["dmg", "appimage", "msi"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "identifier": "com.integralltech.mepassa",
+    "publisher": "IntegrallTech",
+    "copyright": "Copyright © 2025 IntegrallTech",
+    "category": "Network",
+    "shortDescription": "Hybrid P2P messaging app",
+    "longDescription": "MePassa is a hybrid P2P + Server messaging platform with E2E encryption, VoIP calls, and self-hosting support.",
+    "resources": [],
+    "externalBin": [],
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "entitlements": null,
+      "exceptionDomain": ""
+    },
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": ""
+    },
+    "linux": {
+      "deb": {
+        "depends": []
+      },
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    }
+  },
+  "plugins": {
+    "shell": {
+      "open": true
+    },
+    "notification": {
+      "all": true
+    }
+  }
+}
