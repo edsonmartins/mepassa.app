@@ -3,16 +3,22 @@
 //! Implements P2P networking using libp2p (Kademlia DHT, GossipSub, Relay).
 
 pub mod behaviour;
+pub mod connection;
 pub mod messaging;
+pub mod nat_detection;
+pub mod relay;
+pub mod retry;
 pub mod swarm;
 pub mod transport;
 // pub mod dht;
 // pub mod gossip;
-// pub mod relay;
-// pub mod nat;
 
 pub use behaviour::MePassaBehaviour;
+pub use connection::{ConnectionManager, ConnectionState, ConnectionStrategy, ConnectionType};
 pub use messaging::MePassaCodec;
+pub use nat_detection::{ConnectionStrategy as NatConnectionStrategy, NatDetector, NatType};
+pub use relay::{RelayManager, ReservationStatus};
+pub use retry::RetryPolicy;
 pub use swarm::NetworkManager;
 
 use thiserror::Error;

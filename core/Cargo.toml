@@ -44,9 +44,11 @@ hex = { workspace = true }
 # CRDTs for sync - TODO: implementar depois
 # automerge = "0.5"
 
-# WebRTC for VoIP - TODO: implementar depois
-# webrtc = "0.9"
-# opus = "0.3"
+# WebRTC for VoIP (FASE 12)
+webrtc = { workspace = true }
+interceptor = { workspace = true }
+opus = { workspace = true }
+cpal = { workspace = true }
 
 # Additional dependencies
 bs58 = { workspace = true }

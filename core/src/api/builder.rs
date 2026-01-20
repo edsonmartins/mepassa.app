@@ -11,7 +11,10 @@ use crate::{
     network::NetworkManager,
     storage::{Database, migrate, needs_migration},
     utils::error::{MePassaError, Result},
+    voip::{CallManager, VoIPIntegration},
 };
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 /// Builder for creating a MePassa client
 pub struct ClientBuilder {
@@ -103,6 +106,7 @@ impl ClientBuilder {
 
         // Create network manager
         let network = NetworkManager::new(keypair)?;
+        let network_arc = Arc::new(RwLock::new(network));
 
         // Add bootstrap peers to DHT (if any)
         if !self.bootstrap_peers.is_empty() {
@@ -111,8 +115,23 @@ impl ClientBuilder {
             tracing::info!("Configured {} bootstrap peers", self.bootstrap_peers.len());
         }
 
-        // Create client
-        let client = Client::new(peer_id, identity, network, database, data_dir);
+        // Create VoIP components
+        let call_manager = Arc::new(CallManager::new());
+        let voip_integration = Arc::new(VoIPIntegration::new(
+            Arc::clone(&network_arc),
+            Arc::clone(&call_manager),
+        ));
+
+        // Create client (keep network as Arc since it's shared with VoIPIntegration)
+        let client = Client::new(
+            peer_id,
+            identity,
+            network_arc,
+            database,
+            data_dir,
+            call_manager,
+            voip_integration,
+        );
 
         Ok(client)
     }

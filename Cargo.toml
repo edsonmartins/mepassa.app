@@ -9,6 +9,7 @@ members = [
     "server/identity",
     "server/store",
     "server/push",
+    "server/turn-credentials",
 ]
 
 [workspace.package]
@@ -88,7 +89,7 @@ actix-cors = "0.7"
 reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"] }
 
 # Database (servidores)
-sqlx = { version = "0.7", features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "chrono"] }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "chrono", "macros"] }
 tokio-postgres = "0.7"
 deadpool-postgres = "0.12"
 redis = { version = "0.24", features = ["tokio-comp", "connection-manager"] }
@@ -96,6 +97,12 @@ redis = { version = "0.24", features = ["tokio-comp", "connection-manager"] }
 # Additional utils
 bs58 = "0.5"
 async-trait = "0.1"
+
+# WebRTC (FASE 12 - VoIP)
+webrtc = "0.11"
+interceptor = "0.12"  # WebRTC interceptors (RTCP, NACK, etc.)
+opus = "0.3"
+cpal = "0.15"  # Cross-platform audio I/O
 
 [profile.release]
 opt-level = 3

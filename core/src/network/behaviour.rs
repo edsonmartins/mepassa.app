@@ -6,15 +6,17 @@
 //! - Identify (peer information exchange)
 //! - Ping (keep-alive)
 //! - GossipSub (will be used for group messaging)
+//! - VoIP Signaling (WebRTC signaling over P2P)
 
 use libp2p::{
-    gossipsub, identify, kad, mdns, ping, request_response, PeerId, StreamProtocol,
+    dcutr, gossipsub, identify, kad, mdns, ping, relay, request_response, PeerId, StreamProtocol,
 };
 use libp2p::swarm::NetworkBehaviour;
 use std::time::Duration;
 
 use super::messaging::MePassaCodec;
 use crate::utils::error::MePassaError;
+use crate::voip::signaling::SignalingCodec;
 
 /// MePassa network behaviour
 #[derive(NetworkBehaviour)]
@@ -31,6 +33,10 @@ pub struct MePassaBehaviour {
     pub gossipsub: gossipsub::Behaviour,
     /// Request/Response for direct messaging
     pub request_response: request_response::Behaviour<MePassaCodec>,
+    /// Request/Response for VoIP signaling (WebRTC)
+    pub voip_signaling: request_response::Behaviour<SignalingCodec>,
+    /// DCUtR for hole punching (requires relay transport)
+    pub dcutr: dcutr::Behaviour,
 }
 
 impl MePassaBehaviour {
@@ -90,6 +96,21 @@ impl MePassaBehaviour {
             request_response::Config::default(),
         );
 
+        // Request/Response for VoIP signaling (WebRTC)
+        let voip_protocols = std::iter::once((
+            StreamProtocol::new("/mepassa/voip/1.0.0"),
+            request_response::ProtocolSupport::Full,
+        ));
+        let voip_signaling = request_response::Behaviour::with_codec(
+            SignalingCodec,
+            voip_protocols,
+            request_response::Config::default(),
+        );
+
+        // DCUtR for hole punching
+        // Note: Relay functionality is integrated at transport level in libp2p 0.53
+        let dcutr = dcutr::Behaviour::new(local_peer_id);
+
         Ok(Self {
             kademlia,
             mdns,
@@ -97,6 +118,8 @@ impl MePassaBehaviour {
             ping,
             gossipsub,
             request_response,
+            voip_signaling,
+            dcutr,
         })
     }
 }

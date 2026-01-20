@@ -11,18 +11,35 @@ use futures::stream::StreamExt;
 use std::time::Duration;
 use tokio::select;
 
-use super::{behaviour::MePassaBehaviour, transport::build_transport};
+use super::{
+    behaviour::MePassaBehaviour,
+    connection::{ConnectionManager, ConnectionType},
+    relay::RelayManager,
+    retry::RetryPolicy,
+    transport::build_transport,
+};
 use crate::utils::error::{MePassaError, Result};
 
 /// P2P Network Manager
 pub struct NetworkManager {
     swarm: Swarm<MePassaBehaviour>,
     local_peer_id: PeerId,
+    connection_manager: ConnectionManager,
+    relay_manager: RelayManager,
 }
 
 impl NetworkManager {
     /// Create a new network manager
     pub fn new(keypair: Keypair) -> Result<Self> {
+        Self::with_relay(keypair, None, None)
+    }
+
+    /// Create a new network manager with optional relay configuration
+    pub fn with_relay(
+        keypair: Keypair,
+        bootstrap_relay_peer: Option<PeerId>,
+        relay_addr: Option<Multiaddr>,
+    ) -> Result<Self> {
         let local_peer_id = PeerId::from(keypair.public());
 
         // Build transport
@@ -40,9 +57,17 @@ impl NetworkManager {
                 .with_idle_connection_timeout(Duration::from_secs(60)),
         );
 
+        // Create connection manager with default retry policy
+        let connection_manager = ConnectionManager::new(RetryPolicy::default());
+
+        // Create relay manager
+        let relay_manager = RelayManager::new(bootstrap_relay_peer, relay_addr);
+
         Ok(Self {
             swarm,
             local_peer_id,
+            connection_manager,
+            relay_manager,
         })
     }
 
@@ -60,13 +85,49 @@ impl NetworkManager {
         Ok(())
     }
 
-    /// Dial a peer
+    /// Dial a peer with automatic relay fallback
     pub fn dial(&mut self, peer_id: PeerId, addr: Multiaddr) -> Result<()> {
-        self.swarm
-            .dial(addr)
-            .map_err(|e| MePassaError::Network(format!("Failed to dial {}: {}", peer_id, e)))?;
+        // Check if we should try relay based on connection history
+        if self.connection_manager.should_try_relay(&peer_id) {
+            tracing::info!("🔄 Attempting relay connection to {}", peer_id);
+            return self.dial_via_relay(peer_id);
+        }
 
-        Ok(())
+        // Try direct connection first
+        tracing::debug!("📞 Attempting direct connection to {} at {}", peer_id, addr);
+        match self.swarm.dial(addr.clone()) {
+            Ok(_) => {
+                // Connection initiated, will track result in events
+                Ok(())
+            }
+            Err(e) => {
+                tracing::warn!("⚠️ Direct dial failed to {}: {}", peer_id, e);
+                self.connection_manager.record_failure(peer_id);
+
+                // Try relay if available and we should fallback
+                if self.connection_manager.should_try_relay(&peer_id) {
+                    tracing::info!("🔄 Falling back to relay for {}", peer_id);
+                    self.dial_via_relay(peer_id)
+                } else {
+                    Err(MePassaError::Network(format!("Failed to dial {}: {}", peer_id, e)))
+                }
+            }
+        }
+    }
+
+    /// Dial a peer via relay
+    fn dial_via_relay(&mut self, peer_id: PeerId) -> Result<()> {
+        if let Some(circuit_addr) = self.relay_manager.circuit_addr(&peer_id) {
+            tracing::info!("🌉 Dialing {} via relay circuit", peer_id);
+            self.swarm
+                .dial(circuit_addr)
+                .map_err(|e| MePassaError::Network(format!("Failed to dial via relay: {}", e)))?;
+            Ok(())
+        } else {
+            Err(MePassaError::Network(
+                "No relay configuration available".to_string(),
+            ))
+        }
     }
 
     /// Add a peer to the DHT
@@ -91,6 +152,43 @@ impl NetworkManager {
     /// Get connected peers count
     pub fn connected_peers(&self) -> usize {
         self.swarm.connected_peers().count()
+    }
+
+    /// Get connection state for a peer
+    pub fn connection_state(
+        &self,
+        peer_id: &PeerId,
+    ) -> super::connection::ConnectionState {
+        self.connection_manager.get_state(peer_id)
+    }
+
+    /// Check if relay is available
+    pub fn has_relay(&self) -> bool {
+        self.relay_manager.has_reservation()
+    }
+
+    /// Attempt to reserve relay slot
+    pub fn reserve_relay_slot(&mut self) -> Result<()> {
+        if let Some(relay_peer) = self.relay_manager.bootstrap_relay_peer {
+            if let Some(relay_addr) = &self.relay_manager.relay_addr {
+                tracing::info!("🔗 Requesting relay reservation from {}", relay_peer);
+
+                // Connect to relay first if not connected
+                self.add_peer_to_dht(relay_peer, relay_addr.clone());
+
+                // Mark reservation as pending
+                // Note: In libp2p 0.53, relay reservation is handled at transport level
+                // We're marking it here for state tracking
+                // TODO: Integrate with actual relay transport API
+                tracing::warn!("⚠️ Relay reservation requires transport-level integration (libp2p 0.53)");
+
+                Ok(())
+            } else {
+                Err(MePassaError::Network("No relay address configured".to_string()))
+            }
+        } else {
+            Err(MePassaError::Network("No relay peer configured".to_string()))
+        }
     }
 
     /// Send a message to a peer
@@ -120,6 +218,37 @@ impl NetworkManager {
         Ok(())
     }
 
+    /// Send a VoIP signaling message to a peer
+    pub fn send_voip_signal(
+        &mut self,
+        peer_id: PeerId,
+        signal: crate::voip::signaling::SignalingMessage,
+    ) -> Result<()> {
+        let request_id = self
+            .swarm
+            .behaviour_mut()
+            .voip_signaling
+            .send_request(&peer_id, signal.clone());
+
+        tracing::info!("📞 Sent VoIP signal to {} (request_id: {:?}): {:?}", peer_id, request_id, signal);
+        Ok(())
+    }
+
+    /// Send a VoIP signaling response to a peer
+    pub fn send_voip_response(
+        &mut self,
+        channel: libp2p::request_response::ResponseChannel<crate::voip::signaling::SignalingMessage>,
+        response: crate::voip::signaling::SignalingMessage,
+    ) -> Result<()> {
+        self.swarm
+            .behaviour_mut()
+            .voip_signaling
+            .send_response(channel, response)
+            .map_err(|e| MePassaError::Network(format!("Failed to send VoIP response: {:?}", e)))?;
+
+        Ok(())
+    }
+
     /// Run the event loop (blocking)
     pub async fn run(&mut self) -> Result<()> {
         loop {
@@ -140,7 +269,19 @@ impl NetworkManager {
             SwarmEvent::ConnectionEstablished {
                 peer_id, endpoint, ..
             } => {
-                tracing::info!("Connected to {} at {}", peer_id, endpoint.get_remote_address());
+                let addr = endpoint.get_remote_address();
+                tracing::info!("✅ Connected to {} at {}", peer_id, addr);
+
+                // Determine connection type and record success
+                let connection_type = if addr.to_string().contains("p2p-circuit") {
+                    ConnectionType::Relayed
+                } else {
+                    // TODO: Detect if connection was upgraded via DCUtR
+                    ConnectionType::Direct
+                };
+
+                self.connection_manager
+                    .record_success(peer_id, connection_type);
             }
             SwarmEvent::ConnectionClosed {
                 peer_id, cause, ..
@@ -246,6 +387,84 @@ impl NetworkManager {
                         tracing::debug!("Response sent to {} (request_id: {:?})", peer, request_id);
                     }
                 }
+            }
+            MePassaBehaviourEvent::VoipSignaling(voip_event) => {
+                match voip_event {
+                    libp2p::request_response::Event::Message { peer, message } => {
+                        match message {
+                            libp2p::request_response::Message::Request {
+                                request_id,
+                                request,
+                                channel,
+                            } => {
+                                tracing::info!(
+                                    "📞 Received VoIP signal from {}: {:?} (request_id: {:?})",
+                                    peer,
+                                    request,
+                                    request_id
+                                );
+                                // TODO: Forward to CallManager via event channel (FASE 12)
+                                // For now, send automatic ACK
+                                let ack = crate::voip::signaling::SignalingMessage::CallAccept {
+                                    call_id: "temp".to_string(),
+                                };
+                                let _ = self.send_voip_response(channel, ack);
+                            }
+                            libp2p::request_response::Message::Response {
+                                request_id,
+                                response,
+                            } => {
+                                tracing::info!(
+                                    "📞 Received VoIP response from {}: {:?} (request_id: {:?})",
+                                    peer,
+                                    response,
+                                    request_id
+                                );
+                                // TODO: Forward to CallManager (FASE 12)
+                            }
+                        }
+                    }
+                    libp2p::request_response::Event::OutboundFailure {
+                        peer,
+                        request_id,
+                        error,
+                    } => {
+                        tracing::warn!(
+                            "📞 VoIP signal outbound failed to {}: {:?} (request_id: {:?})",
+                            peer,
+                            error,
+                            request_id
+                        );
+                        // TODO: Notify CallManager of failure (FASE 12)
+                    }
+                    libp2p::request_response::Event::InboundFailure {
+                        peer,
+                        request_id,
+                        error,
+                    } => {
+                        tracing::warn!(
+                            "📞 VoIP signal inbound failed from {}: {:?} (request_id: {:?})",
+                            peer,
+                            error,
+                            request_id
+                        );
+                    }
+                    libp2p::request_response::Event::ResponseSent { peer, request_id } => {
+                        tracing::debug!("📞 VoIP response sent to {} (request_id: {:?})", peer, request_id);
+                    }
+                }
+            }
+            MePassaBehaviourEvent::Dcutr(dcutr_event) => {
+                // DCUtR hole punching events
+                // Note: Event structure varies in libp2p 0.53, using debug for now
+                // TODO: Pattern match specific events when API is stable:
+                //   - RemoteInitiatedDirectConnectionUpgrade
+                //   - DirectConnectionUpgradeSucceeded
+                //   - DirectConnectionUpgradeFailed
+                tracing::debug!("🎯 DCUtR event: {:?}", dcutr_event);
+
+                // If this is a successful upgrade event, we'd update connection type to HolePunch
+                // self.connection_manager.record_success(peer_id, ConnectionType::HolePunch);
             }
         }
 

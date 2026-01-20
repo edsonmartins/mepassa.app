@@ -74,6 +74,32 @@ enum ClientCommand {
     Bootstrap {
         response: oneshot::Sender<Result<(), MePassaFfiError>>,
     },
+    // VoIP commands
+    StartCall {
+        to_peer_id: String,
+        response: oneshot::Sender<Result<String, MePassaFfiError>>,
+    },
+    AcceptCall {
+        call_id: String,
+        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+    },
+    RejectCall {
+        call_id: String,
+        reason: Option<String>,
+        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+    },
+    HangupCall {
+        call_id: String,
+        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+    },
+    ToggleMute {
+        call_id: String,
+        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+    },
+    ToggleSpeakerphone {
+        call_id: String,
+        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+    },
 }
 
 /// Run the client task (processes commands)
@@ -153,6 +179,40 @@ async fn run_client_task(mut receiver: mpsc::UnboundedReceiver<ClientCommand>, c
             }
             ClientCommand::Bootstrap { response } => {
                 let result = client.bootstrap().await.map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            ClientCommand::StartCall {
+                to_peer_id,
+                response,
+            } => {
+                let result = client.start_call(to_peer_id).await.map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            ClientCommand::AcceptCall { call_id, response } => {
+                let result = client.accept_call(call_id).await.map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            ClientCommand::RejectCall {
+                call_id,
+                reason,
+                response,
+            } => {
+                let result = client.reject_call(call_id, reason).await.map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            ClientCommand::HangupCall { call_id, response } => {
+                let result = client.hangup_call(call_id).await.map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            ClientCommand::ToggleMute { call_id, response } => {
+                let result = client.toggle_mute(call_id).await.map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            ClientCommand::ToggleSpeakerphone { call_id, response } => {
+                let result = client
+                    .toggle_speakerphone(call_id)
+                    .await
+                    .map_err(|e| e.into());
                 let _ = response.send(result);
             }
         }
@@ -405,4 +465,119 @@ impl MePassaClient {
             message: "Failed to receive response".to_string(),
         })?
     }
+
+    // ========== VoIP Methods ==========
+
+    /// Start a voice call to a peer
+    pub async fn start_call(&self, to_peer_id: String) -> Result<String, MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::StartCall {
+                to_peer_id,
+                response: tx,
+            })
+            .map_err(|_| MePassaFfiError::Other {
+                message: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| MePassaFfiError::Other {
+            message: "Failed to receive response".to_string(),
+        })?
+    }
+
+    /// Accept an incoming call
+    pub async fn accept_call(&self, call_id: String) -> Result<(), MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::AcceptCall {
+                call_id,
+                response: tx,
+            })
+            .map_err(|_| MePassaFfiError::Other {
+                message: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| MePassaFfiError::Other {
+            message: "Failed to receive response".to_string(),
+        })?
+    }
+
+    /// Reject an incoming call
+    pub async fn reject_call(&self, call_id: String, reason: Option<String>) -> Result<(), MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::RejectCall {
+                call_id,
+                reason,
+                response: tx,
+            })
+            .map_err(|_| MePassaFfiError::Other {
+                message: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| MePassaFfiError::Other {
+            message: "Failed to receive response".to_string(),
+        })?
+    }
+
+    /// Hang up an active call
+    pub async fn hangup_call(&self, call_id: String) -> Result<(), MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::HangupCall {
+                call_id,
+                response: tx,
+            })
+            .map_err(|_| MePassaFfiError::Other {
+                message: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| MePassaFfiError::Other {
+            message: "Failed to receive response".to_string(),
+        })?
+    }
+
+    /// Toggle audio mute
+    pub async fn toggle_mute(&self, call_id: String) -> Result<(), MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::ToggleMute {
+                call_id,
+                response: tx,
+            })
+            .map_err(|_| MePassaFfiError::Other {
+                message: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| MePassaFfiError::Other {
+            message: "Failed to receive response".to_string(),
+        })?
+    }
+
+    /// Toggle speakerphone
+    pub async fn toggle_speakerphone(&self, call_id: String) -> Result<(), MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::ToggleSpeakerphone {
+                call_id,
+                response: tx,
+            })
+            .map_err(|_| MePassaFfiError::Other {
+                message: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| MePassaFfiError::Other {
+            message: "Failed to receive response".to_string(),
+        })?
+    }
+
+    // TODO: Re-enable when enum types are fixed
+    // pub fn get_current_call(&self) -> Result<Option<FfiCall>, MePassaFfiError>
+    // pub fn get_call_stats(&self, _call_id: String) -> Result<Option<FfiCallStats>, MePassaFfiError>
 }

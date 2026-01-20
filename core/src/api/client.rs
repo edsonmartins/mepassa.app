@@ -14,6 +14,7 @@ use crate::{
     protocol::{pb::message::Payload, Message, MessageType, TextMessage},
     storage::{Database, NewMessage, MessageStatus},
     utils::error::{MePassaError, Result},
+    voip::{CallManager, VoIPIntegration},
 };
 
 /// MePassa Client
@@ -32,6 +33,10 @@ pub struct Client {
     callbacks: Arc<RwLock<Vec<Box<dyn EventCallback>>>>,
     /// Data directory
     data_dir: PathBuf,
+    /// Call manager (VoIP)
+    call_manager: Arc<CallManager>,
+    /// VoIP integration (network ↔ calls)
+    voip_integration: Arc<VoIPIntegration>,
 }
 
 impl Client {
@@ -39,17 +44,21 @@ impl Client {
     pub(crate) fn new(
         peer_id: PeerId,
         identity: Identity,
-        network: NetworkManager,
+        network: Arc<RwLock<NetworkManager>>,
         database: Database,
         data_dir: PathBuf,
+        call_manager: Arc<CallManager>,
+        voip_integration: Arc<VoIPIntegration>,
     ) -> Self {
         Self {
             peer_id,
             identity,
-            network: Arc::new(RwLock::new(network)),
+            network,
             database,
             callbacks: Arc::new(RwLock::new(Vec::new())),
             data_dir,
+            call_manager,
+            voip_integration,
         }
     }
 
@@ -208,6 +217,54 @@ impl Client {
     pub async fn bootstrap(&self) -> Result<()> {
         let mut network = self.network.write().await;
         network.bootstrap()
+    }
+
+    // === VoIP Methods ===
+
+    /// Start a voice call to a peer
+    pub async fn start_call(&self, to_peer_id: String) -> Result<String> {
+        self.voip_integration
+            .start_call(to_peer_id)
+            .await
+            .map_err(|e| MePassaError::Other(format!("VoIP error: {}", e)))
+    }
+
+    /// Accept an incoming call
+    pub async fn accept_call(&self, call_id: String) -> Result<()> {
+        self.voip_integration
+            .accept_call(call_id)
+            .await
+            .map_err(|e| MePassaError::Other(format!("VoIP error: {}", e)))
+    }
+
+    /// Reject an incoming call
+    pub async fn reject_call(&self, call_id: String, reason: Option<String>) -> Result<()> {
+        self.voip_integration
+            .reject_call(call_id, reason)
+            .await
+            .map_err(|e| MePassaError::Other(format!("VoIP error: {}", e)))
+    }
+
+    /// Hang up an active call
+    pub async fn hangup_call(&self, call_id: String) -> Result<()> {
+        self.voip_integration
+            .hangup_call(call_id)
+            .await
+            .map_err(|e| MePassaError::Other(format!("VoIP error: {}", e)))
+    }
+
+    /// Toggle audio mute for a call
+    pub async fn toggle_mute(&self, call_id: String) -> Result<()> {
+        // TODO: Implement mute toggle in CallManager
+        tracing::info!("Toggle mute for call: {}", call_id);
+        Ok(())
+    }
+
+    /// Toggle speakerphone for a call
+    pub async fn toggle_speakerphone(&self, call_id: String) -> Result<()> {
+        // TODO: Implement speakerphone toggle in CallManager
+        tracing::info!("Toggle speakerphone for call: {}", call_id);
+        Ok(())
     }
 
     // /// Run event loop (blocking)

@@ -140,3 +140,127 @@ impl From<Conversation> for FfiConversation {
         }
     }
 }
+
+// ========== VoIP Types ==========
+
+use crate::voip::{Call, CallDirection as InternalCallDirection, CallEndReason as InternalCallEndReason, CallState as InternalCallState, CallStats};
+
+/// FFI-safe call state enum
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FfiCallState {
+    Initiating,
+    Ringing,
+    Connecting,
+    Active,
+    Ending,
+    Ended,
+}
+
+impl From<InternalCallState> for FfiCallState {
+    fn from(state: InternalCallState) -> Self {
+        match state {
+            InternalCallState::Initiating => FfiCallState::Initiating,
+            InternalCallState::Ringing => FfiCallState::Ringing,
+            InternalCallState::Connecting => FfiCallState::Connecting,
+            InternalCallState::Active => FfiCallState::Active,
+            InternalCallState::Ending => FfiCallState::Ending,
+            InternalCallState::Ended { .. } => FfiCallState::Ended,
+        }
+    }
+}
+
+/// FFI-safe call direction enum
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FfiCallDirection {
+    Outgoing,
+    Incoming,
+}
+
+impl From<InternalCallDirection> for FfiCallDirection {
+    fn from(dir: InternalCallDirection) -> Self {
+        match dir {
+            InternalCallDirection::Outgoing => FfiCallDirection::Outgoing,
+            InternalCallDirection::Incoming => FfiCallDirection::Incoming,
+        }
+    }
+}
+
+/// FFI-safe call end reason enum
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FfiCallEndReason {
+    Hangup,
+    Rejected,
+    LocalHangup,
+    RemoteHangup,
+    ConnectionFailed,
+    Timeout,
+    NetworkError,
+}
+
+impl From<InternalCallEndReason> for FfiCallEndReason {
+    fn from(reason: InternalCallEndReason) -> Self {
+        match reason {
+            InternalCallEndReason::Hangup => FfiCallEndReason::Hangup,
+            InternalCallEndReason::Rejected => FfiCallEndReason::Rejected,
+            InternalCallEndReason::LocalHangup => FfiCallEndReason::LocalHangup,
+            InternalCallEndReason::RemoteHangup => FfiCallEndReason::RemoteHangup,
+            InternalCallEndReason::ConnectionFailed => FfiCallEndReason::ConnectionFailed,
+            InternalCallEndReason::Timeout => FfiCallEndReason::Timeout,
+            InternalCallEndReason::NetworkError => FfiCallEndReason::NetworkError,
+        }
+    }
+}
+
+/// FFI-safe call record
+#[derive(Debug, Clone)]
+pub struct FfiCall {
+    pub id: String,
+    pub remote_peer_id: String,
+    pub direction: FfiCallDirection,
+    pub state: FfiCallState,
+    pub started_at: i64,
+    pub connected_at: Option<i64>,
+    pub ended_at: Option<i64>,
+    pub audio_muted: bool,
+    pub speakerphone: bool,
+}
+
+impl From<Call> for FfiCall {
+    fn from(call: Call) -> Self {
+        Self {
+            id: call.id,
+            remote_peer_id: call.remote_peer_id,
+            direction: call.direction.into(),
+            state: call.state.into(),
+            started_at: call.started_at.timestamp(),
+            connected_at: call.connected_at.map(|t| t.timestamp()),
+            ended_at: call.ended_at.map(|t| t.timestamp()),
+            audio_muted: call.audio_muted,
+            speakerphone: call.speakerphone,
+        }
+    }
+}
+
+/// FFI-safe call statistics
+#[derive(Debug, Clone)]
+pub struct FfiCallStats {
+    pub avg_rtt_ms: u32,
+    pub packets_sent: u64,
+    pub packets_received: u64,
+    pub packets_lost: u64,
+    pub jitter_ms: u32,
+    pub audio_bitrate_kbps: u32,
+}
+
+impl From<CallStats> for FfiCallStats {
+    fn from(stats: CallStats) -> Self {
+        Self {
+            avg_rtt_ms: stats.avg_rtt_ms,
+            packets_sent: stats.packets_sent,
+            packets_received: stats.packets_received,
+            packets_lost: stats.packets_lost,
+            jitter_ms: stats.jitter_ms,
+            audio_bitrate_kbps: stats.audio_bitrate_kbps,
+        }
+    }
+}

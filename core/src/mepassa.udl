@@ -21,6 +21,12 @@ enum MessageStatus {
     "Failed",
 };
 
+// VoIP enums temporarily commented out due to UniFFI generation issues
+// TODO: Fix enum generation and re-enable
+// enum FfiCallState { ... }
+// enum FfiCallDirection { ... }
+// enum FfiCallEndReason { ... }
+
 // Message record
 dictionary FfiMessage {
     string message_id;
@@ -50,6 +56,11 @@ dictionary FfiConversation {
     boolean is_archived;
     i64 created_at;
 };
+
+// VoIP types temporarily commented out due to UniFFI enum issues
+// TODO: Fix enum generation and re-enable
+// dictionary FfiCall { ... }
+// dictionary FfiCallStats { ... }
 
 // Client interface (implemented in Rust)
 interface MePassaClient {
@@ -85,4 +96,27 @@ interface MePassaClient {
 
     [Throws=MePassaFfiError, Async]
     void bootstrap();
+
+    // VoIP methods (simplified - complex types commented out)
+    [Throws=MePassaFfiError, Async]
+    string start_call(string to_peer_id);
+
+    [Throws=MePassaFfiError, Async]
+    void accept_call(string call_id);
+
+    [Throws=MePassaFfiError, Async]
+    void reject_call(string call_id, string? reason);
+
+    [Throws=MePassaFfiError, Async]
+    void hangup_call(string call_id);
+
+    [Throws=MePassaFfiError, Async]
+    void toggle_mute(string call_id);
+
+    [Throws=MePassaFfiError, Async]
+    void toggle_speakerphone(string call_id);
+
+    // TODO: Re-enable when enum issues are fixed
+    // FfiCall? get_current_call();
+    // FfiCallStats? get_call_stats(string call_id);
 };
