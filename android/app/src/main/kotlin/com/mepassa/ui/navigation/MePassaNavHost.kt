@@ -7,6 +7,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.mepassa.ui.screens.call.CallScreen
+import com.mepassa.ui.screens.call.IncomingCallScreen
 import com.mepassa.ui.screens.chat.ChatScreen
 import com.mepassa.ui.screens.conversations.ConversationsScreen
 import com.mepassa.ui.screens.onboarding.OnboardingScreen
@@ -19,6 +21,12 @@ sealed class Screen(val route: String) {
     object Conversations : Screen("conversations")
     object Chat : Screen("chat/{peerId}") {
         fun createRoute(peerId: String) = "chat/$peerId"
+    }
+    object IncomingCall : Screen("incoming_call/{callId}/{callerPeerId}") {
+        fun createRoute(callId: String, callerPeerId: String) = "incoming_call/$callId/$callerPeerId"
+    }
+    object ActiveCall : Screen("active_call/{callId}/{remotePeerId}") {
+        fun createRoute(callId: String, remotePeerId: String) = "active_call/$callId/$remotePeerId"
     }
 }
 
@@ -80,6 +88,54 @@ fun MePassaNavHost(
                 peerId = peerId,
                 onNavigateBack = {
                     navController.popBackStack()
+                }
+            )
+        }
+
+        // Incoming Call (chamada recebida - fullscreen)
+        composable(
+            route = Screen.IncomingCall.route,
+            arguments = listOf(
+                navArgument("callId") { type = NavType.StringType },
+                navArgument("callerPeerId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val callId = backStackEntry.arguments?.getString("callId") ?: return@composable
+            val callerPeerId = backStackEntry.arguments?.getString("callerPeerId") ?: return@composable
+
+            IncomingCallScreen(
+                callId = callId,
+                callerPeerId = callerPeerId,
+                onAccept = {
+                    // Navegar para ActiveCall e remover IncomingCall da pilha
+                    navController.navigate(Screen.ActiveCall.createRoute(callId, callerPeerId)) {
+                        popUpTo(Screen.IncomingCall.route) { inclusive = true }
+                    }
+                },
+                onReject = {
+                    // Voltar para tela anterior
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // Active Call (chamada ativa)
+        composable(
+            route = Screen.ActiveCall.route,
+            arguments = listOf(
+                navArgument("callId") { type = NavType.StringType },
+                navArgument("remotePeerId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val callId = backStackEntry.arguments?.getString("callId") ?: return@composable
+            val remotePeerId = backStackEntry.arguments?.getString("remotePeerId") ?: return@composable
+
+            CallScreen(
+                callId = callId,
+                remotePeerId = remotePeerId,
+                onCallEnded = {
+                    // Voltar para Conversations
+                    navController.popBackStack(Screen.Conversations.route, inclusive = false)
                 }
             )
         }

@@ -200,6 +200,112 @@ object MePassaClientWrapper {
         }
     }
 
+    // ========== VoIP Methods ==========
+
+    /**
+     * Inicia uma chamada de voz para um peer
+     *
+     * @param toPeerId ID do peer de destino
+     * @return Result com call_id se sucesso, ou Exception se falha
+     */
+    suspend fun startCall(toPeerId: String): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val callId = getClient().startCall(toPeerId)
+            Log.i(TAG, "Call started successfully: $callId")
+            Result.success(callId)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start call", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Aceita uma chamada recebida
+     *
+     * @param callId ID da chamada
+     * @return true se sucesso
+     */
+    suspend fun acceptCall(callId: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            getClient().acceptCall(callId)
+            Log.i(TAG, "Call accepted: $callId")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to accept call", e)
+            false
+        }
+    }
+
+    /**
+     * Rejeita uma chamada recebida
+     *
+     * @param callId ID da chamada
+     * @param reason Motivo da rejeição (opcional)
+     * @return true se sucesso
+     */
+    suspend fun rejectCall(callId: String, reason: String? = null): Boolean =
+        withContext(Dispatchers.IO) {
+            try {
+                getClient().rejectCall(callId, reason)
+                Log.i(TAG, "Call rejected: $callId")
+                true
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to reject call", e)
+                false
+            }
+        }
+
+    /**
+     * Encerra uma chamada ativa
+     *
+     * @param callId ID da chamada
+     * @return true se sucesso
+     */
+    suspend fun hangupCall(callId: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            getClient().hangupCall(callId)
+            Log.i(TAG, "Call hung up: $callId")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to hangup call", e)
+            false
+        }
+    }
+
+    /**
+     * Alterna mute do microfone
+     *
+     * @param callId ID da chamada
+     * @return true se sucesso
+     */
+    suspend fun toggleMute(callId: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            getClient().toggleMute(callId)
+            Log.i(TAG, "Mute toggled for call: $callId")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to toggle mute", e)
+            false
+        }
+    }
+
+    /**
+     * Alterna speakerphone
+     *
+     * @param callId ID da chamada
+     * @return true se sucesso
+     */
+    suspend fun toggleSpeakerphone(callId: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            getClient().toggleSpeakerphone(callId)
+            Log.i(TAG, "Speakerphone toggled for call: $callId")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to toggle speakerphone", e)
+            false
+        }
+    }
+
     /**
      * Shutdown do client (chame no onDestroy da Application)
      */
