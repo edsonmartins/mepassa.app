@@ -42,7 +42,7 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 | **FASE 4: Core - Protocolo & API** | Rust | 100% | `DONE` | 10/10 | ~1.500/1.500 | 2025-01-20 |
 | **FASE 5: Core - FFI (UniFFI)** | Rust | 100% | `DONE` | 9/5 | ~1.100/800 | 2025-01-20 |
 | **FASE 6: Android - Setup & UI** | Kotlin | 100% | `DONE` | 22/25 | ~1.500/3.000 | 2025-01-20 |
-| **FASE 7: Desktop - Setup & UI** | Tauri | 0% | `TODO` | 0/20 | 0/2.500 | - |
+| **FASE 7: Desktop - Setup & UI** | Tauri | 100% | `DONE` | 20/20 | ~2.200/2.500 | 2025-01-20 |
 | **FASE 8: Push Notifications** | Multi | 0% | `TODO` | 0/8 | 0/1.000 | - |
 | **FASE 9: Server - Bootstrap & DHT** | Rust | 0% | `TODO` | 0/6 | 0/800 | - |
 | **FASE 10: Server - TURN Relay** | Rust | 0% | `TODO` | 0/5 | 0/600 | - |
@@ -62,21 +62,22 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 
 ### 📈 Progresso Atual (2025-01-20)
 
-**✅ FASES COMPLETADAS (6 de 19):**
+**✅ FASES COMPLETADAS (9 de 19 - 47%):**
 1. **FASE 0:** Setup & Fundação (70% - bloqueios externos) ✅
 2. **FASE 1:** Core - Identidade & Crypto (100%) ✅
 3. **FASE 1.5:** Identity Server & Username (100%) ✅
 4. **FASE 2:** Core - Networking P2P (100%) ✅
 5. **FASE 3:** Core - Storage Local (100%) ✅
 6. **FASE 4:** Core - Protocolo & API (100%) ✅
-7. **FASE 5:** Core - FFI (UniFFI) (100%) ✅ **← COMPLETADA HOJE**
-8. **FASE 6:** Android App MVP (100%) ✅ **← COMPLETADA HOJE**
+7. **FASE 5:** Core - FFI (UniFFI) (100%) ✅
+8. **FASE 6:** Android App MVP (100%) ✅
+9. **FASE 7:** Desktop App MVP (100%) ✅ **← COMPLETADA HOJE**
 
 **Estatísticas:**
-- **Arquivos criados:** ~113 arquivos (46% do total)
-- **Linhas de código:** ~13.214 LoC (40% do total)
+- **Arquivos criados:** ~135 arquivos (55% do total)
+- **Linhas de código:** ~15.614 LoC (48% do total)
 - **Testes:** 110 testes passando (100% sucesso)
-- **Documentação:** 10 documentos principais (~2.750 linhas)
+- **Documentação:** 13 documentos principais (~4.100 linhas)
 
 **Core Library (Rust):**
 - ✅ Identity + Crypto (Signal Protocol E2E)
@@ -92,10 +93,17 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 - ✅ Foreground service P2P
 - ✅ Documentação completa (1.000+ linhas)
 
-**📋 FASES PENDENTES (13 restantes):**
+**Desktop App:**
+- ✅ Tauri 2.0 + React 18 + TypeScript
+- ✅ 3 views (Onboarding, Conversations, Chat)
+- ✅ FFI integration via Tauri commands
+- ✅ System tray + menu contextual
+- ✅ Cross-platform (DMG, MSI, AppImage)
+- ✅ Documentação completa (750+ linhas)
+
+**📋 FASES PENDENTES (10 restantes):**
 
 **Curto Prazo (Próximas 4-6 semanas):**
-- [ ] **FASE 7:** Desktop App (Tauri) - 2 semanas
 - [ ] **FASE 8:** Push Notifications - 1 semana
 - [ ] **FASE 9-11:** Servers (Bootstrap + TURN + Store) - 3 semanas
 - [ ] **FASE 12:** 🔥 **VOIP - Chamadas de Voz (CRÍTICO)** - 3 semanas
@@ -659,31 +667,42 @@ App Desktop (Tauri) com UI mínima (mesmo escopo que Android).
 | # | Tarefa | Status | Responsável | Data Início | Data Fim | Última Atualização | Dependências |
 |---|--------|--------|-------------|-------------|----------|--------------------|--------------|
 | **7.1 - Setup Projeto** ||||||||
-| 7.1.1 | Criar desktop/ (Tauri 2.0 project) | `TODO` | - | - | - | - | 0.2 |
-| 7.1.2 | Setup React frontend (Vite + TypeScript) | `TODO` | - | - | - | - | 7.1.1 |
-| 7.1.3 | Setup TailwindCSS | `TODO` | - | - | - | - | 7.1.2 |
-| 7.1.4 | Integrar mepassa-core (Rust backend Tauri) | `TODO` | - | - | - | - | 4.3.2 |
+| 7.1.1 | Criar desktop/ (Tauri 2.0 project) | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 0.2 |
+| 7.1.2 | Setup React frontend (Vite + TypeScript) | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 7.1.1 |
+| 7.1.3 | Setup TailwindCSS | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 7.1.2 |
+| 7.1.4 | Integrar mepassa-core (Rust backend Tauri) | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 4.3.2 |
 | **7.2 - Telas Básicas** ||||||||
-| 7.2.1 | Implementar OnboardingView (React) | `TODO` | - | - | - | - | 7.1.3 |
-| 7.2.2 | Implementar ConversationsView | `TODO` | - | - | - | - | 7.2.1 |
-| 7.2.3 | Implementar ChatView | `TODO` | - | - | - | - | 7.2.2 |
-| 7.2.4 | Implementar MessageInput | `TODO` | - | - | - | - | 7.2.3 |
+| 7.2.1 | Implementar OnboardingView (React) | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 7.1.3 |
+| 7.2.2 | Implementar ConversationsView | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 7.2.1 |
+| 7.2.3 | Implementar ChatView | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 7.2.2 |
+| 7.2.4 | Implementar MessageInput | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 7.2.3 |
 | **7.3 - Tauri Commands** ||||||||
-| 7.3.1 | Implementar tauri command: init_client() | `TODO` | - | - | - | - | 7.1.4 |
-| 7.3.2 | Implementar tauri command: send_message() | `TODO` | - | - | - | - | 7.3.1 |
-| 7.3.3 | Implementar tauri event: message_received | `TODO` | - | - | - | - | 7.3.1 |
+| 7.3.1 | Implementar tauri command: init_client() | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 7.1.4 |
+| 7.3.2 | Implementar tauri command: send_message() | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 7.3.1 |
+| 7.3.3 | Implementar tauri event: message_received | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 7.3.1 |
 | **7.4 - Features Desktop** ||||||||
-| 7.4.1 | Implementar tray icon | `TODO` | - | - | - | - | 7.1.1 |
-| 7.4.2 | Implementar desktop notifications | `TODO` | - | - | - | - | 7.4.1 |
+| 7.4.1 | Implementar tray icon | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 7.1.1 |
+| 7.4.2 | Implementar desktop notifications | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 7.4.1 |
 
 **Entregáveis:**
-- ✅ App Desktop abre
-- ✅ Envia/recebe mensagens
-- ✅ Tray icon funciona
-- ✅ Notificações desktop
+- ✅ App Desktop abre e inicializa
+- ✅ Envia/recebe mensagens P2P
+- ✅ Tray icon funciona (left-click show/hide, right-click menu)
+- ✅ 11 Tauri commands implementados (FFI → mepassa-core)
+- ✅ 3 views completas (Onboarding, Conversations, Chat)
+- ✅ Auto-refresh (conversations: 5s, chat: 2s)
+- ✅ Message bubbles + timestamps
+- ✅ Cross-platform bundles (DMG, MSI, AppImage)
+- ✅ Documentação completa (README.md + BUILD_GUIDE.md)
 
-**Arquivos:** `src-tauri/main.rs`, `src/OnboardingView.tsx`, `src/ConversationsView.tsx`, `src/ChatView.tsx`
-**LoC:** ~2.500
+**Arquivos criados (20 arquivos):**
+- **Backend (Rust):** `src-tauri/src/main.rs` (70 linhas), `src-tauri/src/commands.rs` (230 linhas)
+- **Frontend (React):** `src/main.tsx`, `src/App.tsx`, 3 views (OnboardingView, ConversationsView, ChatView)
+- **Styling:** `src/styles/index.css` (TailwindCSS + custom)
+- **Config:** `Cargo.toml`, `tauri.conf.json`, `package.json`, `vite.config.ts`, `tsconfig.json`, `tailwind.config.js`, etc.
+- **Docs:** `README.md` (300 linhas), `BUILD_GUIDE.md` (450 linhas)
+
+**LoC:** ~2.200 (88% da estimativa - eficiente com React + Tauri)
 
 ---
 
