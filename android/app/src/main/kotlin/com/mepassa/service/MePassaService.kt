@@ -7,10 +7,13 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.google.firebase.messaging.FirebaseMessaging
 import com.mepassa.R
 import com.mepassa.core.MePassaClientWrapper
+import com.mepassa.push.PushServerClient
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.tasks.await
 
 /**
  * Foreground Service para manter conexão P2P ativa
@@ -45,6 +48,7 @@ class MePassaService : Service() {
 
     private val serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var monitoringJob: Job? = null
+    private val pushClient by lazy { PushServerClient.create(applicationContext) }
 
     override fun onCreate() {
         super.onCreate()
@@ -64,6 +68,9 @@ class MePassaService : Service() {
                     return@launch
                 }
             }
+
+            // Registrar FCM token com Push Server (após client inicializado)
+            registerPushToken()
 
             // Iniciar escuta P2P
             Log.i(TAG, "Starting P2P listener")
@@ -158,6 +165,44 @@ class MePassaService : Service() {
 
                 delay(10_000) // Atualiza a cada 10 segundos
             }
+        }
+    }
+
+    /**
+     * Registra FCM token com Push Server
+     *
+     * Obtém o token FCM atual e registra com o Push Server para receber notificações.
+     */
+    private suspend fun registerPushToken() {
+        try {
+            // Obter peer ID do cliente
+            val peerId = MePassaClientWrapper.localPeerId.value
+            if (peerId == null) {
+                Log.w(TAG, "⚠️ PeerId not available, skipping push token registration")
+                return
+            }
+
+            Log.d(TAG, "🔐 Getting FCM token...")
+            // Obter token FCM atual
+            val token = FirebaseMessaging.getInstance().token.await()
+            Log.d(TAG, "📱 FCM token obtained: ${token.take(20)}...")
+
+            // Registrar com Push Server
+            Log.d(TAG, "📤 Registering FCM token with Push Server...")
+            val success = pushClient.registerToken(
+                peerId = peerId,
+                fcmToken = token,
+                deviceName = Build.MODEL,
+                appVersion = "0.1.0"
+            )
+
+            if (success) {
+                Log.i(TAG, "✅ FCM token successfully registered with Push Server")
+            } else {
+                Log.e(TAG, "❌ Failed to register FCM token with Push Server")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Exception registering push token", e)
         }
     }
 }

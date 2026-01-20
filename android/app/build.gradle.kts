@@ -105,6 +105,10 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
     implementation("com.google.firebase:firebase-messaging-ktx")
 
+    // HTTP Client (para Push Server)
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+
     // JNA (necessário para UniFFI)
     implementation("net.java.dev.jna:jna:5.14.0@aar")
 

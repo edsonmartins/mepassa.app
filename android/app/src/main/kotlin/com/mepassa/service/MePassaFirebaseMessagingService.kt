@@ -3,7 +3,13 @@ package com.mepassa.service
 import android.util.Log
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import com.mepassa.core.MePassaClientWrapper
+import com.mepassa.push.PushServerClient
 import com.mepassa.util.NotificationHelper
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * Firebase Cloud Messaging Service
@@ -12,12 +18,14 @@ import com.mepassa.util.NotificationHelper
  */
 class MePassaFirebaseMessagingService : FirebaseMessagingService() {
 
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val pushClient by lazy { PushServerClient.create(applicationContext) }
+
     override fun onNewToken(token: String) {
         super.onNewToken(token)
         Log.d(TAG, "New FCM token received: ${token.take(20)}...")
 
-        // TODO: Send token to Push Server
-        // This will be implemented in ETAPA 4
+        // Send token to Push Server asynchronously
         sendTokenToServer(token)
     }
 
@@ -50,11 +58,33 @@ class MePassaFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     private fun sendTokenToServer(token: String) {
-        // TODO: Implement in ETAPA 4 (Integration)
-        // Will use Retrofit/OkHttp to POST token to Push Server
-        // Endpoint: POST /api/v1/register
-        // Body: { peer_id, platform: "fcm", device_id, token }
-        Log.d(TAG, "TODO: Send token to server: ${token.take(20)}...")
+        serviceScope.launch {
+            try {
+                // Wait for client to be initialized
+                val peerId = MePassaClientWrapper.localPeerId.value
+                if (peerId == null) {
+                    Log.w(TAG, "⚠️ PeerId not available yet, token will be sent when client initializes")
+                    // Token will be sent when MePassaService starts and client is initialized
+                    return@launch
+                }
+
+                Log.d(TAG, "📤 Sending FCM token to Push Server...")
+                val success = pushClient.registerToken(
+                    peerId = peerId,
+                    fcmToken = token,
+                    deviceName = android.os.Build.MODEL,
+                    appVersion = "0.1.0"
+                )
+
+                if (success) {
+                    Log.i(TAG, "✅ FCM token successfully registered with Push Server")
+                } else {
+                    Log.e(TAG, "❌ Failed to register FCM token with Push Server")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Exception sending token to server", e)
+            }
+        }
     }
 
     companion object {
