@@ -8,13 +8,24 @@ license = "AGPL-3.0"
 
 [dependencies]
 # Workspace dependencies
-tokio = { workspace = true }
-axum = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+axum = { workspace = true, features = ["json"] }
+tower = { workspace = true }
+tower-http = { workspace = true, features = ["cors", "trace"] }
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
 anyhow = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
+
+# Database (PostgreSQL only - don't use workspace to avoid SQLite conflict)
+sqlx = { version = "0.7", features = ["postgres", "runtime-tokio-native-tls", "macros"], default-features = false }
+
+# Firebase Cloud Messaging
+fcm = "0.9"
+
+# Environment variables
+dotenvy = "0.15"
 
 # Local dependencies
 # mepassa-core = { path = "../../core" }  # TODO: adicionar depois
