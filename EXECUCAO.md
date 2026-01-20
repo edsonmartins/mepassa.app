@@ -47,7 +47,7 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 | **FASE 9: Server - Bootstrap & DHT** | Rust | 100% | `DONE` | 6/6 | ~700/800 | 2026-01-20 |
 | **FASE 10: Server - TURN Relay** | Rust | 100% | `DONE` | 18/5 | ~1.650/600 | 2026-01-20 |
 | **FASE 11: Server - Message Store** | Rust | 100% | `DONE` | 7/10 | ~900/1.500 | 2026-01-20 |
-| **FASE 12: VOIP - Chamadas** 🔥 | Multi | 80% | `IN PROGRESS` | 16/24 | ~3.758/2.500 | 2026-01-20 |
+| **FASE 12: VOIP - Chamadas** 🔥 | Multi | 85% | `IN PROGRESS` | 19/24 | ~4.525/2.500 | 2026-01-20 |
 | **FASE 13: iOS App** | Swift | 0% | `TODO` | 0/30 | 0/4.000 | - |
 | **FASE 14: Videochamadas** | Multi | 0% | `TODO` | 0/12 | 0/1.800 | - |
 | **FASE 15: Grupos** | Multi | 0% | `TODO` | 0/15 | 0/2.000 | - |
@@ -79,11 +79,11 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 
 **🚧 EM PROGRESSO:**
 - **FASE 8:** Push Notifications (75% - FCM completo, falta APNs iOS)
-- **FASE 12:** 🔥 VoIP - Chamadas de Voz (80% - Backend + Android + Desktop UI completos) **← ATUALIZADA HOJE**
+- **FASE 12:** 🔥 VoIP - Chamadas de Voz (85% - Backend + UI completo, Permissions + Background + Bluetooth) **← ATUALIZADA HOJE**
 
 **Estatísticas:**
-- **Arquivos criados:** ~192 arquivos (79% do total)
-- **Linhas de código:** ~21.922 LoC (67% do total)
+- **Arquivos criados:** ~196 arquivos (80% do total)
+- **Linhas de código:** ~22.689 LoC (69% do total)
 - **Testes:** 110+ testes passando (100% sucesso)
 - **Documentação:** 13 documentos principais (~4.100 linhas)
 
@@ -1540,8 +1540,8 @@ Chamadas de voz 1:1 funcionando (P2P + TURN fallback).
 | 12.4.1 | Implementar CallView (React) | `DONE` | Claude | 2026-01-20 | 2026-01-20 | CallView.tsx + CSS (271 linhas) | 7.2.4 |
 | 12.4.2 | Implementar IncomingCallModal | `DONE` | Claude | 2026-01-20 | 2026-01-20 | IncomingCallModal.tsx + CSS (278 linhas) | 12.4.1 |
 | **12.5 - Background & Bluetooth** ||||||||
-| 12.5.1 | Android: funciona em background (foreground service) | `TODO` | - | - | - | - | 12.3.5 |
-| 12.5.2 | Android: funciona com Bluetooth (AudioManager) | `TODO` | - | - | - | - | 12.3.5 |
+| 12.5.1 | Android: funciona em background (foreground service) | `DONE` | Claude | 2026-01-20 | 2026-01-20 | FOREGROUND_SERVICE_PHONE_CALL | 12.3.5 |
+| 12.5.2 | Android: funciona com Bluetooth (AudioManager) | `DONE` | Claude | 2026-01-20 | 2026-01-20 | CallAudioManager.kt (250 linhas) | 12.3.5 |
 | 12.5.3 | Implementar histórico de chamadas (DB) | `TODO` | - | - | - | - | 12.3.4 |
 | **12.6 - Testes Críticos** ||||||||
 | 12.6.1 | Teste: chamada P2P direto funciona (latência ~50ms) | `TODO` | - | - | - | - | 12.2.4 |
@@ -1632,13 +1632,31 @@ ChatView → [Click Phone] → invoke('start_call', { toPeerId })
   → CallView: Timer, Mute, Hangup, Speakerphone
 ```
 
-**🚧 TODO (20% - Testes Reais + Polimento):**
+**Runtime Permissions (4 arquivos, ~454 LoC):**
+- ✅ `VoipPermissionManager.kt` (150 linhas) - Class-based permission manager
+- ✅ `VoipPermissions.kt` (100 linhas) - Composable rememberVoipPermissions() hook
+- ✅ `MePassaNavHost.kt` (+55 linhas) - Permission checks before startCall()
+- ✅ `AndroidManifest.xml` (+2 permissões) - BLUETOOTH, BLUETOOTH_CONNECT
+- ✅ Permissions: RECORD_AUDIO, MODIFY_AUDIO_SETTINGS, BLUETOOTH_CONNECT
+- ✅ Snackbar feedback when denied with user-friendly messages
+
+**Background Service & Bluetooth (2 arquivos, ~252 LoC):**
+- ✅ `AndroidManifest.xml` - FOREGROUND_SERVICE_PHONE_CALL type
+- ✅ Service type: dataSync|phoneCall (supports calls in background)
+- ✅ `CallAudioManager.kt` (250 linhas) - Audio routing manager
+  * MODE_IN_COMMUNICATION for voice-optimized audio
+  * Auto-detects and routes to Bluetooth headsets
+  * toggleSpeakerphone(), toggleMute() controls
+  * Audio focus management (REQUEST/ABANDON)
+  * Restores original settings after call
+
+**🚧 TODO (15% - Testes Reais + Polimento):**
 - 🔲 12.2.2-12.2.4: Echo cancellation, noise suppression, adaptive bitrate
 - 🔲 12.3.5: Fullscreen notification para incoming calls (BroadcastReceiver)
-- 🔲 12.5.1-12.5.3: Background service, Bluetooth, histórico
+- 🔲 12.5.3: Histórico de chamadas (DB)
 - 🔲 12.6.1-12.6.5: Testes críticos (latência P2P ~50ms, TURN ~200ms, MOS >4.0)
 
-**Próximo Passo:** 🎯 **Runtime Permissions** + **Incoming Call Listener** + **Build & Teste Real em Dispositivos**
+**Próximo Passo:** 🎯 **Build APK** + **Teste Real em Dispositivos Físicos** + **Validar Áudio End-to-End**
 
 ---
 
