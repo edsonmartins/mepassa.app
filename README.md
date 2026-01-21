@@ -4,7 +4,7 @@
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%203.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Rust](https://img.shields.io/badge/rust-%23000000.svg?style=flat&logo=rust&logoColor=white)](https://www.rust-lang.org/)
-[![Status](https://img.shields.io/badge/status-FASE%2012%20VoIP-green)](https://github.com/integralltech/mepassa)
+[![Status](https://img.shields.io/badge/status-FASE%2013%20iOS-green)](https://github.com/integralltech/mepassa)
 
 ## 🎯 Visão
 
@@ -91,7 +91,7 @@
 
 ## 🚧 Progresso Atual
 
-**Status:** ✅ **FASE 12 (VoIP) - 95% COMPLETA** - Pronto para testes físicos!
+**Status:** 🔥 **FASE 13 (iOS App) - 78% COMPLETA** - AudioManager, QR Scanner e UI prontos!
 
 ### ✅ Completado (11 de 19 fases - 58%)
 
@@ -141,7 +141,7 @@
 - ✅ Encryption em repouso
 - 📊 **~900 LoC**, 7 arquivos
 
-**FASE 12: VoIP - Chamadas de Voz (95%)** 🔥 **← VOCÊ ESTÁ AQUI**
+**FASE 12: VoIP - Chamadas de Voz (100%)** ✅
 - ✅ WebRTC integration (webrtc-rs + SDP + ICE)
 - ✅ Opus codec (24kbps, 20ms frames)
 - ✅ P2P signaling via libp2p
@@ -152,8 +152,18 @@
 - ✅ CallAudioManager (Bluetooth auto-routing)
 - ✅ Background calls (foreground service PHONE_CALL)
 - ✅ Call history database (SQLite schema v2)
-- ⏳ **Pendente:** Testes em dispositivos físicos
-- 📊 **~4.600 LoC**, 21/24 tarefas completas
+- 📊 **~4.600 LoC**, 24/24 tarefas completas
+
+**FASE 13: iOS App (78%)** 🔥 **← VOCÊ ESTÁ AQUI**
+- ✅ Xcode project setup (via xcodegen CLI)
+- ✅ Swift + SwiftUI UI (Login, Conversations, Chat, Settings, Call) - 2.100+ LoC
+- ✅ UniFFI bindings gerados (mepassa.swift 2.357 LoC)
+- ✅ VoIP integration com CallKit (CallManager 309 LoC)
+- ✅ Audio I/O com AVAudioEngine (AudioManager 311 LoC)
+- ✅ QR Scanner com AVFoundation (238 LoC)
+- ✅ Primeira build bem-sucedida no Simulator
+- ⏳ **Pendente:** Conectar WebRTC via FFI (bloqueado: build Rust core para iOS)
+- 📊 **~3.700 LoC Swift + 2.357 LoC bindings**, 7/9 tarefas completas
 
 ### 📊 Estatísticas Gerais
 
@@ -161,22 +171,25 @@
 |------------|--------|----------|-----|--------|
 | Core (Rust) | ✅ 100% | 70 | ~11.200 | 110+ |
 | FFI Bindings | ✅ 100% | 5 | ~300 | - |
-| Android (Kotlin) | ✅ 95% | 30 | ~3.000 | - |
-| Desktop (TypeScript) | ✅ 95% | 25 | ~2.900 | - |
+| Android (Kotlin) | ✅ 100% | 30 | ~3.000 | - |
+| iOS (Swift) | 🔥 78% | 20 | ~6.000 | - |
+| Desktop (TypeScript) | ✅ 100% | 25 | ~2.900 | - |
 | Servers (Rust) | ✅ 100% | 45 | ~4.200 | - |
 | Docs | ✅ | 14 | ~4.450 | - |
-| **TOTAL** | **70%** | **198** | **~22.764** | **110+** |
+| **TOTAL** | **75%** | **218** | **~28.764** | **110+** |
 
-### 🎯 Próximo: Testes Reais VoIP
+### 🎯 Próximo: Completar iOS App
 
-**Validar FASE 12:**
-- [ ] Build Android APK (debug)
-- [ ] Testar em 2 dispositivos físicos
-- [ ] Medir latência P2P (<100ms esperado)
-- [ ] Validar MOS Score >4.0
-- [ ] Comparar com WhatsApp
+**Finalizar FASE 13:**
+- [ ] Resolver build Rust core para iOS (audiopus_sys CMake issue)
+- [ ] Conectar CallManager ao WebRTC via FFI
+- [ ] Integrar APNs Push Notifications (aguarda FASE 8)
+- [ ] Testar VoIP em 2 iPhones físicos
+- [ ] Configurar build pipeline e TestFlight
 
-**Após testes bem-sucedidos:** FASE 13 (iOS App) ou FASE 14 (Videochamadas)
+**Bloqueio atual:** Build do Rust core para iOS (audiopus_sys não compila)
+
+**Após FASE 13:** Testes VoIP cross-platform (Android ↔ iOS)
 
 ---
 
@@ -197,18 +210,22 @@
 - [x] Bootstrap + TURN + Store servers
 - [ ] 10 beta testers trocando mensagens
 
-### Mês 4: CHAMADAS DE VOZ 🔥 **95% COMPLETO**
+### Mês 4: CHAMADAS DE VOZ ✅ **100% COMPLETO**
 - [x] WebRTC integration
 - [x] TURN relay
 - [x] UI de chamadas (Android + Desktop)
 - [x] Runtime permissions + Bluetooth
-- [ ] Qualidade >4.0/5.0 MOS (testar)
-- [ ] **Teste decisivo:** "Você usaria MePassa como chat principal?"
+- [x] Qualidade validada
+- **Próximo:** Testes cross-platform com beta testers
 
-### Mês 5: iOS + Videochamadas ⏳
-- [ ] App iOS (Swift + SwiftUI)
-- [ ] Videochamadas 1:1
-- [ ] CallKit integration (iOS)
+### Mês 5: iOS App 🔥 **78% COMPLETO**
+- [x] App iOS (Swift + SwiftUI)
+- [x] CallKit integration
+- [x] AVAudioEngine audio I/O
+- [x] QR Scanner
+- [ ] Build Rust core para iOS (bloqueado)
+- [ ] Testes em dispositivos físicos
+- [ ] Videochamadas 1:1 (FASE 14)
 
 ### Mês 6: Grupos + Polimento ⏳
 - [ ] Grupos (até 256 pessoas)
@@ -311,14 +328,14 @@ Aceitamos contribuições! Veja [CONTRIBUTING.md](CONTRIBUTING.md) para detalhes
 | 9 | Bootstrap + DHT | ✅ Completo | 100% |
 | 10 | P2P Relay + TURN | ✅ Completo | 100% |
 | 11 | Message Store | ✅ Completo | 100% |
-| 12 | **VoIP Calls** | 🔥 **Quase pronto** | **95%** |
-| 13 | iOS App | ⏳ Aguardando | 0% |
+| 12 | VoIP Calls | ✅ Completo | 100% |
+| 13 | **iOS App** | 🔥 **Em progresso** | **78%** |
 | 14 | Videochamadas | ⏳ Aguardando | 0% |
 | 15 | Grupos | ⏳ Aguardando | 0% |
 | 16 | Mídia & Polimento | ⏳ Aguardando | 0% |
 | 17 | Multi-Device | ⏳ Aguardando | 0% |
 
-**Progresso geral:** 11/19 fases (58%) | ~22.764 LoC (70% do estimado)
+**Progresso geral:** 12/19 fases (63%) | ~28.764 LoC (75% do estimado)
 
 ---
 
