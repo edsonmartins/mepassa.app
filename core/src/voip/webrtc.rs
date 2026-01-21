@@ -5,7 +5,6 @@
 use super::video::VideoCodec;
 use super::VoipError;
 use crate::voip::Result;
-use bytes::Bytes;
 use interceptor::registry::Registry;
 use std::sync::Arc;
 use webrtc::api::interceptor_registry::register_default_interceptors;
@@ -20,7 +19,7 @@ use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
 use webrtc::peer_connection::RTCPeerConnection;
 use webrtc::rtp_transceiver::rtp_codec::RTCRtpCodecCapability;
 use webrtc::track::track_local::track_local_static_rtp::TrackLocalStaticRTP;
-use webrtc::track::track_local::TrackLocal;
+use webrtc::track::track_local::{TrackLocal, TrackLocalWriter};
 
 /// WebRTC peer connection wrapper
 pub struct WebRTCPeer {
@@ -140,8 +139,27 @@ impl WebRTCPeer {
     /// Frame data should be pre-encoded (H.264 NALUs or VP8 frames)
     pub async fn send_video_frame(&self, frame: &[u8]) -> Result<()> {
         if let Some(video_track) = &self.video_track {
+            // For MVP, we create a simple RTP packet with the frame data
+            // In production, this should be properly packetized
+            use webrtc::rtp::packet::Packet;
+
+            let packet = Packet {
+                header: webrtc::rtp::header::Header {
+                    version: 2,
+                    padding: false,
+                    extension: false,
+                    marker: true,
+                    payload_type: 96, // Dynamic payload type for H.264
+                    sequence_number: 0, // TODO: Maintain sequence counter
+                    timestamp: 0, // TODO: Calculate proper timestamp
+                    ssrc: 0, // TODO: Use proper SSRC
+                    ..Default::default()
+                },
+                payload: frame.to_vec().into(),
+            };
+
             video_track
-                .write(&Bytes::from(frame.to_vec()))
+                .write_rtp(&packet)
                 .await
                 .map_err(|e| VoipError::WebRtcError(format!("Failed to write video frame: {}", e)))?;
 

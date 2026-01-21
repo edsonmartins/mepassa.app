@@ -231,6 +231,8 @@ pub struct FfiCall {
     pub ended_at: Option<i64>,
     pub audio_muted: bool,
     pub speakerphone: bool,
+    pub video_enabled: bool,
+    pub video_codec: Option<FfiVideoCodec>,
 }
 
 #[cfg(feature = "voip")]
@@ -246,6 +248,8 @@ impl From<Call> for FfiCall {
             ended_at: call.ended_at.map(|t| t.timestamp()),
             audio_muted: call.audio_muted,
             speakerphone: call.speakerphone,
+            video_enabled: false, // TODO: get from CallManager
+            video_codec: None,    // TODO: get from CallManager
         }
     }
 }
@@ -274,4 +278,69 @@ impl From<CallStats> for FfiCallStats {
             audio_bitrate_kbps: stats.audio_bitrate_kbps,
         }
     }
+}
+
+// ========== Video Types (FASE 14) ==========
+
+#[cfg(feature = "voip")]
+use crate::voip::VideoCodec as InternalVideoCodec;
+
+/// FFI-safe video codec enum
+#[cfg(feature = "voip")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FfiVideoCodec {
+    H264,
+    VP8,
+    VP9,
+}
+
+#[cfg(feature = "voip")]
+impl From<InternalVideoCodec> for FfiVideoCodec {
+    fn from(codec: InternalVideoCodec) -> Self {
+        match codec {
+            InternalVideoCodec::H264 => FfiVideoCodec::H264,
+            InternalVideoCodec::VP8 => FfiVideoCodec::VP8,
+            InternalVideoCodec::VP9 => FfiVideoCodec::VP9,
+        }
+    }
+}
+
+#[cfg(feature = "voip")]
+impl From<FfiVideoCodec> for InternalVideoCodec {
+    fn from(codec: FfiVideoCodec) -> Self {
+        match codec {
+            FfiVideoCodec::H264 => InternalVideoCodec::H264,
+            FfiVideoCodec::VP8 => InternalVideoCodec::VP8,
+            FfiVideoCodec::VP9 => InternalVideoCodec::VP9,
+        }
+    }
+}
+
+/// FFI-safe video resolution
+#[cfg(feature = "voip")]
+#[derive(Debug, Clone, Copy)]
+pub struct FfiVideoResolution {
+    pub width: u32,
+    pub height: u32,
+}
+
+/// FFI-safe camera position enum
+#[cfg(feature = "voip")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FfiCameraPosition {
+    Front,
+    Back,
+    External,
+}
+
+/// FFI-safe video statistics
+#[cfg(feature = "voip")]
+#[derive(Debug, Clone)]
+pub struct FfiVideoStats {
+    pub resolution: FfiVideoResolution,
+    pub fps: u32,
+    pub bitrate_kbps: u32,
+    pub frames_sent: u64,
+    pub frames_received: u64,
+    pub frames_dropped: u64,
 }

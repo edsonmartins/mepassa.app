@@ -279,6 +279,47 @@ impl Client {
         Ok(())
     }
 
+    // ========== Video Methods (FASE 14) ==========
+
+    #[cfg(feature = "voip")]
+    /// Enable video for an active call
+    pub async fn enable_video(
+        &self,
+        call_id: String,
+        codec: crate::voip::VideoCodec,
+    ) -> Result<()> {
+        self.call_manager
+            .enable_video(&call_id, codec)
+            .await
+            .map_err(|e| MePassaError::Other(format!("Failed to enable video: {}", e)))
+    }
+
+    #[cfg(feature = "voip")]
+    /// Disable video for an active call
+    pub async fn disable_video(&self, call_id: String) -> Result<()> {
+        self.call_manager
+            .disable_video(&call_id)
+            .await
+            .map_err(|e| MePassaError::Other(format!("Failed to disable video: {}", e)))
+    }
+
+    #[cfg(feature = "voip")]
+    /// Send video frame to remote peer
+    ///
+    /// Frame data should be pre-encoded (H.264 NALUs or VP8/VP9 frames)
+    pub async fn send_video_frame(
+        &self,
+        call_id: String,
+        frame_data: &[u8],
+        _width: u32,
+        _height: u32,
+    ) -> Result<()> {
+        self.call_manager
+            .send_video_frame(&call_id, frame_data)
+            .await
+            .map_err(|e| MePassaError::Other(format!("Failed to send video frame: {}", e)))
+    }
+
     // /// Run event loop (blocking)
     // pub async fn run(&self) -> Result<()> {
     //     let mut network = self.network.write().await;

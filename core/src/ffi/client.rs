@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use std::sync::OnceLock;
 use tokio::sync::{mpsc, oneshot};
 
-use super::types::{FfiConversation, FfiMessage, MePassaFfiError};
+use super::types::{self as types, FfiConversation, FfiMessage, MePassaFfiError};
 use crate::api::{Client, ClientBuilder};
 
 use std::thread;
@@ -104,6 +104,26 @@ enum ClientCommand {
     #[cfg(feature = "voip")]
     ToggleSpeakerphone {
         call_id: String,
+        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+    },
+    // Video commands (FASE 14)
+    #[cfg(feature = "voip")]
+    EnableVideo {
+        call_id: String,
+        codec: types::FfiVideoCodec,
+        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+    },
+    #[cfg(feature = "voip")]
+    DisableVideo {
+        call_id: String,
+        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+    },
+    #[cfg(feature = "voip")]
+    SendVideoFrame {
+        call_id: String,
+        frame_data: Vec<u8>,
+        width: u32,
+        height: u32,
         response: oneshot::Sender<Result<(), MePassaFfiError>>,
     },
 }
@@ -223,6 +243,37 @@ async fn run_client_task(mut receiver: mpsc::UnboundedReceiver<ClientCommand>, c
             ClientCommand::ToggleSpeakerphone { call_id, response } => {
                 let result = client
                     .toggle_speakerphone(call_id)
+                    .await
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            // Video command handlers (FASE 14)
+            #[cfg(feature = "voip")]
+            ClientCommand::EnableVideo { call_id, codec, response } => {
+                let result = client
+                    .enable_video(call_id, codec.into())
+                    .await
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            #[cfg(feature = "voip")]
+            ClientCommand::DisableVideo { call_id, response } => {
+                let result = client
+                    .disable_video(call_id)
+                    .await
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            #[cfg(feature = "voip")]
+            ClientCommand::SendVideoFrame {
+                call_id,
+                frame_data,
+                width,
+                height,
+                response,
+            } => {
+                let result = client
+                    .send_video_frame(call_id, &frame_data, width, height)
                     .await
                     .map_err(|e| e.into());
                 let _ = response.send(result);
@@ -584,6 +635,82 @@ impl MePassaClient {
             .sender
             .send(ClientCommand::ToggleSpeakerphone {
                 call_id,
+                response: tx,
+            })
+            .map_err(|_| MePassaFfiError::Other {
+                message: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| MePassaFfiError::Other {
+            message: "Failed to receive response".to_string(),
+        })?
+    }
+
+    // ========== Video Methods (FASE 14) ==========
+
+    #[cfg(feature = "voip")]
+    /// Enable video for an active call
+    pub async fn enable_video(
+        &self,
+        call_id: String,
+        codec: types::FfiVideoCodec,
+    ) -> Result<(), MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::EnableVideo {
+                call_id,
+                codec,
+                response: tx,
+            })
+            .map_err(|_| MePassaFfiError::Other {
+                message: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| MePassaFfiError::Other {
+            message: "Failed to receive response".to_string(),
+        })?
+    }
+
+    #[cfg(feature = "voip")]
+    /// Disable video for an active call
+    pub async fn disable_video(&self, call_id: String) -> Result<(), MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::DisableVideo {
+                call_id,
+                response: tx,
+            })
+            .map_err(|_| MePassaFfiError::Other {
+                message: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| MePassaFfiError::Other {
+            message: "Failed to receive response".to_string(),
+        })?
+    }
+
+    #[cfg(feature = "voip")]
+    /// Send video frame to remote peer
+    ///
+    /// Frame data should be pre-encoded (H.264 NALUs or VP8/VP9 frames)
+    /// Platform-specific encoding happens before calling this method
+    pub async fn send_video_frame(
+        &self,
+        call_id: String,
+        frame_data: Vec<u8>,
+        width: u32,
+        height: u32,
+    ) -> Result<(), MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::SendVideoFrame {
+                call_id,
+                frame_data,
+                width,
+                height,
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
