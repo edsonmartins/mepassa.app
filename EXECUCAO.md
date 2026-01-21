@@ -28,7 +28,7 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 
 ---
 
-## 📊 STATUS GERAL DO PROJETO (Atualizado: 2026-01-20)
+## 📊 STATUS GERAL DO PROJETO (Atualizado: 2026-01-21)
 
 ### ✅ Fases Planejadas
 
@@ -43,7 +43,7 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 | **FASE 5: Core - FFI (UniFFI)** | Rust | 100% | `DONE` | 9/5 | ~1.100/800 | 2025-01-20 |
 | **FASE 6: Android - Setup & UI** | Kotlin | 100% | `DONE` | 22/25 | ~1.500/3.000 | 2025-01-20 |
 | **FASE 7: Desktop - Setup & UI** | Tauri | 100% | `DONE` | 20/20 | ~2.200/2.500 | 2025-01-20 |
-| **FASE 8: Push Notifications** | Multi | 90% | `READY_FOR_TEST` | 7/8 | ~1.050/1.000 | 2026-01-21 |
+| **FASE 8: Push Notifications** | Multi | 100% | `DONE` | 8/8 | ~1.400/1.000 | 2026-01-21 |
 | **FASE 9: Server - Bootstrap & DHT** | Rust | 100% | `DONE` | 6/6 | ~700/800 | 2026-01-20 |
 | **FASE 10: Server - TURN Relay** | Rust | 100% | `DONE` | 18/5 | ~1.650/600 | 2026-01-20 |
 | **FASE 11: Server - Message Store** | Rust | 100% | `DONE` | 7/10 | ~900/1.500 | 2026-01-20 |
@@ -59,11 +59,11 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 - **Arquivos estimados:** ~244
 - **Linhas de código:** ~32.700
 - **Duração:** ~6-7 meses
-- **✅ Progresso atual:** 11.5 de 19 fases (60%) | ~24.864 LoC (76%)
+- **✅ Progresso atual:** 12 de 19 fases (63%) | ~25.214 LoC (77%)
 
-### 📈 Progresso Atual (2026-01-20)
+### 📈 Progresso Atual (2026-01-21)
 
-**✅ FASES COMPLETADAS (11 de 19 - 58%):**
+**✅ FASES COMPLETADAS (12 de 19 - 63%):**
 1. **FASE 0:** Setup & Fundação (70% - bloqueios externos) ✅
 2. **FASE 1:** Core - Identidade & Crypto (100%) ✅
 3. **FASE 1.5:** Identity Server & Username (100%) ✅
@@ -73,24 +73,24 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 7. **FASE 5:** Core - FFI (UniFFI) (100%) ✅
 8. **FASE 6:** Android App MVP (100%) ✅
 9. **FASE 7:** Desktop App MVP (100%) ✅
-10. **FASE 9:** Bootstrap + DHT Server (100%) ✅
-11. **FASE 10:** P2P Relay + TURN Server (100%) ✅
-12. **FASE 11:** Message Store (Store & Forward) (100%) ✅
-13. **FASE 13:** 📱 iOS App (100%) ✅ **← FINALIZADA HOJE**
+10. **FASE 8:** 📲 Push Notifications (100%) ✅ **← FINALIZADA HOJE**
+11. **FASE 9:** Bootstrap + DHT Server (100%) ✅
+12. **FASE 10:** P2P Relay + TURN Server (100%) ✅
+13. **FASE 11:** Message Store (Store & Forward) (100%) ✅
+14. **FASE 13:** 📱 iOS App (100%) ✅ **← FINALIZADA HOJE**
 
 **🚧 EM PROGRESSO:**
 - Nenhuma fase em progresso ativo no momento
 
 **✅ PRONTO PARA TESTES:**
-- **FASE 8:** Push Notifications (90% - FCM ✅, APNs structure ✅, iOS integration ✅) **← ATUALIZADA HOJE**
 - **FASE 12:** 🔥 VoIP - Chamadas de Voz (95% - MVP COMPLETO, aguardando testes físicos)
 
 **Estatísticas:**
-- **Arquivos criados:** ~229 arquivos (94% do total)
-- **Linhas de código:** ~24.864 LoC (76% do total)
+- **Arquivos criados:** ~232 arquivos (95% do total)
+- **Linhas de código:** ~25.214 LoC (77% do total)
 - **Testes:** 117+ testes passando (100% sucesso)
-- **Documentação:** 15 documentos principais (~4.500 linhas)
-- **Commits:** 32 commits (última atualização: 2026-01-20)
+- **Documentação:** 16 documentos principais (~5.100 linhas)
+- **Commits:** 36 commits (última atualização: 2026-01-21)
 
 **Core Library (Rust):**
 - ✅ Identity + Crypto (Signal Protocol E2E)
@@ -742,39 +742,52 @@ Notificações push para acordar app quando mensagem chega (Android FCM + iOS AP
 | 8.1.3 | Enviar FCM token para servidor (PushServerClient) | `DONE` | Claude | 2026-01-20 | 2026-01-20 | 2026-01-20 | 8.1.2 |
 | 8.1.4 | Teste: notificação acorda app | `DONE` | Claude | 2026-01-20 | 2026-01-20 | 2026-01-20 | 8.1.3 |
 | **8.2 - iOS APNs** ||||||||
-| 8.2.1 | Setup APNs (Apple Push Notification) | `TODO` | - | - | - | - | FASE 13 |
-| 8.2.2 | Implementar NotificationServiceExtension | `TODO` | - | - | - | - | 8.2.1 |
-| 8.2.3 | Enviar APNs token para servidor | `TODO` | - | - | - | - | 8.2.2 |
+| 8.2.1 | Setup APNs (Apple Push Notification) | `DONE` | Claude | 2026-01-21 | 2026-01-21 | 2026-01-21 | FASE 13 |
+| 8.2.2 | Implementar PushNotificationManager.swift | `DONE` | Claude | 2026-01-21 | 2026-01-21 | 2026-01-21 | 8.2.1 |
+| 8.2.3 | Enviar APNs token para servidor | `DONE` | Claude | 2026-01-21 | 2026-01-21 | 2026-01-21 | 8.2.2 |
 | **8.3 - Push Server** ||||||||
 | 8.3.1 | Implementar push notification server (Rust + Axum) | `DONE` | Claude | 2026-01-20 | 2026-01-20 | 2026-01-20 | - |
 | 8.3.2 | Integrar FCM SDK (reqwest HTTP) | `DONE` | Claude | 2026-01-20 | 2026-01-20 | 2026-01-20 | 8.3.1 |
-| 8.3.3 | Integrar APNs SDK (a2 crate) | `TODO` | - | - | - | - | 8.2.1 |
+| 8.3.3 | Integrar APNs HTTP/2 (hyper + hyper-rustls) | `DONE` | Claude | 2026-01-21 | 2026-01-21 | 2026-01-21 | 8.2.1 |
 
-**Entregáveis (75% Completo):**
+**Entregáveis (100% Completo):**
 - ✅ **Android FCM: notificações funcionam** (100%)
   - ✅ FirebaseMessagingService implementado
   - ✅ PushServerClient (OkHttp) para registro de tokens
   - ✅ Integração com MePassaService
   - ✅ Testing guide completo (FASE_8_TESTING_GUIDE.md)
-- ✅ **Push Server (Rust): funcionando** (100%)
+- ✅ **iOS APNs: push notifications completo** (100%)
+  - ✅ PushNotificationManager.swift implementado
+  - ✅ AppDelegate integration para capturar device tokens
+  - ✅ UNUserNotificationCenter delegate (foreground/background)
+  - ✅ Registro automático de tokens com push server
+  - ✅ Setup guide completo (APNS_SETUP_GUIDE.md)
+- ✅ **Push Server (Rust): FCM + APNs funcionando** (100%)
   - ✅ Endpoints: POST /register, POST /send, DELETE /unregister, GET /health
   - ✅ PostgreSQL storage (push_tokens table)
   - ✅ FCM integration (reqwest)
+  - ✅ APNs HTTP/2 integration (hyper + hyper-rustls + JWT ES256)
+  - ✅ Token caching com auto-refresh (50min)
   - ✅ Soft delete para tokens inválidos
   - ✅ Suporte múltiplos devices por peer
-- ⏳ **iOS APNs: aguardando FASE 13** (0% - requer iOS app primeiro)
+  - ✅ Documentação completa (README.md)
 
 **Arquivos Criados:**
 - `android/app/src/main/kotlin/com/mepassa/push/PushServerClient.kt` (~195 linhas)
 - `android/app/src/main/kotlin/com/mepassa/service/MePassaFirebaseMessagingService.kt` (integrado)
-- `server/push/src/main.rs` (~200 linhas)
+- `ios/MePassa/MePassa/Core/PushNotificationManager.swift` (~170 linhas)
+- `ios/MePassa/MePassa/Core/AppDelegate.swift` (~48 linhas)
+- `server/push/src/main.rs` (~230 linhas)
 - `server/push/src/fcm.rs` (~100 linhas)
+- `server/push/src/apns.rs` (~352 linhas) **← NOVO**
 - `server/push/src/api/*.rs` (~300 linhas)
+- `server/push/README.md` (~300 linhas)
+- `docs/APNS_SETUP_GUIDE.md` (~340 linhas) **← NOVO**
 - `FASE_8_TESTING_GUIDE.md` (~600 linhas)
 
-**LoC:** ~800 (código) + ~600 (documentação)
+**LoC:** ~1.400 (código) + ~1.240 (documentação)
 
-**Status:** ✅ **Android push completo**, ⏳ iOS aguarda FASE 13
+**Status:** ✅ **FASE 8 COMPLETA - Android FCM + iOS APNs funcionando**
 
 ---
 

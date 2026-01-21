@@ -5,16 +5,21 @@ Push notification service for the MePassa P2P messaging platform.
 ## Features
 
 - **FCM Integration**: Send push notifications to Android devices via Firebase Cloud Messaging
+- **APNs Integration**: Send push notifications to iOS devices via Apple Push Notification service
 - **Token Management**: Register, update, and deactivate device tokens
 - **Multi-device Support**: Send notifications to all devices of a peer
 - **Automatic Cleanup**: Mark invalid tokens as inactive
 - **PostgreSQL Storage**: Store device tokens with metadata
+- **JWT Authentication**: Token-based APNs authentication with automatic refresh
 
 ## Architecture
 
 - **Framework**: Axum (async web framework)
 - **Database**: PostgreSQL with sqlx
-- **Push Service**: Firebase Cloud Messaging (FCM)
+- **Push Services**:
+  - Firebase Cloud Messaging (FCM) for Android
+  - Apple Push Notification service (APNs) with HTTP/2 for iOS
+- **Authentication**: JWT with ES256 for APNs token-based auth
 - **Logging**: tracing with structured logs
 
 ## API Endpoints
@@ -31,7 +36,7 @@ Content-Type: application/json
 
 {
   "peer_id": "string",
-  "platform": "fcm",  // or "apns" (future)
+  "platform": "fcm" | "apns",  // "fcm" for Android, "apns" for iOS
   "device_id": "string",
   "token": "string",
   "device_name": "string (optional)",
@@ -73,12 +78,21 @@ Create a `.env` file in the `server/push` directory:
 # Database
 DATABASE_URL=postgresql://mepassa:mepassa_dev_password@localhost:5432/mepassa
 
-# Firebase Cloud Messaging
+# Firebase Cloud Messaging (Android)
 FCM_SERVER_KEY=your_fcm_server_key_here
+
+# Apple Push Notification Service (iOS) - Optional
+APNS_KEY_PATH=/path/to/AuthKey_XXXXXXXXXX.p8
+APNS_KEY_ID=AB12CD34EF          # Your 10-character Key ID
+APNS_TEAM_ID=XY98ZW76UV         # Your 10-character Team ID
+APNS_BUNDLE_ID=com.mepassa.ios  # Your app's Bundle ID
+APNS_PRODUCTION=false           # Use false for development/TestFlight, true for App Store
 
 # Server (optional)
 RUST_LOG=mepassa_push=debug,info
 ```
+
+**Note:** APNs configuration is optional. If not provided, the server will only support FCM (Android) notifications. For complete APNs setup instructions, see [APNS_SETUP_GUIDE.md](../../docs/APNS_SETUP_GUIDE.md).
 
 ## Setup
 
@@ -239,13 +253,14 @@ The push server is designed to integrate with the MePassa core system:
 
 ## Future Improvements
 
-- [ ] APNs support for iOS (FASE 13)
+- [x] APNs support for iOS - **COMPLETED (FASE 8)**
 - [ ] Rate limiting
 - [ ] Notification analytics
 - [ ] Retry logic for failed notifications
 - [ ] Token expiration and cleanup
 - [ ] Silent notifications (data-only)
 - [ ] Rich notifications with images
+- [ ] APNs notification service extension for rich notifications
 
 ## Troubleshooting
 
@@ -263,6 +278,23 @@ The push server is designed to integrate with the MePassa core system:
 ### "Token not found"
 - Device must register before receiving notifications
 - Check if token was marked inactive due to errors
+
+### "APNs error: BadDeviceToken"
+- Device token doesn't match APNs environment (sandbox vs production)
+- Use `APNS_PRODUCTION=false` for development/TestFlight
+- Use `APNS_PRODUCTION=true` for App Store builds
+- See [APNS_SETUP_GUIDE.md](../../docs/APNS_SETUP_GUIDE.md) for complete troubleshooting
+
+### "APNs error: InvalidProviderToken"
+- JWT token is invalid or expired
+- Verify `APNS_KEY_ID` matches Apple Developer Portal
+- Verify `APNS_TEAM_ID` is correct
+- Ensure .p8 file is valid EC P-256 key
+
+### "Failed to read APNs private key"
+- Verify file path in `APNS_KEY_PATH`
+- Check file permissions: `chmod 600 /path/to/AuthKey_*.p8`
+- Ensure Docker volume mount is correct (for containerized deployment)
 
 ## License
 
