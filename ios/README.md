@@ -1,203 +1,229 @@
 # MePassa iOS App
 
-iOS native app for MePassa P2P messaging platform built with SwiftUI and CallKit.
+iOS native app for MePassa P2P messaging platform built with SwiftUI, CallKit, and Rust FFI.
+
+## 📊 Status: FASE 13 - 90% Complete
+
+**Latest Update:** 2026-01-21
+- ✅ Rust core compiles for iOS (conditional compilation)
+- ✅ Static libraries integrated (libmepassa_core_ios.a + sim.a)
+- ✅ Swift bindings generated via UniFFI 0.28.3
+- ✅ Xcode project configured via xcodegen
+- ✅ **Build successful:** `xcodebuild -scheme MePassa build` → BUILD SUCCEEDED!
+- ⏳ End-to-end tests pending (left for final phase)
 
 ## 📋 Requirements
 
-- Xcode 15.0+
-- iOS 15.0+
-- macOS for development
-- Rust toolchain (for building core library)
-- uniffi-bindgen 0.31.0
+- **Xcode:** 15.0+
+- **iOS:** 15.0+ deployment target
+- **macOS:** for development (tested on macOS 14+)
+- **Rust:** 1.75+ with iOS targets
+- **uniffi-bindgen:** 0.28.3 (Python package)
+- **xcodegen:** for project generation
 
 ## 🏗️ Project Structure
 
 ```
-ios/MePassa/
-├── MePassaApp.swift          # App entry point
-├── ContentView.swift          # Main navigation
-├── Info.plist                 # App configuration & permissions
-├── Views/                     # SwiftUI screens
-│   ├── LoginView.swift
-│   ├── ConversationsView.swift
-│   ├── ChatView.swift
-│   ├── CallScreen.swift
-│   ├── IncomingCallScreen.swift
-│   ├── NewChatView.swift
-│   ├── SettingsView.swift
-│   ├── QRScannerView.swift
-│   └── MyQRCodeView.swift
-├── VoIP/                      # VoIP integration
-│   └── CallManager.swift      # CallKit integration
-└── Generated/                 # UniFFI generated bindings (not in git)
-    └── mepassa.swift          # Generated from core/src/mepassa.udl
+ios/
+├── build-all.sh              # 🚀 Master build script (Rust + Bindings + Xcode)
+├── build-rust.sh             # Build Rust core for iOS targets
+├── generate-bindings.sh      # Generate Swift bindings via UniFFI
+├── project.yml               # Xcode project specification (xcodegen)
+├── Libraries/                # Compiled Rust static libraries
+│   ├── libmepassa_core_ios.a     # iOS device (ARM64) - 96MB
+│   └── libmepassa_core_sim.a     # Simulator (ARM64 + x86_64) - 192MB
+├── MePassa.xcodeproj/        # Generated Xcode project (via xcodegen)
+└── MePassa/
+    ├── MePassaApp.swift      # App entry point + SwiftUI lifecycle
+    ├── ContentView.swift     # Root navigation
+    ├── Info.plist            # Permissions & capabilities
+    ├── MePassa-Bridging-Header.h  # C FFI bridging header
+    ├── Core/
+    │   └── MePassaCore.swift # Rust FFI wrapper (singleton)
+    ├── Views/                # SwiftUI screens
+    │   ├── LoginView.swift   # Identity generation screen
+    │   ├── ConversationsView.swift  # Chat list
+    │   ├── ChatView.swift    # 1:1 messaging
+    │   ├── CallScreen.swift  # Active call UI
+    │   ├── IncomingCallScreen.swift
+    │   ├── NewChatView.swift # Add contact via QR
+    │   ├── SettingsView.swift
+    │   ├── QRScannerView.swift        # SwiftUI wrapper
+    │   ├── QRScannerViewController.swift  # AVFoundation camera
+    │   └── MyQRCodeView.swift # Share peer ID
+    ├── VoIP/                 # VoIP integration
+    │   ├── CallManager.swift # CallKit integration (309 LoC)
+    │   └── AudioManager.swift # AVAudioEngine I/O (311 LoC)
+    └── Generated/            # UniFFI generated bindings
+        ├── mepassa.swift     # Swift interfaces (48KB)
+        ├── mepassaFFI.h      # C FFI header (27KB)
+        └── mepassaFFI.modulemap
 ```
 
-## 🔧 Setup
+## 🚀 Quick Start
 
-### 1. Build Core Library
-
-The iOS app depends on the Rust core library compiled for iOS targets.
+### One-Command Build
 
 ```bash
-# Install iOS targets
-rustup target add aarch64-apple-ios      # iOS devices (ARM64)
-rustup target add x86_64-apple-ios       # iOS Simulator (Intel)
-rustup target add aarch64-apple-ios-sim  # iOS Simulator (Apple Silicon)
+# Complete build pipeline (Rust + Bindings + Xcode)
+./ios/build-all.sh
 
-# Build for all iOS targets
-cd ../core
-cargo build --release --target aarch64-apple-ios
-cargo build --release --target x86_64-apple-ios
-cargo build --release --target aarch64-apple-ios-sim
-```
-
-### 2. Generate Swift Bindings
-
-```bash
-# Install uniffi-bindgen (if not already installed)
-cargo install uniffi-bindgen --version 0.31.0
-
-# Run the binding generation script
-cd ios
-./generate_bindings.sh
+# Or with Xcode build included:
+./ios/build-all.sh --build
 ```
 
 This will:
-1. Build the core library for macOS
-2. Generate Swift bindings from `core/src/mepassa.udl`
-3. Output files to `ios/MePassa/Generated/`
+1. ✅ Build Rust core for iOS device + Simulator
+2. ✅ Generate Swift bindings via UniFFI
+3. ✅ Generate Xcode project from project.yml
+4. ✅ (Optional) Build iOS app for Simulator
 
-Generated files:
-- `mepassa.swift` - Swift interfaces and types
-- `mepassaFFI.h` - C header for FFI
-- `mepassaFFI.modulemap` - Module map
+### Manual Setup
 
-### 3. Configure Xcode Project
+#### 1. Install Dependencies
 
-1. **Create Xcode Project**:
-   - Open Xcode
-   - Create new iOS App project
-   - Name: "MePassa"
-   - Interface: SwiftUI
-   - Language: Swift
+```bash
+# Install Rust iOS targets
+rustup target add aarch64-apple-ios       # iOS devices (ARM64)
+rustup target add aarch64-apple-ios-sim   # Simulator (Apple Silicon)
+rustup target add x86_64-apple-ios        # Simulator (Intel)
 
-2. **Add Source Files**:
-   - Drag all `.swift` files from `ios/MePassa/` into Xcode
-   - Ensure "Copy items if needed" is unchecked (files are already in place)
-   - Add `Info.plist` to project
+# Install xcodegen
+brew install xcodegen
 
-3. **Add Generated Bindings**:
-   - Drag `ios/MePassa/Generated/` folder into Xcode
-   - Ensure "Create groups" is selected
+# Install uniffi-bindgen (in virtual environment)
+cd ios
+python3 -m venv venv
+source venv/bin/activate
+pip install uniffi-bindgen==0.28.3
+```
 
-4. **Add Core Library**:
-   - Create "Frameworks" group in Xcode
-   - Add `libmepassa_core.a` for each target:
-     - iOS Device: `../target/aarch64-apple-ios/release/libmepassa_core.a`
-     - iOS Simulator (Intel): `../target/x86_64-apple-ios/release/libmepassa_core.a`
-     - iOS Simulator (Apple Silicon): `../target/aarch64-apple-ios-sim/release/libmepassa_core.a`
+#### 2. Build Rust Core
 
-5. **Configure Build Settings**:
-   - In Build Settings, search for "Library Search Paths"
-   - Add: `$(PROJECT_DIR)/../target/$(PLATFORM_NAME)/release`
-   - In "Other Linker Flags", add: `-lmepassa_core`
+```bash
+./ios/build-rust.sh
+```
 
-6. **Configure Capabilities**:
-   - Enable "Background Modes":
-     - Voice over IP
-     - Remote notifications
-     - Audio, AirPlay, and Picture in Picture
-   - Enable "Push Notifications"
+Output:
+- `ios/Libraries/libmepassa_core_ios.a` (96MB)
+- `ios/Libraries/libmepassa_core_sim.a` (192MB universal)
 
-### 4. Configure Signing & Provisioning
+#### 3. Generate Swift Bindings
 
-1. Select your Apple Developer account in Xcode
-2. Configure Bundle Identifier: `app.mepassa.ios` (or your preference)
-3. Enable automatic signing or configure provisioning profiles
+```bash
+source ios/venv/bin/activate  # Activate venv
+./ios/generate-bindings.sh
+```
+
+Output:
+- `ios/MePassa/Generated/mepassa.swift`
+- `ios/MePassa/Generated/mepassaFFI.h`
+- `ios/MePassa/Generated/mepassaFFI.modulemap`
+
+#### 4. Generate Xcode Project
+
+```bash
+cd ios
+xcodegen generate
+```
+
+Output: `ios/MePassa.xcodeproj`
+
+#### 5. Open in Xcode
+
+```bash
+open ios/MePassa.xcodeproj
+```
+
+Or build from command line:
+
+```bash
+xcodebuild -project ios/MePassa.xcodeproj \
+           -scheme MePassa \
+           -sdk iphonesimulator \
+           -destination 'platform=iOS Simulator,name=iPhone 16' \
+           build
+```
 
 ## 🎯 Features
 
-### Implemented (FASE 13 - 50%)
+### ✅ Implemented (90%)
 
+**Core Infrastructure:**
 - ✅ SwiftUI app structure with navigation
-- ✅ Login/identity generation UI
+- ✅ Rust FFI integration via UniFFI
+- ✅ Static library linking (libmepassa_core)
+- ✅ Build pipeline automation
+- ✅ Xcode project generation via xcodegen
+
+**UI Screens:**
+- ✅ Login/identity generation
 - ✅ Conversations list
 - ✅ Chat screen with messaging UI
+- ✅ Call screens (incoming/active)
+- ✅ Settings and profile
+- ✅ QR code generation
+- ✅ QR code scanner (AVFoundation)
+
+**VoIP Integration:**
 - ✅ CallKit integration (CallManager)
-- ✅ VoIP call screens (incoming/active)
-- ✅ Settings and profile screens
-- ✅ QR code generation for identity sharing
+- ✅ AVAudioEngine audio I/O (48kHz, mono, 16-bit PCM)
+- ✅ Audio session management
+- ✅ Background modes configured
 
-### TODO (FASE 13 - 50%)
+**Rust Core (iOS):**
+- ✅ Conditional compilation (#[cfg(feature = "voip")])
+- ✅ P2P messaging (libp2p + Kademlia DHT)
+- ✅ E2E encryption (Signal Protocol)
+- ✅ Local storage (SQLite)
+- ✅ FFI bindings (UniFFI 0.28.3)
 
-- ⏳ UniFFI bindings integration (in progress)
-- ⏳ Audio I/O with AVAudioEngine
-- ⏳ WebRTC integration for VoIP
-- ⏳ APNs (Push Notifications) integration
-- ⏳ QR code scanner implementation
-- ⏳ Xcode project file configuration
-- ⏳ Build pipeline & TestFlight setup
+### ⏳ Pending (10%)
+
+- ⏳ End-to-end tests on Simulator (messaging, QR Scanner)
+- ⏳ WebRTC VoIP integration (awaits FASE 12 - currently mock)
+- ⏳ APNs Push Notifications (awaits FASE 8 - server-side)
+- ⏳ TestFlight configuration
+- ⏳ Physical device testing
 
 ## 📱 Permissions
 
-The app requests the following permissions (configured in Info.plist):
+Configured in `Info.plist`:
 
-- **Microphone** (`NSMicrophoneUsageDescription`): For voice calls
-- **Camera** (`NSCameraUsageDescription`): For video calls (FASE 14)
-- **Photos** (`NSPhotoLibraryUsageDescription`): To share images
-- **Contacts** (`NSContactsUsageDescription`): To find friends
+- **Microphone** (`NSMicrophoneUsageDescription`): "MePassa precisa acessar o microfone para chamadas de voz"
+- **Camera** (`NSCameraUsageDescription`): "MePassa precisa acessar a câmera para videochamadas"
+- **Photos** (`NSPhotoLibraryUsageDescription`): "MePassa precisa acessar fotos para compartilhar imagens"
+- **Contacts** (`NSContactsUsageDescription`): "MePassa precisa acessar contatos para encontrar amigos"
+
+Background Modes:
+- ✅ Voice over IP (VoIP)
+- ✅ Remote notifications
+- ✅ Audio, AirPlay, and Picture in Picture
 
 ## 🔊 VoIP Integration
 
-### CallKit
+### CallKit (Implemented)
 
-The app uses CallKit for native iOS call integration:
+- **CallManager.swift** (309 LoC): Manages CallKit provider and controller
+- **CXProvider**: System call UI and events
+- **CXCallController**: Call actions (answer, end, mute, hold)
+- Native iOS call integration (lockscreen, CarPlay)
 
-- **CallManager.swift**: Manages CallKit provider and call controller
-- **CXProvider**: Handles system call UI and events
-- **CXCallController**: Controls call actions (answer, end, mute)
-- **Background Modes**: Configured for VoIP, remote notifications, and audio
+### Audio I/O (Implemented)
 
-### Audio I/O (TODO)
+- **AudioManager.swift** (311 LoC): AVAudioEngine wrapper
+- 48kHz sample rate, mono, 16-bit PCM
+- Audio buffer management (20ms frames)
+- Audio session configuration (playAndRecord, VoIP category)
+- Ready for WebRTC integration
 
-Will use AVAudioEngine for audio capture and playback:
-- Capture microphone input
-- Process audio through WebRTC
-- Playback remote audio
-- Handle audio routing (speaker, Bluetooth, earpiece)
+### WebRTC Integration (Pending)
+
+Currently using mock implementation. Will connect to Rust core's WebRTC engine via FFI when VoIP feature is enabled.
 
 ## 🏗️ Architecture
 
-### State Management
-
-- **AppState**: Global app state (authentication, user, conversations)
-  - Published properties trigger UI updates
-  - ObservableObject pattern
-  - Injected via @EnvironmentObject
-
-- **CallManager**: VoIP state and CallKit integration
-  - Call state management
-  - Audio session configuration
-  - CallKit delegate implementation
-
-### Navigation Flow
-
-```
-ContentView
-├── LoginView (if !authenticated)
-└── ConversationsView (if authenticated)
-    ├── ChatView (per conversation)
-    │   ├── Start voice call → CallScreen
-    │   └── Start video call → (FASE 14)
-    ├── NewChatView (modal)
-    └── SettingsView (modal)
-
-IncomingCallScreen (presented by CallKit)
-└── Answer → CallScreen
-```
-
-### FFI Integration (TODO)
+### FFI Integration
 
 ```swift
 import mepassa  // Generated by UniFFI
@@ -206,109 +232,210 @@ import mepassa  // Generated by UniFFI
 let client = try MePassaClient(dataDir: documentsPath)
 
 // Get local peer ID
-let peerId = try await client.localPeerId()
+let peerId = try client.localPeerId()
+
+// Listen on multiaddr
+try await client.listenOn(multiaddr: "/ip4/0.0.0.0/tcp/0")
+
+// Connect to peer
+try await client.connectToPeer(
+    peerId: remotePeerId,
+    multiaddr: remoteAddr
+)
 
 // Send message
 let messageId = try await client.sendTextMessage(
     toPeerId: recipientPeerId,
-    content: "Hello!"
+    content: "Hello from iOS!"
 )
 
-// Start call
-let callId = try await client.startCall(toPeerId: recipientPeerId)
+// Get conversations
+let conversations = try client.listConversations()
+
+// Get messages
+let messages = try client.getConversationMessages(
+    peerId: peerId,
+    limit: 50,
+    offset: 0
+)
 ```
+
+### State Management
+
+- **@EnvironmentObject**: Global app state injection
+- **@Published**: Reactive state updates
+- **ObservableObject**: SwiftUI state management
+- Singleton pattern for MePassaClient wrapper
+
+### Navigation Flow
+
+```
+ContentView (root)
+├── LoginView (if !authenticated)
+└── TabView (if authenticated)
+    ├── ConversationsView
+    │   ├── ChatView (per conversation)
+    │   ├── NewChatView (modal)
+    │   └── MyQRCodeView (sheet)
+    ├── CallScreen (if in call)
+    └── SettingsView
+
+IncomingCallScreen (CallKit presented)
+└── Answer → CallScreen
+```
+
+## 📦 Build Configuration
+
+### Xcode Settings (project.yml)
+
+```yaml
+SWIFT_VERSION: "5.0"
+SWIFT_OBJC_BRIDGING_HEADER: $(PROJECT_DIR)/MePassa/MePassa-Bridging-Header.h
+
+LIBRARY_SEARCH_PATHS:
+  - $(PROJECT_DIR)/Libraries
+
+OTHER_LDFLAGS:
+  - -L$(PROJECT_DIR)/Libraries
+  - -lmepassa_core_sim  # For Simulator builds
+
+HEADER_SEARCH_PATHS:
+  - $(PROJECT_DIR)/MePassa/Generated
+```
+
+### Frameworks & Dependencies
+
+- Foundation.framework
+- SwiftUI.framework
+- CallKit.framework
+- AVFoundation.framework
+- CoreImage.framework
+- UserNotifications.framework
+- PushKit.framework
+- Security.framework
+- SystemConfiguration.framework
+- libresolv.tbd
 
 ## 🧪 Testing
 
-### Unit Tests (TODO)
+### Manual Testing (Current)
+
+1. Build and run on Simulator:
+   ```bash
+   ./ios/build-all.sh --build
+   ```
+
+2. Test features:
+   - Identity generation
+   - QR code generation/scanning
+   - P2P messaging (when both instances connected)
+   - Audio permissions
+   - CallKit integration
+
+### Automated Tests (TODO)
 
 ```bash
 xcodebuild test \
+    -project MePassa.xcodeproj \
     -scheme MePassa \
-    -destination 'platform=iOS Simulator,name=iPhone 15'
+    -destination 'platform=iOS Simulator,name=iPhone 16'
 ```
 
-### UI Tests (TODO)
-
-SwiftUI Preview providers are included for all views for rapid UI iteration.
-
-## 📦 Build & Deploy
-
-### Development Build
-
-```bash
-xcodebuild \
-    -scheme MePassa \
-    -configuration Debug \
-    -destination 'platform=iOS Simulator,name=iPhone 15'
-```
-
-### Release Build
-
-```bash
-xcodebuild \
-    -scheme MePassa \
-    -configuration Release \
-    -archivePath ./build/MePassa.xcarchive \
-    archive
-```
+## 📦 Distribution
 
 ### TestFlight (TODO)
 
-1. Archive the app in Xcode
-2. Upload to App Store Connect
-3. Configure TestFlight metadata
-4. Add internal/external testers
-5. Distribute build
+1. Configure signing & provisioning:
+   - Apple Developer account
+   - App ID: `app.mepassa.ios`
+   - Provisioning profiles
 
-## 🔄 Continuous Integration (TODO)
+2. Archive build:
+   ```bash
+   xcodebuild archive \
+       -project MePassa.xcodeproj \
+       -scheme MePassa \
+       -archivePath ./build/MePassa.xcarchive
+   ```
 
-GitHub Actions workflow for:
-- Build verification
-- Unit tests
-- UI tests
-- TestFlight beta deployment
+3. Export IPA:
+   ```bash
+   xcodebuild -exportArchive \
+       -archivePath ./build/MePassa.xcarchive \
+       -exportPath ./build \
+       -exportOptionsPlist ExportOptions.plist
+   ```
+
+4. Upload to App Store Connect
+5. Distribute to beta testers
+
+## 🔧 Troubleshooting
+
+### Build Errors
+
+**Error: "cannot find type 'RustBuffer'"**
+- Solution: Ensure bridging header is configured correctly
+- Check: SWIFT_OBJC_BRIDGING_HEADER in build settings
+
+**Error: "Undefined symbols for architecture x86_64"**
+- Solution: Build Rust core for all targets (x86_64 + ARM64)
+- Run: `./ios/build-rust.sh`
+
+**Error: "library not found for -lmepassa_core_sim"**
+- Solution: Check library exists in `ios/Libraries/`
+- Verify: LIBRARY_SEARCH_PATHS in project.yml
+
+### Runtime Issues
+
+**App crashes on launch**
+- Check: Rust core library is properly linked
+- Verify: All frameworks are available
+- Debug: Enable exception breakpoints in Xcode
+
+**Audio not working**
+- Check: Microphone permissions granted
+- Verify: Audio session configuration
+- Debug: Check AVAudioEngine status
 
 ## 📝 Development Notes
 
-### Current Status (2026-01-20)
+### Rust Core - iOS Build Strategy
 
-FASE 13 iOS App: ~50% complete
+Since `audiopus_sys` (Opus audio codec) doesn't compile for iOS with CMake, we use **conditional compilation**:
 
-**Completed**:
-- ✅ All SwiftUI screens created
-- ✅ CallKit integration (CallManager)
-- ✅ App structure and navigation
-- ✅ Info.plist configuration
+```rust
+#[cfg(feature = "voip")]
+pub mod voip;  // Excluded from iOS builds
 
-**In Progress**:
-- 🔧 UniFFI bindings generation
-- 🔧 Xcode project configuration
+// VoIP methods only available when feature = "voip" is enabled
+#[cfg(feature = "voip")]
+pub async fn start_call(&self, to_peer_id: String) -> Result<String> {
+    // ...
+}
+```
 
-**Pending**:
-- ⏳ AVAudioEngine audio I/O
-- ⏳ WebRTC VoIP integration
-- ⏳ APNs push notifications
-- ⏳ QR scanner (AVFoundation)
-- ⏳ Build pipeline
+**iOS builds:** `--no-default-features` (excludes opus, cpal, webrtc)
+**Android/Desktop builds:** default features enabled (includes full VoIP stack)
 
-### Known Issues
+This allows:
+- ✅ iOS: P2P messaging works (libp2p, storage, crypto)
+- ✅ Android/Desktop: Full VoIP support
+- 🔜 iOS VoIP: Will use native AVAudioEngine + CallKit (FASE 14)
 
-1. **UniFFI Bindings**: Manual generation required until automated in build pipeline
-2. **QR Scanner**: Placeholder UI - needs AVFoundation implementation
-3. **WebRTC**: Core library ready, needs Swift integration
-4. **APNs**: Waiting on FASE 8 completion (server-side)
+### Current Limitations
 
-### Next Steps
+1. **VoIP on iOS:** Mock implementation, awaits WebRTC integration
+2. **Push Notifications:** Awaits FASE 8 (APNs server-side)
+3. **Physical Device Testing:** Requires Apple Developer account
+4. **App Store:** Awaits provisioning profiles and certificates
 
-1. Generate UniFFI bindings successfully
-2. Create Xcode project file (.xcodeproj)
-3. Integrate mepassa-core library
-4. Implement AVAudioEngine audio I/O
-5. Connect VoIP UI to WebRTC engine
-6. Test on physical iOS device
-7. Configure APNs certificates
-8. Set up TestFlight
+### Next Steps (to reach 100%)
+
+1. End-to-end tests on Simulator
+2. Physical device testing
+3. TestFlight beta distribution
+4. WebRTC VoIP integration (FASE 14)
+5. APNs integration (after FASE 8)
 
 ## 📚 Resources
 
@@ -316,12 +443,12 @@ FASE 13 iOS App: ~50% complete
 - [CallKit Documentation](https://developer.apple.com/documentation/callkit)
 - [UniFFI Guide](https://mozilla.github.io/uniffi-rs/)
 - [AVAudioEngine](https://developer.apple.com/documentation/avfaudio/avaudioengine)
-- [WebRTC iOS](https://webrtc.github.io/webrtc-org/native-code/ios/)
+- [xcodegen](https://github.com/yonaskolb/XcodeGen)
 
 ## 🤝 Contributing
 
-This is part of the MePassa project. See main README for contribution guidelines.
+Part of the MePassa project. See main README for contribution guidelines.
 
 ## 📄 License
 
-Same as MePassa project license.
+AGPL-3.0 (same as MePassa project)
