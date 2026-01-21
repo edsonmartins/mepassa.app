@@ -2165,32 +2165,36 @@ mepassa/
 
 ---
 
-#### 2. FASE 13: iOS App (40% falta - 2 semanas)
-**Status:** IN_PROGRESS (60%)
+#### 2. FASE 13: iOS App (22% falta - 1 semana)
+**Status:** IN_PROGRESS (78%)
 **O que foi feito:**
 - ✅ Xcode project setup (via xcodegen CLI)
 - ✅ Swift + SwiftUI UI (Login, Conversations, Chat, Settings, Call) - 2.100+ LoC
 - ✅ UniFFI bindings gerados (mepassa.swift 2.357 LoC)
 - ✅ VoIP integration com CallKit (CallManager 309 LoC)
 - ✅ Primeira build bem-sucedida no Simulator
+- ✅ Audio I/O com AVAudioEngine (AudioManager 311 LoC)
+- ✅ QR Scanner com AVFoundation (238 LoC)
 
 **O que falta:**
-- [ ] Audio I/O com AVAudioEngine
-- [ ] Conectar CallManager ao WebRTC via FFI
+- [ ] Conectar CallManager ao WebRTC via FFI (bloqueado: build Rust core para iOS)
 - [ ] Resolver build do Rust core para iOS (audiopus_sys CMake issue)
-- [ ] QR Scanner com AVFoundation
 - [ ] Push notifications (APNs - aguarda FASE 8)
 - [ ] Testes VoIP em 2 iPhones físicos (latência, MOS score)
 - [ ] Build & deploy pipeline
 - [ ] TestFlight beta testing
 
+**Bloqueios técnicos:**
+- 🚧 audiopus_sys não compila para iOS (CMake compatibility < 3.5)
+- 🚧 Módulo voip tem dependências circulares sem feature flag
+
 **Dependências:**
 - ✅ Core FFI (UniFFI) - PRONTO
 - 🚧 APNs (FASE 8) - 75% pronto (bloqueando push notifications)
-- ✅ VoIP core - PRONTO (mas precisa build para iOS)
+- 🚧 VoIP core - build para iOS bloqueado (precisa resolver opus)
 
 **Impacto:** SEM iOS = 50% DO MERCADO PERDIDO
-**Esforço restante:** ~2 semanas
+**Esforço restante:** ~1 semana (após resolver build do core)
 
 ---
 
