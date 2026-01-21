@@ -11,22 +11,32 @@ import CallKit
 
 @main
 struct MePassaApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var appState = AppState()
     @StateObject private var callManager = CallManager()
-    
+    @StateObject private var pushManager = PushNotificationManager()
+
     init() {
         // Initialize MePassa Core
         initializeMePassaCore()
-        
+
         // Setup CallKit
         setupCallKit()
     }
-    
+
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(appState)
                 .environmentObject(callManager)
+                .environmentObject(pushManager)
+                .onAppear {
+                    // Connect AppDelegate with PushManager
+                    appDelegate.pushManager = pushManager
+
+                    // Request push notification permissions
+                    pushManager.requestAuthorization()
+                }
         }
     }
     
