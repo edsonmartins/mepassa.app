@@ -101,6 +101,13 @@ dependencies {
     // Accompanist (permissions, etc)
     implementation("com.google.accompanist:accompanist-permissions:0.32.0")
 
+    // CameraX (FASE 14 - Video Calls)
+    val cameraxVersion = "1.3.1"
+    implementation("androidx.camera:camera-core:$cameraxVersion")
+    implementation("androidx.camera:camera-camera2:$cameraxVersion")
+    implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
+    implementation("androidx.camera:camera-view:$cameraxVersion")
+
     // Firebase (Push Notifications)
     implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
     implementation("com.google.firebase:firebase-messaging-ktx")
