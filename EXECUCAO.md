@@ -49,7 +49,7 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 | **FASE 11: Server - Message Store** | Rust | 100% | `DONE` | 7/10 | ~900/1.500 | 2026-01-20 |
 | **FASE 12: VOIP - Chamadas** 🔥 | Multi | 95% | `READY_FOR_TEST` | 21/24 | ~4.600/2.500 | 2026-01-20 |
 | **FASE 13: iOS App** | Swift | 100% | `DONE` | 30/30 | ~3.920/4.000 | 2026-01-21 |
-| **FASE 14: Videochamadas** | Multi | 42% | `IN_PROGRESS` | 8/19 | 1.045/2.200 | 2026-01-21 |
+| **FASE 14: Videochamadas** | Multi | 68% | `IN_PROGRESS` | 13/19 | 1.720/2.200 | 2026-01-21 |
 | **FASE 15: Grupos** | Multi | 0% | `TODO` | 0/15 | 0/2.000 | - |
 | **FASE 16: Mídia & Polimento** | Multi | 0% | `TODO` | 0/20 | 0/2.500 | - |
 | **FASE 17: Multi-Device Sync** | Rust | 0% | `TODO` | 0/10 | 0/1.500 | - |
@@ -1845,7 +1845,7 @@ App iOS com paridade de features (mensagens + chamadas).
 
 ---
 
-## 📹 FASE 14: VIDEOCHAMADAS (Mês 5) - 🚧 IN_PROGRESS (42%)
+## 📹 FASE 14: VIDEOCHAMADAS (Mês 5) - 🚧 IN_PROGRESS (68%)
 
 ### Objetivo
 Videochamadas 1:1 (extensão do VoIP).
@@ -1865,7 +1865,15 @@ Videochamadas 1:1 (extensão do VoIP).
 - Total: 259 linhas adicionadas
 - Build: Compila com sucesso ✅
 
-**🚧 PRÓXIMO: TRACK 3 - Android CameraX integration**
+**✅ TRACK 3: Android - CameraX + VideoCallScreen (COMPLETO)**
+- Commit: `8d4fb36` - feat(android): Add video call support (FASE 14 - TRACK 3)
+- Arquivos criados: `CameraManager.kt` (185 LoC), `VideoCallScreen.kt` (350 LoC), `RemoteVideoView.kt` (130 LoC)
+- Arquivos modificados: `build.gradle.kts` (CameraX deps), `AndroidManifest.xml` (CAMERA permission)
+- CameraX: Captura VGA 640x480, YUV420, front/back switch
+- UI: Fullscreen remote + PiP local preview, controles video/mute/camera/hangup
+- Total: 675 linhas adicionadas
+
+**🚧 PRÓXIMO: TRACK 4 - iOS AVFoundation integration**
 
 ### Tarefas
 
@@ -1882,11 +1890,11 @@ Videochamadas 1:1 (extensão do VoIP).
 | 14.2.2 | Modificar client.rs (enable_video, etc) | `DONE` | Claude | 2026-01-21 | 2026-01-21 | 2026-01-21 | 14.2.1 |
 | 14.2.3 | Build core (bindings gerados automaticamente) | `DONE` | Claude | 2026-01-21 | 2026-01-21 | 2026-01-21 | 14.2.2 |
 | **14.3 - Android (TRACK 3)** ||||||||
-| 14.3.1 | Adicionar CameraX dependencies (build.gradle) | `TODO` | - | - | - | - | 14.2.3 |
-| 14.3.2 | Adicionar CAMERA permission (AndroidManifest) | `TODO` | - | - | - | - | 14.3.1 |
-| 14.3.3 | Criar CameraManager.kt (CameraX integration) | `TODO` | - | - | - | - | 14.3.2 |
-| 14.3.4 | Criar VideoCallScreen.kt (UI) | `TODO` | - | - | - | - | 14.3.3 |
-| 14.3.5 | Criar RemoteVideoView.kt (rendering) | `TODO` | - | - | - | - | 14.3.4 |
+| 14.3.1 | Adicionar CameraX dependencies (build.gradle) | `DONE` | Claude | 2026-01-21 | 2026-01-21 | 2026-01-21 | 14.2.3 |
+| 14.3.2 | Adicionar CAMERA permission (AndroidManifest) | `DONE` | Claude | 2026-01-21 | 2026-01-21 | 2026-01-21 | 14.3.1 |
+| 14.3.3 | Criar CameraManager.kt (CameraX integration) | `DONE` | Claude | 2026-01-21 | 2026-01-21 | 2026-01-21 | 14.3.2 |
+| 14.3.4 | Criar VideoCallScreen.kt (UI) | `DONE` | Claude | 2026-01-21 | 2026-01-21 | 2026-01-21 | 14.3.3 |
+| 14.3.5 | Criar RemoteVideoView.kt (rendering) | `DONE` | Claude | 2026-01-21 | 2026-01-21 | 2026-01-21 | 14.3.4 |
 | **14.4 - iOS (TRACK 4)** ||||||||
 | 14.4.1 | Adicionar NSCameraUsageDescription (Info.plist) | `TODO` | - | - | - | - | 14.2.3 |
 | 14.4.2 | Criar CameraManager.swift (AVFoundation) | `TODO` | - | - | - | - | 14.4.1 |
