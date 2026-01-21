@@ -1,16 +1,22 @@
-# Android cross-compilation configuration
-[target.aarch64-linux-android]
-ar = "/Users/edsonmartins/Library/Android/sdk/ndk/26.3.11579264/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ar"
-linker = "/Users/edsonmartins/Library/Android/sdk/ndk/26.3.11579264/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android33-clang"
+# Cargo configuration for iOS builds
 
-[target.armv7-linux-androideabi]
-ar = "/Users/edsonmartins/Library/Android/sdk/ndk/26.3.11579264/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ar"
-linker = "/Users/edsonmartins/Library/Android/sdk/ndk/26.3.11579264/toolchains/llvm/prebuilt/darwin-x86_64/bin/armv7a-linux-androideabi33-clang"
+[target.aarch64-apple-ios]
+# iOS device (ARM64)
+rustflags = [
+    "-C", "link-arg=-isysroot",
+    "-C", "link-arg=/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk",
+]
 
-[target.x86_64-linux-android]
-ar = "/Users/edsonmartins/Library/Android/sdk/ndk/26.3.11579264/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ar"
-linker = "/Users/edsonmartins/Library/Android/sdk/ndk/26.3.11579264/toolchains/llvm/prebuilt/darwin-x86_64/bin/x86_64-linux-android33-clang"
+[target.aarch64-apple-ios-sim]
+# iOS Simulator (Apple Silicon)
+rustflags = [
+    "-C", "link-arg=-isysroot",
+    "-C", "link-arg=/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk",
+]
 
-[target.i686-linux-android]
-ar = "/Users/edsonmartins/Library/Android/sdk/ndk/26.3.11579264/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ar"
-linker = "/Users/edsonmartins/Library/Android/sdk/ndk/26.3.11579264/toolchains/llvm/prebuilt/darwin-x86_64/bin/i686-linux-android33-clang"
+[target.x86_64-apple-ios]
+# iOS Simulator (Intel)
+rustflags = [
+    "-C", "link-arg=-isysroot",
+    "-C", "link-arg=/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk",
+]

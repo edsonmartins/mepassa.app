@@ -16,6 +16,7 @@
 		47AB699B1B0938D767191186 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 664577EECF2F85A1B1C6FD0D /* Foundation.framework */; };
 		5597A6891ADAF653FD39F740 /* CallScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A95A2FBFB940CDB147ADB83 /* CallScreen.swift */; };
 		5E3BB8A9CC902C0D29B0C0C3 /* CallManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B50CC90605463C028220F6E /* CallManager.swift */; };
+		6653910E198A4FD3C80BA4C4 /* QRScannerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 199E8DDD9561569D82E407DF /* QRScannerViewController.swift */; };
 		67BF4979697CC5A651960CD2 /* AudioManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7BE3BB1B497A6018B53DCF6 /* AudioManager.swift */; };
 		819D6641F21F3F8A104862CA /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D373AA779D55C7DA27CBEA63 /* SwiftUI.framework */; };
 		AEA07F4819B13F76F04A1C23 /* CallKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E1B4AE36E48637D6A731140 /* CallKit.framework */; };
@@ -33,6 +34,7 @@
 /* Begin PBXFileReference section */
 		048D5B493E51EA326AE8095D /* MePassaCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MePassaCore.swift; sourceTree = "<group>"; };
 		16BCBADD850B6ADA2CD1B0B8 /* IncomingCallScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncomingCallScreen.swift; sourceTree = "<group>"; };
+		199E8DDD9561569D82E407DF /* QRScannerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRScannerViewController.swift; sourceTree = "<group>"; };
 		20494A7A7558254B1272DFB9 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		20E97D91F6AA59DDFEBFDA5D /* NewChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewChatView.swift; sourceTree = "<group>"; };
 		2A95A2FBFB940CDB147ADB83 /* CallScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallScreen.swift; sourceTree = "<group>"; };
@@ -111,6 +113,7 @@
 				D2BE2489A437039F637F2231 /* MyQRCodeView.swift */,
 				20E97D91F6AA59DDFEBFDA5D /* NewChatView.swift */,
 				8304ACD8920950CFEF27A09C /* QRScannerView.swift */,
+				199E8DDD9561569D82E407DF /* QRScannerViewController.swift */,
 				3C61E61931C4A2F0A6ABADC4 /* SettingsView.swift */,
 			);
 			path = Views;
@@ -231,6 +234,7 @@
 				B0B2446126898B672CBB63A4 /* MyQRCodeView.swift in Sources */,
 				1EF71D7166F8AB510462E058 /* NewChatView.swift in Sources */,
 				14DB21C5F4E49301F9BE733B /* QRScannerView.swift in Sources */,
+				6653910E198A4FD3C80BA4C4 /* QRScannerViewController.swift in Sources */,
 				F56D21AA3F4B83B43F55AE51 /* SettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -5,6 +5,7 @@
 //  Created by MePassa Team
 //  Copyright © 2026 MePassa. All rights reserved.
 //
+//  SwiftUI wrapper for QRScannerViewController
 
 import SwiftUI
 import AVFoundation
@@ -14,35 +15,47 @@ struct QRScannerView: View {
     let onScan: (String) -> Void
 
     var body: some View {
-        NavigationView {
-            ZStack {
-                // TODO: Implement camera-based QR scanner using AVFoundation
-                // For now, show placeholder
-                VStack(spacing: 20) {
-                    Image(systemName: "qrcode.viewfinder")
-                        .font(.system(size: 100))
-                        .foregroundColor(.secondary)
+        QRScannerRepresentable(onScan: onScan, onCancel: {
+            dismiss()
+        })
+        .ignoresSafeArea()
+    }
+}
 
-                    Text("Scanner QR em desenvolvimento")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
+// MARK: - UIViewControllerRepresentable
+struct QRScannerRepresentable: UIViewControllerRepresentable {
+    let onScan: (String) -> Void
+    let onCancel: () -> Void
 
-                    Text("Use a opção de inserir Peer ID manualmente")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40)
-                }
-            }
-            .navigationTitle("Escanear QR Code")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Fechar") {
-                        dismiss()
-                    }
-                }
-            }
+    func makeUIViewController(context: Context) -> QRScannerViewController {
+        let scanner = QRScannerViewController()
+        scanner.delegate = context.coordinator
+        return scanner
+    }
+
+    func updateUIViewController(_ uiViewController: QRScannerViewController, context: Context) {
+        // No updates needed
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onScan: onScan, onCancel: onCancel)
+    }
+
+    class Coordinator: NSObject, QRScannerDelegate {
+        let onScan: (String) -> Void
+        let onCancel: () -> Void
+
+        init(onScan: @escaping (String) -> Void, onCancel: @escaping () -> Void) {
+            self.onScan = onScan
+            self.onCancel = onCancel
+        }
+
+        func qrScanner(_ scanner: QRScannerViewController, didScanCode code: String) {
+            onScan(code)
+        }
+
+        func qrScannerDidCancel(_ scanner: QRScannerViewController) {
+            onCancel()
         }
     }
 }
