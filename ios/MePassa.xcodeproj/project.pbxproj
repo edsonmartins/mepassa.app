@@ -16,6 +16,7 @@
 		47AB699B1B0938D767191186 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 664577EECF2F85A1B1C6FD0D /* Foundation.framework */; };
 		5597A6891ADAF653FD39F740 /* CallScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A95A2FBFB940CDB147ADB83 /* CallScreen.swift */; };
 		5E3BB8A9CC902C0D29B0C0C3 /* CallManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B50CC90605463C028220F6E /* CallManager.swift */; };
+		67BF4979697CC5A651960CD2 /* AudioManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7BE3BB1B497A6018B53DCF6 /* AudioManager.swift */; };
 		819D6641F21F3F8A104862CA /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D373AA779D55C7DA27CBEA63 /* SwiftUI.framework */; };
 		AEA07F4819B13F76F04A1C23 /* CallKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E1B4AE36E48637D6A731140 /* CallKit.framework */; };
 		B0B2446126898B672CBB63A4 /* MyQRCodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2BE2489A437039F637F2231 /* MyQRCodeView.swift */; };
@@ -51,6 +52,7 @@
 		D2BE2489A437039F637F2231 /* MyQRCodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyQRCodeView.swift; sourceTree = "<group>"; };
 		D373AA779D55C7DA27CBEA63 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = SwiftUI.framework; sourceTree = "<group>"; };
 		DE90B1FF50785D56084683DF /* UserNotifications.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = UserNotifications.framework; sourceTree = "<group>"; };
+		F7BE3BB1B497A6018B53DCF6 /* AudioManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -117,6 +119,7 @@
 		5BB3FD99E4AAE80BE631906F /* VoIP */ = {
 			isa = PBXGroup;
 			children = (
+				F7BE3BB1B497A6018B53DCF6 /* AudioManager.swift */,
 				5B50CC90605463C028220F6E /* CallManager.swift */,
 			);
 			path = VoIP;
@@ -215,6 +218,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				67BF4979697CC5A651960CD2 /* AudioManager.swift in Sources */,
 				5E3BB8A9CC902C0D29B0C0C3 /* CallManager.swift in Sources */,
 				5597A6891ADAF653FD39F740 /* CallScreen.swift in Sources */,
 				CDEF932AA0AB3982F7AE874C /* ChatView.swift in Sources */,

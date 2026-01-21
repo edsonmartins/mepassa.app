@@ -23,7 +23,7 @@ class CallManager: NSObject, ObservableObject {
     private var provider: CXProvider?
 
     // MARK: - Audio
-    private let audioEngine = AVAudioEngine()
+    private let audioManager = AudioManager()
     private var audioSession: AVAudioSession {
         AVAudioSession.sharedInstance()
     }
@@ -167,7 +167,12 @@ class CallManager: NSObject, ObservableObject {
     func toggleMute() {
         isMuted.toggle()
 
-        // TODO: Mute/unmute via UniFFI WebRTC
+        if isMuted {
+            audioManager.mute()
+        } else {
+            audioManager.unmute()
+        }
+
         print("🔇 Mute: \(isMuted)")
     }
 
@@ -175,11 +180,7 @@ class CallManager: NSObject, ObservableObject {
         isSpeakerOn.toggle()
 
         do {
-            if isSpeakerOn {
-                try audioSession.overrideOutputAudioPort(.speaker)
-            } else {
-                try audioSession.overrideOutputAudioPort(.none)
-            }
+            try audioManager.enableSpeaker(isSpeakerOn)
             print("🔊 Speaker: \(isSpeakerOn)")
         } catch {
             print("❌ Error toggling speaker: \(error)")
@@ -268,11 +269,25 @@ extension CallManager: CXProviderDelegate {
 
     func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
         print("🎤 Audio session activated")
-        // TODO: Start audio I/O with AVAudioEngine
+
+        do {
+            try audioManager.start()
+
+            // Setup audio callback to send to WebRTC
+            audioManager.onAudioCaptured = { [weak self] audioData in
+                // TODO: Send audio data to WebRTC via UniFFI
+                // self?.sendAudioToWebRTC(audioData)
+            }
+
+            print("✅ Audio I/O started")
+        } catch {
+            print("❌ Error starting audio: \(error)")
+        }
     }
 
     func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
         print("🎤 Audio session deactivated")
+        audioManager.stop()
     }
 
     private func configureAudioSession() {
