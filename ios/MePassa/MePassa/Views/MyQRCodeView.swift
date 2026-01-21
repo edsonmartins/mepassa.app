@@ -46,7 +46,6 @@ struct MyQRCodeView: View {
 
                     Text(appState.currentUser?.peerId ?? "")
                         .font(.footnote)
-                        .monospaced()
                         .padding()
                         .background(Color.secondary.opacity(0.1))
                         .cornerRadius(8)

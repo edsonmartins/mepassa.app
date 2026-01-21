@@ -44,11 +44,11 @@ hex = { workspace = true }
 # CRDTs for sync - TODO: implementar depois
 # automerge = "0.5"
 
-# WebRTC for VoIP (FASE 12)
-webrtc = { workspace = true }
-interceptor = { workspace = true }
-opus = { workspace = true }
-cpal = { workspace = true }
+# WebRTC for VoIP (FASE 12) - Optional for iOS builds
+webrtc = { workspace = true, optional = true }
+interceptor = { workspace = true, optional = true }
+opus = { workspace = true, optional = true }
+cpal = { workspace = true, optional = true }
 
 # Additional dependencies
 bs58 = { workspace = true }
@@ -65,6 +65,8 @@ uniffi_bindgen = "0.31"
 camino = "1.1"
 
 [features]
+default = []
+voip = ["webrtc", "interceptor", "opus", "cpal"]
 integration-tests = []
 
 [build-dependencies]

@@ -35,7 +35,7 @@ struct IncomingCallScreen: View {
 
                         // Avatar
                         Circle()
-                            .fill(Color.blue.gradient)
+                            .fill(Color.blue)
                             .frame(width: 140, height: 140)
                             .overlay(
                                 Text(callManager.currentCall?.displayName.prefix(1).uppercased() ?? "?")

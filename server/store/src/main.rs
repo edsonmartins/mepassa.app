@@ -2,7 +2,104 @@
 //!
 //! Store & forward service for offline message delivery
 
-fn main() {
-    println!("MePassa Message Store");
-    println!("Coming soon...");
+use actix_cors::Cors;
+use actix_web::{middleware, web, App, HttpServer};
+use std::env;
+
+mod api;
+mod database;
+mod models;
+mod redis_client;
+mod ttl_cleanup;
+
+use database::Database;
+use redis_client::RedisClient;
+use ttl_cleanup::TtlCleanupJob;
+
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    // Initialize tracing
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "info,mepassa_store=debug".into()),
+        )
+        .init();
+
+    tracing::info!("🚀 MePassa Message Store starting...");
+
+    // Load configuration from environment
+    let database_url = env::var("DATABASE_URL").unwrap_or_else(|_| {
+        "postgresql://mepassa:mepassa_dev_password@postgres:5432/mepassa".to_string()
+    });
+
+    let redis_url = env::var("REDIS_URL")
+        .unwrap_or_else(|_| "redis://:mepassa_redis_dev@redis:6379".to_string());
+
+    let server_port: u16 = env::var("SERVER_PORT")
+        .unwrap_or_else(|_| "8080".to_string())
+        .parse()
+        .expect("SERVER_PORT must be a valid port number");
+
+    let enable_ttl_cleanup = env::var("ENABLE_TTL_CLEANUP")
+        .unwrap_or_else(|_| "true".to_string())
+        .parse::<bool>()
+        .unwrap_or(true);
+
+    // Connect to database
+    tracing::info!("📦 Connecting to database...");
+    let database = Database::new(&database_url)
+        .await
+        .expect("Failed to connect to database");
+
+    // Connect to Redis
+    tracing::info!("📦 Connecting to Redis...");
+    let redis = RedisClient::new(&redis_url).expect("Failed to connect to Redis");
+
+    // Start TTL cleanup job in background
+    if enable_ttl_cleanup {
+        let cleanup_db = database.clone();
+        tokio::spawn(async move {
+            TtlCleanupJob::new(cleanup_db).start().await;
+        });
+    }
+
+    // Create shared state
+    let db_data = web::Data::new(database);
+    let redis_data = web::Data::new(redis);
+
+    tracing::info!("🌐 Starting HTTP server on port {}", server_port);
+    tracing::info!("   POST   /api/store           - Store offline message");
+    tracing::info!("   GET    /api/store           - Retrieve pending messages");
+    tracing::info!("   DELETE /api/store           - Acknowledge messages");
+    tracing::info!("   GET    /api/stats           - Get statistics");
+    tracing::info!("   GET    /health              - Health check");
+
+    // Start HTTP server
+    HttpServer::new(move || {
+        // Configure CORS
+        let cors = Cors::default()
+            .allow_any_origin()
+            .allow_any_method()
+            .allow_any_header()
+            .max_age(3600);
+
+        App::new()
+            // State
+            .app_data(db_data.clone())
+            .app_data(redis_data.clone())
+            // Middleware
+            .wrap(middleware::Logger::default())
+            .wrap(middleware::Compress::default())
+            .wrap(cors)
+            // Routes
+            .route("/health", web::get().to(api::health_check))
+            .route("/api/stats", web::get().to(api::get_stats))
+            .route("/api/store", web::post().to(api::store_message))
+            .route("/api/store", web::get().to(api::retrieve_messages))
+            .route("/api/store", web::delete().to(api::delete_messages))
+    })
+    .bind(("0.0.0.0", server_port))?
+    .run()
+    .await
 }

@@ -41,14 +41,11 @@ class CallManager: NSObject, ObservableObject {
 
     // MARK: - CallKit Configuration
     private func configureCallKit() {
-        let configuration = CXProviderConfiguration()
+        let configuration = CXProviderConfiguration(localizedName: "MePassa")
         configuration.supportsVideo = false // TODO: Enable for FASE 14 (video calls)
         configuration.maximumCallGroups = 1
         configuration.maximumCallsPerCallGroup = 1
         configuration.supportedHandleTypes = [.generic]
-
-        // Localization
-        configuration.localizedName = "MePassa"
 
         // Audio
         configuration.ringtoneSound = "ringtone.caf"

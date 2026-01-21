@@ -41,6 +41,7 @@ pub mod network;
 pub mod protocol;
 pub mod storage;
 pub mod sync;
+#[cfg(feature = "voip")]
 pub mod voip;
 pub mod utils;
 

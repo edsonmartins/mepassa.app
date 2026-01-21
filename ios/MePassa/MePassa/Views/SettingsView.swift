@@ -21,7 +21,7 @@ struct SettingsView: View {
                 Section {
                     HStack {
                         Circle()
-                            .fill(Color.blue.gradient)
+                            .fill(Color.blue)
                             .frame(width: 60, height: 60)
                             .overlay(
                                 Image(systemName: "person.fill")
@@ -36,7 +36,6 @@ struct SettingsView: View {
                             Text(appState.currentUser?.peerId.prefix(16) ?? "")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
-                                .monospaced()
                         }
                     }
                     .padding(.vertical, 8)

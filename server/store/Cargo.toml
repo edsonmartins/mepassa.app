@@ -7,19 +7,34 @@ description = "Message store service for offline delivery"
 license = "AGPL-3.0"
 
 [dependencies]
-# Workspace dependencies
-tokio = { workspace = true }
-# sqlx = { workspace = true }  # TODO: resolver conflito com rusqlite
-redis = { workspace = true }
-axum = { workspace = true }
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
-anyhow = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
+# Async runtime
+tokio = { workspace = true, features = ["full"] }
 
-# Local dependencies
-# mepassa-core = { path = "../../core" }  # TODO: adicionar depois
+# Web framework
+actix-web = { workspace = true }
+actix-cors = { workspace = true }
+
+# Database
+sqlx = { workspace = true, features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "chrono"] }
+redis = { workspace = true }
+
+# Serialization
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+uuid = { workspace = true, features = ["v4", "serde"] }
+chrono = { workspace = true, features = ["serde"] }
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+
+# Error handling
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# Utilities
+base64 = { workspace = true }
+hex = { workspace = true }
 
 [[bin]]
 name = "mepassa-store"

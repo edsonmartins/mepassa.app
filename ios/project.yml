@@ -1,0 +1,118 @@
+name: MePassa
+options:
+  bundleIdPrefix: app.mepassa
+  deploymentTarget:
+    iOS: "15.0"
+  developmentLanguage: en
+
+settings:
+  base:
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+
+targets:
+  MePassa:
+    type: application
+    platform: iOS
+
+    sources:
+      - path: MePassa/MePassa
+        excludes:
+          - "**/.DS_Store"
+      # TODO: Re-enable Generated folder when Rust core library is linked
+      # - path: MePassa/Generated
+      #   excludes:
+      #     - "**/.DS_Store"
+
+    info:
+      path: MePassa/Info.plist
+      properties:
+        CFBundleDevelopmentRegion: $(DEVELOPMENT_LANGUAGE)
+        CFBundleDisplayName: MePassa
+        CFBundleExecutable: $(EXECUTABLE_NAME)
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        CFBundleInfoDictionaryVersion: "6.0"
+        CFBundleName: $(PRODUCT_NAME)
+        CFBundlePackageType: APPL
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSRequiresIPhoneOS: true
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UILaunchScreen: {}
+        UIRequiredDeviceCapabilities:
+          - armv7
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        NSMicrophoneUsageDescription: "MePassa precisa acessar o microfone para chamadas de voz"
+        NSCameraUsageDescription: "MePassa precisa acessar a câmera para videochamadas"
+        NSPhotoLibraryUsageDescription: "MePassa precisa acessar fotos para compartilhar imagens"
+        NSContactsUsageDescription: "MePassa precisa acessar contatos para encontrar amigos"
+        UIBackgroundModes:
+          - voip
+          - remote-notification
+          - audio
+
+    settings:
+      base:
+        PRODUCT_NAME: MePassa
+        PRODUCT_BUNDLE_IDENTIFIER: app.mepassa.ios
+        INFOPLIST_FILE: MePassa/Info.plist
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: ""
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_VERSION: "5.0"
+        ENABLE_BITCODE: false
+
+        # Library search paths for libmepassa_core (TODO: Enable when core library builds)
+        # LIBRARY_SEARCH_PATHS:
+        #   - $(inherited)
+        #   - $(PROJECT_DIR)/../target/aarch64-apple-ios/release
+        #   - $(PROJECT_DIR)/../target/aarch64-apple-ios-sim/release
+        #   - $(PROJECT_DIR)/../target/x86_64-apple-ios/release
+
+        # Linker flags (TODO: Enable when core library builds)
+        # OTHER_LDFLAGS:
+        #   - -lmepassa_core
+
+        # Swift import paths for Generated module
+        SWIFT_INCLUDE_PATHS:
+          - $(PROJECT_DIR)/MePassa/Generated
+
+        # Header search paths
+        HEADER_SEARCH_PATHS:
+          - $(PROJECT_DIR)/MePassa/Generated
+
+    dependencies:
+      - framework: Foundation.framework
+        embed: false
+      - framework: SwiftUI.framework
+        embed: false
+      - framework: CallKit.framework
+        embed: false
+      - framework: AVFoundation.framework
+        embed: false
+      - framework: CoreImage.framework
+        embed: false
+      - framework: UserNotifications.framework
+        embed: false
+      - framework: PushKit.framework
+        embed: false
+
+    scheme:
+      testTargets: []
+      gatherCoverageData: false
+
+    attributes:
+      SystemCapabilities:
+        com.apple.BackgroundModes:
+          enabled: 1
+        com.apple.Push:
+          enabled: 1

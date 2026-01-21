@@ -76,7 +76,7 @@ struct ConversationRow: View {
         HStack(alignment: .top, spacing: 12) {
             // Avatar
             Circle()
-                .fill(Color.blue.gradient)
+                .fill(Color.blue)
                 .frame(width: 50, height: 50)
                 .overlay(
                     Text(conversation.displayName.prefix(1).uppercased())

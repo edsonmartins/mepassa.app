@@ -1,0 +1,446 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		004C73CB872D149009343EA7 /* IncomingCallScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16BCBADD850B6ADA2CD1B0B8 /* IncomingCallScreen.swift */; };
+		047633C7C6F4EBBDB6615B7F /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AD9D23D740AC9EFF0D859F00 /* AVFoundation.framework */; };
+		14DB21C5F4E49301F9BE733B /* QRScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8304ACD8920950CFEF27A09C /* QRScannerView.swift */; };
+		1EF71D7166F8AB510462E058 /* NewChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20E97D91F6AA59DDFEBFDA5D /* NewChatView.swift */; };
+		2CD0DCDDD86A52F63DBAD08E /* CoreImage.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79777AF9115896A051080B5B /* CoreImage.framework */; };
+		3579145296BB46C07BB636CF /* MePassaCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 048D5B493E51EA326AE8095D /* MePassaCore.swift */; };
+		47AB699B1B0938D767191186 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 664577EECF2F85A1B1C6FD0D /* Foundation.framework */; };
+		5597A6891ADAF653FD39F740 /* CallScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A95A2FBFB940CDB147ADB83 /* CallScreen.swift */; };
+		5E3BB8A9CC902C0D29B0C0C3 /* CallManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B50CC90605463C028220F6E /* CallManager.swift */; };
+		819D6641F21F3F8A104862CA /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D373AA779D55C7DA27CBEA63 /* SwiftUI.framework */; };
+		AEA07F4819B13F76F04A1C23 /* CallKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E1B4AE36E48637D6A731140 /* CallKit.framework */; };
+		B0B2446126898B672CBB63A4 /* MyQRCodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2BE2489A437039F637F2231 /* MyQRCodeView.swift */; };
+		B24F56DBD5F2704FD6F4CD5E /* UserNotifications.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DE90B1FF50785D56084683DF /* UserNotifications.framework */; };
+		B7C56CF83BEDAB8677193649 /* PushKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 37D522D28608A864490872ED /* PushKit.framework */; };
+		C1F8145EA5817DE3F7819FCC /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D623CBBB8C2C5D88DA12769 /* ContentView.swift */; };
+		CDEF932AA0AB3982F7AE874C /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E55AB1DA8D1F48CB73BA35D /* ChatView.swift */; };
+		D1CDF8C187A43F255957FD9E /* MePassaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76C910F948CD813E2B0D8AC3 /* MePassaApp.swift */; };
+		D5B2EF6E56076E490778F7BB /* ConversationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 953C087ADAE72A6F84B50781 /* ConversationsView.swift */; };
+		D9CDA99C4A9F8FE73BB08202 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20494A7A7558254B1272DFB9 /* LoginView.swift */; };
+		F56D21AA3F4B83B43F55AE51 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C61E61931C4A2F0A6ABADC4 /* SettingsView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		048D5B493E51EA326AE8095D /* MePassaCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MePassaCore.swift; sourceTree = "<group>"; };
+		16BCBADD850B6ADA2CD1B0B8 /* IncomingCallScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncomingCallScreen.swift; sourceTree = "<group>"; };
+		20494A7A7558254B1272DFB9 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
+		20E97D91F6AA59DDFEBFDA5D /* NewChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewChatView.swift; sourceTree = "<group>"; };
+		2A95A2FBFB940CDB147ADB83 /* CallScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallScreen.swift; sourceTree = "<group>"; };
+		2D623CBBB8C2C5D88DA12769 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		37D522D28608A864490872ED /* PushKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = PushKit.framework; sourceTree = "<group>"; };
+		3C61E61931C4A2F0A6ABADC4 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		3E55AB1DA8D1F48CB73BA35D /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
+		5B50CC90605463C028220F6E /* CallManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallManager.swift; sourceTree = "<group>"; };
+		5E1B4AE36E48637D6A731140 /* CallKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = CallKit.framework; sourceTree = "<group>"; };
+		664577EECF2F85A1B1C6FD0D /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = Foundation.framework; sourceTree = "<group>"; };
+		76C910F948CD813E2B0D8AC3 /* MePassaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MePassaApp.swift; sourceTree = "<group>"; };
+		79777AF9115896A051080B5B /* CoreImage.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = CoreImage.framework; sourceTree = "<group>"; };
+		8304ACD8920950CFEF27A09C /* QRScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRScannerView.swift; sourceTree = "<group>"; };
+		8BA172F8C0F395FC76B2E201 /* MePassa.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = MePassa.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		953C087ADAE72A6F84B50781 /* ConversationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationsView.swift; sourceTree = "<group>"; };
+		AD9D23D740AC9EFF0D859F00 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = AVFoundation.framework; sourceTree = "<group>"; };
+		D2BE2489A437039F637F2231 /* MyQRCodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyQRCodeView.swift; sourceTree = "<group>"; };
+		D373AA779D55C7DA27CBEA63 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = SwiftUI.framework; sourceTree = "<group>"; };
+		DE90B1FF50785D56084683DF /* UserNotifications.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = UserNotifications.framework; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		92406F346B23732419CB0057 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				47AB699B1B0938D767191186 /* Foundation.framework in Frameworks */,
+				819D6641F21F3F8A104862CA /* SwiftUI.framework in Frameworks */,
+				AEA07F4819B13F76F04A1C23 /* CallKit.framework in Frameworks */,
+				047633C7C6F4EBBDB6615B7F /* AVFoundation.framework in Frameworks */,
+				2CD0DCDDD86A52F63DBAD08E /* CoreImage.framework in Frameworks */,
+				B24F56DBD5F2704FD6F4CD5E /* UserNotifications.framework in Frameworks */,
+				B7C56CF83BEDAB8677193649 /* PushKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		2C7BF185363C6E54C6E018C2 /* MePassa */ = {
+			isa = PBXGroup;
+			children = (
+				2D623CBBB8C2C5D88DA12769 /* ContentView.swift */,
+				76C910F948CD813E2B0D8AC3 /* MePassaApp.swift */,
+				A0ACA649C12BD09E84A6595B /* Core */,
+				59D53E1633E98C8F1AA9BAD7 /* Views */,
+				5BB3FD99E4AAE80BE631906F /* VoIP */,
+			);
+			name = MePassa;
+			path = MePassa/MePassa;
+			sourceTree = "<group>";
+		};
+		45C88A9AF675D224D07B7F05 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				AD9D23D740AC9EFF0D859F00 /* AVFoundation.framework */,
+				5E1B4AE36E48637D6A731140 /* CallKit.framework */,
+				79777AF9115896A051080B5B /* CoreImage.framework */,
+				664577EECF2F85A1B1C6FD0D /* Foundation.framework */,
+				37D522D28608A864490872ED /* PushKit.framework */,
+				D373AA779D55C7DA27CBEA63 /* SwiftUI.framework */,
+				DE90B1FF50785D56084683DF /* UserNotifications.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		59D53E1633E98C8F1AA9BAD7 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				2A95A2FBFB940CDB147ADB83 /* CallScreen.swift */,
+				3E55AB1DA8D1F48CB73BA35D /* ChatView.swift */,
+				953C087ADAE72A6F84B50781 /* ConversationsView.swift */,
+				16BCBADD850B6ADA2CD1B0B8 /* IncomingCallScreen.swift */,
+				20494A7A7558254B1272DFB9 /* LoginView.swift */,
+				D2BE2489A437039F637F2231 /* MyQRCodeView.swift */,
+				20E97D91F6AA59DDFEBFDA5D /* NewChatView.swift */,
+				8304ACD8920950CFEF27A09C /* QRScannerView.swift */,
+				3C61E61931C4A2F0A6ABADC4 /* SettingsView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		5BB3FD99E4AAE80BE631906F /* VoIP */ = {
+			isa = PBXGroup;
+			children = (
+				5B50CC90605463C028220F6E /* CallManager.swift */,
+			);
+			path = VoIP;
+			sourceTree = "<group>";
+		};
+		A0ACA649C12BD09E84A6595B /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				048D5B493E51EA326AE8095D /* MePassaCore.swift */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		DE658F6DA0280D1BA5646C86 = {
+			isa = PBXGroup;
+			children = (
+				2C7BF185363C6E54C6E018C2 /* MePassa */,
+				45C88A9AF675D224D07B7F05 /* Frameworks */,
+				F19FFCC55B908E232E398F24 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		F19FFCC55B908E232E398F24 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				8BA172F8C0F395FC76B2E201 /* MePassa.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		49C4C6CC65D24C5226458C85 /* MePassa */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 184DAB19F0326C8544EC2FE4 /* Build configuration list for PBXNativeTarget "MePassa" */;
+			buildPhases = (
+				A12C76D8FBF33853EAC9F352 /* Sources */,
+				92406F346B23732419CB0057 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = MePassa;
+			packageProductDependencies = (
+			);
+			productName = MePassa;
+			productReference = 8BA172F8C0F395FC76B2E201 /* MePassa.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		D5F8BD2EE4C74A36FEAF8A65 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					49C4C6CC65D24C5226458C85 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+						SystemCapabilities = {
+							com.apple.BackgroundModes = {
+								enabled = 1;
+							};
+							com.apple.Push = {
+								enabled = 1;
+							};
+						};
+					};
+				};
+			};
+			buildConfigurationList = 219678E9B23FE05BE078F746 /* Build configuration list for PBXProject "MePassa" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = DE658F6DA0280D1BA5646C86;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				49C4C6CC65D24C5226458C85 /* MePassa */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A12C76D8FBF33853EAC9F352 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5E3BB8A9CC902C0D29B0C0C3 /* CallManager.swift in Sources */,
+				5597A6891ADAF653FD39F740 /* CallScreen.swift in Sources */,
+				CDEF932AA0AB3982F7AE874C /* ChatView.swift in Sources */,
+				C1F8145EA5817DE3F7819FCC /* ContentView.swift in Sources */,
+				D5B2EF6E56076E490778F7BB /* ConversationsView.swift in Sources */,
+				004C73CB872D149009343EA7 /* IncomingCallScreen.swift in Sources */,
+				D9CDA99C4A9F8FE73BB08202 /* LoginView.swift in Sources */,
+				D1CDF8C187A43F255957FD9E /* MePassaApp.swift in Sources */,
+				3579145296BB46C07BB636CF /* MePassaCore.swift in Sources */,
+				B0B2446126898B672CBB63A4 /* MyQRCodeView.swift in Sources */,
+				1EF71D7166F8AB510462E058 /* NewChatView.swift in Sources */,
+				14DB21C5F4E49301F9BE733B /* QRScannerView.swift in Sources */,
+				F56D21AA3F4B83B43F55AE51 /* SettingsView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		1E3F6658193BBB3D8A9FCB9B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_BITCODE = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\".\"",
+				);
+				HEADER_SEARCH_PATHS = (
+					"$(PROJECT_DIR)/MePassa/Generated",
+				);
+				INFOPLIST_FILE = MePassa/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.mepassa.ios;
+				PRODUCT_NAME = MePassa;
+				SDKROOT = iphoneos;
+				SWIFT_INCLUDE_PATHS = (
+					"$(PROJECT_DIR)/MePassa/Generated",
+				);
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		431947B401D29EDE286101FB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		E9BDDCE1517E9405015A4DAC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		E9FE482519E20C23A44A3081 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_BITCODE = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\".\"",
+				);
+				HEADER_SEARCH_PATHS = (
+					"$(PROJECT_DIR)/MePassa/Generated",
+				);
+				INFOPLIST_FILE = MePassa/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.mepassa.ios;
+				PRODUCT_NAME = MePassa;
+				SDKROOT = iphoneos;
+				SWIFT_INCLUDE_PATHS = (
+					"$(PROJECT_DIR)/MePassa/Generated",
+				);
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		184DAB19F0326C8544EC2FE4 /* Build configuration list for PBXNativeTarget "MePassa" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1E3F6658193BBB3D8A9FCB9B /* Debug */,
+				E9FE482519E20C23A44A3081 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		219678E9B23FE05BE078F746 /* Build configuration list for PBXProject "MePassa" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				431947B401D29EDE286101FB /* Debug */,
+				E9BDDCE1517E9405015A4DAC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = D5F8BD2EE4C74A36FEAF8A65 /* Project object */;
+}
