@@ -1,0 +1,4 @@
+module mepassaFFI {
+    header "mepassaFFI.h"
+    export *
+}

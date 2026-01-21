@@ -94,3 +94,4 @@ temp/
 credentials.json
 secrets.yaml
 .secrets/
+ios/venv/
