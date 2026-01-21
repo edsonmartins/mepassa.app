@@ -49,7 +49,7 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 | **FASE 11: Server - Message Store** | Rust | 100% | `DONE` | 7/10 | ~900/1.500 | 2026-01-20 |
 | **FASE 12: VOIP - Chamadas** 🔥 | Multi | 95% | `READY_FOR_TEST` | 21/24 | ~4.600/2.500 | 2026-01-20 |
 | **FASE 13: iOS App** | Swift | 100% | `DONE` | 30/30 | ~3.920/4.000 | 2026-01-21 |
-| **FASE 14: Videochamadas** | Multi | 0% | `TODO` | 0/12 | 0/1.800 | - |
+| **FASE 14: Videochamadas** | Multi | 25% | `IN_PROGRESS` | 5/19 | 786/2.200 | 2026-01-21 |
 | **FASE 15: Grupos** | Multi | 0% | `TODO` | 0/15 | 0/2.000 | - |
 | **FASE 16: Mídia & Polimento** | Multi | 0% | `TODO` | 0/20 | 0/2.500 | - |
 | **FASE 17: Multi-Device Sync** | Rust | 0% | `TODO` | 0/10 | 0/1.500 | - |
@@ -80,17 +80,17 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 14. **FASE 13:** 📱 iOS App (100%) ✅ **← FINALIZADA HOJE**
 
 **🚧 EM PROGRESSO:**
-- Nenhuma fase em progresso ativo no momento
+- **FASE 14:** 📹 Videochamadas (25% - TRACK 1 Core completo, iniciando TRACK 2 FFI)
 
 **✅ PRONTO PARA TESTES:**
 - **FASE 12:** 🔥 VoIP - Chamadas de Voz (95% - MVP COMPLETO, aguardando testes físicos)
 
 **Estatísticas:**
-- **Arquivos criados:** ~232 arquivos (95% do total)
-- **Linhas de código:** ~25.214 LoC (77% do total)
+- **Arquivos criados:** ~237 arquivos (97% do total)
+- **Linhas de código:** ~26.000 LoC (79% do total)
 - **Testes:** 117+ testes passando (100% sucesso)
 - **Documentação:** 16 documentos principais (~5.100 linhas)
-- **Commits:** 36 commits (última atualização: 2026-01-21)
+- **Commits:** 37 commits (última atualização: 2026-01-21)
 
 **Core Library (Rust):**
 - ✅ Identity + Crypto (Signal Protocol E2E)
@@ -1845,29 +1845,49 @@ App iOS com paridade de features (mensagens + chamadas).
 
 ---
 
-## 📹 FASE 14: VIDEOCHAMADAS (Mês 5)
+## 📹 FASE 14: VIDEOCHAMADAS (Mês 5) - 🚧 IN_PROGRESS (25%)
 
 ### Objetivo
 Videochamadas 1:1 (extensão do VoIP).
+
+### Progresso Atual (2026-01-21)
+**✅ TRACK 1: Core - Video Support (COMPLETO)**
+- Commit: `0077e28` - feat(voip): Add video call support (FASE 14 - TRACK 1)
+- Arquivos criados: `video.rs` (265 LoC), `video_pipeline.rs` (262 LoC)
+- Arquivos modificados: `webrtc.rs`, `manager.rs`, `mod.rs`
+- Total: 786 linhas adicionadas
+
+**🚧 PRÓXIMO: TRACK 2 - FFI Video API**
 
 ### Tarefas
 
 | # | Tarefa | Status | Responsável | Data Início | Data Fim | Última Atualização | Dependências |
 |---|--------|--------|-------------|-------------|----------|--------------------|--------------|
-| **14.1 - Core** ||||||||
-| 14.1.1 | Adicionar video track (WebRTC) | `TODO` | - | - | - | - | 12.1.5 |
-| 14.1.2 | Implementar codec H264/VP8 | `TODO` | - | - | - | - | 14.1.1 |
-| 14.1.3 | Implementar camera switching (front/back) | `TODO` | - | - | - | - | 14.1.1 |
-| **14.2 - Android** ||||||||
-| 14.2.1 | Implementar VideoCallScreen | `TODO` | - | - | - | - | 12.3.4 |
-| 14.2.2 | Integrar CameraX | `TODO` | - | - | - | - | 14.2.1 |
-| 14.2.3 | Botões: mute áudio/vídeo, flip camera | `TODO` | - | - | - | - | 14.2.1 |
-| **14.3 - iOS** ||||||||
-| 14.3.1 | Implementar VideoCallView | `TODO` | - | - | - | - | 13.3.2 |
-| 14.3.2 | Integrar AVFoundation (camera) | `TODO` | - | - | - | - | 14.3.1 |
-| **14.4 - Desktop** ||||||||
-| 14.4.1 | Implementar VideoCallView (React) | `TODO` | - | - | - | - | 12.4.2 |
-| 14.4.2 | Usar JavaScript WebRTC API (browser API) | `TODO` | - | - | - | - | 14.4.1 |
+| **14.1 - Core (TRACK 1)** ||||||||
+| 14.1.1 | Criar video.rs (VideoCodec, traits) | `DONE` | Claude | 2026-01-21 | 2026-01-21 | 2026-01-21 | 12.1.5 |
+| 14.1.2 | Criar video_pipeline.rs (encoder/decoder) | `DONE` | Claude | 2026-01-21 | 2026-01-21 | 2026-01-21 | 14.1.1 |
+| 14.1.3 | Modificar webrtc.rs (add_video_track) | `DONE` | Claude | 2026-01-21 | 2026-01-21 | 2026-01-21 | 14.1.1 |
+| 14.1.4 | Modificar manager.rs (enable/disable video) | `DONE` | Claude | 2026-01-21 | 2026-01-21 | 2026-01-21 | 14.1.3 |
+| 14.1.5 | Modificar mod.rs (re-exports) | `DONE` | Claude | 2026-01-21 | 2026-01-21 | 2026-01-21 | 14.1.4 |
+| **14.2 - FFI (TRACK 2)** ||||||||
+| 14.2.1 | Modificar types.rs (FfiVideoCodec, etc) | `TODO` | - | - | - | - | 14.1.5 |
+| 14.2.2 | Modificar client.rs (enable_video, etc) | `TODO` | - | - | - | - | 14.2.1 |
+| 14.2.3 | Gerar bindings UniFFI (Kotlin/Swift) | `TODO` | - | - | - | - | 14.2.2 |
+| **14.3 - Android (TRACK 3)** ||||||||
+| 14.3.1 | Adicionar CameraX dependencies (build.gradle) | `TODO` | - | - | - | - | 14.2.3 |
+| 14.3.2 | Adicionar CAMERA permission (AndroidManifest) | `TODO` | - | - | - | - | 14.3.1 |
+| 14.3.3 | Criar CameraManager.kt (CameraX integration) | `TODO` | - | - | - | - | 14.3.2 |
+| 14.3.4 | Criar VideoCallScreen.kt (UI) | `TODO` | - | - | - | - | 14.3.3 |
+| 14.3.5 | Criar RemoteVideoView.kt (rendering) | `TODO` | - | - | - | - | 14.3.4 |
+| **14.4 - iOS (TRACK 4)** ||||||||
+| 14.4.1 | Adicionar NSCameraUsageDescription (Info.plist) | `TODO` | - | - | - | - | 14.2.3 |
+| 14.4.2 | Criar CameraManager.swift (AVFoundation) | `TODO` | - | - | - | - | 14.4.1 |
+| 14.4.3 | Criar VideoCallScreen.swift (UI) | `TODO` | - | - | - | - | 14.4.2 |
+| 14.4.4 | Criar RemoteVideoView.swift (AVSampleBufferDisplayLayer) | `TODO` | - | - | - | - | 14.4.3 |
+| **14.5 - Testing (TRACK 5)** ||||||||
+| 14.5.1 | Testar Android ↔ iOS video call | `TODO` | - | - | - | - | 14.3.5, 14.4.4 |
+| 14.5.2 | Testar video toggle mid-call | `TODO` | - | - | - | - | 14.5.1 |
+| 14.5.3 | Testar camera switch (front/back) | `TODO` | - | - | - | - | 14.5.1 |
 
 **Entregáveis:**
 - ✅ Videochamadas 1:1 funcionam
@@ -1875,8 +1895,20 @@ Videochamadas 1:1 (extensão do VoIP).
 - ✅ Câmera front/back
 - ✅ Mute áudio/vídeo
 
-**Arquivos:** `VideoCallScreen.kt`, `VideoCallView.swift`, `VideoCallView.tsx`
-**LoC:** ~1.800
+**Arquivos Criados (TRACK 1 - Core):**
+- ✅ `core/src/voip/video.rs` (265 linhas) - VideoCodec (H.264, VP8, VP9), VideoConfig, VideoCapture trait
+- ✅ `core/src/voip/video_pipeline.rs` (262 linhas) - VideoEncoderPipeline, VideoDecoderPipeline, VideoStats
+- ✅ Modificado: `core/src/voip/webrtc.rs` - add_video_track(), send_video_frame(), remove_video_track()
+- ✅ Modificado: `core/src/voip/manager.rs` - enable_video(), disable_video(), eventos VideoEnabled/VideoDisabled
+- ✅ Modificado: `core/src/voip/mod.rs` - re-exports
+
+**Arquivos Pendentes (TRACK 2-4):**
+- FFI: `core/src/ffi/types.rs`, `core/src/ffi/client.rs`
+- Android: `CameraManager.kt`, `VideoCallScreen.kt`, `RemoteVideoView.kt`
+- iOS: `CameraManager.swift`, `VideoCallScreen.swift`, `RemoteVideoView.swift`
+
+**LoC Total Estimado:** ~2.200
+**LoC Completado:** 786 (36%)
 
 ---
 
