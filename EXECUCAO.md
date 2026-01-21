@@ -43,12 +43,12 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 | **FASE 5: Core - FFI (UniFFI)** | Rust | 100% | `DONE` | 9/5 | ~1.100/800 | 2025-01-20 |
 | **FASE 6: Android - Setup & UI** | Kotlin | 100% | `DONE` | 22/25 | ~1.500/3.000 | 2025-01-20 |
 | **FASE 7: Desktop - Setup & UI** | Tauri | 100% | `DONE` | 20/20 | ~2.200/2.500 | 2025-01-20 |
-| **FASE 8: Push Notifications** | Multi | 75% | `IN PROGRESS` | 6/8 | ~800/1.000 | 2026-01-20 |
+| **FASE 8: Push Notifications** | Multi | 90% | `READY_FOR_TEST` | 7/8 | ~1.050/1.000 | 2026-01-21 |
 | **FASE 9: Server - Bootstrap & DHT** | Rust | 100% | `DONE` | 6/6 | ~700/800 | 2026-01-20 |
 | **FASE 10: Server - TURN Relay** | Rust | 100% | `DONE` | 18/5 | ~1.650/600 | 2026-01-20 |
 | **FASE 11: Server - Message Store** | Rust | 100% | `DONE` | 7/10 | ~900/1.500 | 2026-01-20 |
 | **FASE 12: VOIP - Chamadas** 🔥 | Multi | 95% | `READY_FOR_TEST` | 21/24 | ~4.600/2.500 | 2026-01-20 |
-| **FASE 13: iOS App** | Swift | 45% | `IN_PROGRESS` | 19/30 | ~2.100/4.000 | 2026-01-20 |
+| **FASE 13: iOS App** | Swift | 100% | `DONE` | 30/30 | ~3.920/4.000 | 2026-01-21 |
 | **FASE 14: Videochamadas** | Multi | 0% | `TODO` | 0/12 | 0/1.800 | - |
 | **FASE 15: Grupos** | Multi | 0% | `TODO` | 0/15 | 0/2.000 | - |
 | **FASE 16: Mídia & Polimento** | Multi | 0% | `TODO` | 0/20 | 0/2.500 | - |
@@ -76,12 +76,13 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 10. **FASE 9:** Bootstrap + DHT Server (100%) ✅
 11. **FASE 10:** P2P Relay + TURN Server (100%) ✅
 12. **FASE 11:** Message Store (Store & Forward) (100%) ✅
+13. **FASE 13:** 📱 iOS App (100%) ✅ **← FINALIZADA HOJE**
 
 **🚧 EM PROGRESSO:**
-- **FASE 8:** Push Notifications (75% - FCM completo, falta APNs iOS)
-- **FASE 13:** 📱 iOS App (45% - UI SwiftUI completa, CallKit integrado, aguarda UniFFI bindings) **← INICIADA HOJE**
+- Nenhuma fase em progresso ativo no momento
 
 **✅ PRONTO PARA TESTES:**
+- **FASE 8:** Push Notifications (90% - FCM ✅, APNs structure ✅, iOS integration ✅) **← ATUALIZADA HOJE**
 - **FASE 12:** 🔥 VoIP - Chamadas de Voz (95% - MVP COMPLETO, aguardando testes físicos)
 
 **Estatísticas:**
