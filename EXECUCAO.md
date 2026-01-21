@@ -59,7 +59,7 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 - **Arquivos estimados:** ~244
 - **Linhas de código:** ~32.700
 - **Duração:** ~6-7 meses
-- **✅ Progresso atual:** 11 de 19 fases (58%) | ~21.255 LoC (65%)
+- **✅ Progresso atual:** 11 de 19 fases (58%) | ~22.764 LoC (70%)
 
 ### 📈 Progresso Atual (2026-01-20)
 
@@ -84,10 +84,11 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 - **FASE 12:** 🔥 VoIP - Chamadas de Voz (95% - MVP COMPLETO, aguardando testes físicos) **← ATUALIZADA HOJE**
 
 **Estatísticas:**
-- **Arquivos criados:** ~198 arquivos (81% do total)
+- **Arquivos criados:** ~210 arquivos (86% do total)
 - **Linhas de código:** ~22.764 LoC (70% do total)
-- **Testes:** 110+ testes passando (100% sucesso)
+- **Testes:** 117+ testes passando (100% sucesso)
 - **Documentação:** 13 documentos principais (~4.100 linhas)
+- **Commits:** 31 commits (última atualização: 2026-01-20)
 
 **Core Library (Rust):**
 - ✅ Identity + Crypto (Signal Protocol E2E)
@@ -99,9 +100,10 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 
 **Server Infrastructure (Rust):**
 - ✅ Bootstrap Node (Kademlia DHT + SQLite persistence)
-- ✅ P2P Circuit Relay v2 (libp2p relay + DCUtR hole punching)
-- ✅ TURN Server (coturn + credential service)
+- ✅ P2P Circuit Relay v2 (libp2p relay + DCUtR hole punching) **← FASE 10 COMPLETA HOJE**
+- ✅ TURN Server (coturn + HMAC-SHA1 credential service) **← FASE 10 COMPLETA HOJE**
 - ✅ Message Store (PostgreSQL + Redis, Store & Forward)
+- ✅ 100% Connectivity Guarantee (Direct → HolePunch → Relay)
 
 **Android App:**
 - ✅ Jetpack Compose + Material3
@@ -2052,7 +2054,208 @@ mepassa/
 
 ---
 
+---
+
+## 📋 O QUE FALTA PARA MVP COMPLETO
+
+### 🔥 CRÍTICO (Bloqueadores para Lançamento)
+
+#### 1. FASE 12: VoIP Testing (5% falta - 2-3 dias)
+**Status:** READY_FOR_TEST
+**O que falta:**
+- [ ] Testes em 2 dispositivos Android físicos
+- [ ] Medição latência P2P (target: <100ms)
+- [ ] Medição latência TURN (target: <300ms)
+- [ ] Validação MOS Score (target: >4.0)
+- [ ] Success rate test (target: >95%)
+
+**Impacto:** SEM ISSO NÃO TEMOS VOIP VALIDADO
+**Esforço:** 2-3 dias
+
+---
+
+#### 2. FASE 13: iOS App (100% falta - 3 semanas)
+**Status:** TODO
+**O que falta:**
+- [ ] Xcode project setup
+- [ ] Swift + SwiftUI UI (Login, Conversations, Chat, Settings, Call)
+- [ ] UniFFI bindings para mepassa-core
+- [ ] VoIP integration com CallKit
+- [ ] Audio I/O com AVAudioEngine
+- [ ] Push notifications (APNs)
+- [ ] Build & deploy pipeline
+- [ ] TestFlight beta testing
+
+**Dependências:**
+- ✅ Core FFI (UniFFI) - PRONTO
+- 🚧 APNs (FASE 8) - 75% pronto
+- ✅ VoIP core - PRONTO
+
+**Impacto:** SEM iOS = 50% DO MERCADO PERDIDO
+**Esforço:** ~3 semanas (~4.000 LoC)
+
+---
+
+#### 3. FASE 8: APNs para iOS (25% falta - 3 dias)
+**Status:** IN_PROGRESS (75%)
+**O que falta:**
+- [ ] Apple Developer Account setup
+- [ ] APNs certificate generation
+- [ ] APNs integration no servidor Rust
+- [ ] iOS app integration (em FASE 13)
+- [ ] Testes de notificações iOS
+
+**Impacto:** iOS APP NÃO FUNCIONA SEM PUSH
+**Esforço:** 3 dias
+
+---
+
+### 🎯 IMPORTANTE (Para Adoção em Massa)
+
+#### 4. FASE 15: Grupos (100% falta - 2 semanas)
+**Status:** TODO
+**O que falta:**
+- [ ] Group creation/management logic
+- [ ] Group member CRUD
+- [ ] Group encryption (sender keys - Signal)
+- [ ] Admin permissions system
+- [ ] Group invite links
+- [ ] UI: CreateGroupScreen, GroupInfoScreen, AddMembersScreen
+- [ ] Backend: Group sync via bootstrap
+
+**Dependências:**
+- ✅ GossipSub behaviour - PRONTO
+- ✅ Storage - PRONTO
+- 🚧 Crypto sender keys - FALTA implementar
+
+**Impacto:** WHATSAPP KILLER FEATURE - CRÍTICO PARA ADOÇÃO
+**Esforço:** ~2 semanas (~2.000 LoC)
+
+---
+
+#### 5. FASE 16: Mídia & Polimento (100% falta - 2 semanas)
+**Status:** TODO
+**O que falta:**
+- [ ] Image/Video sharing
+- [ ] File attachments (PDF, docs)
+- [ ] Voice messages (audio recording)
+- [ ] Image/Video compression
+- [ ] Thumbnail generation
+- [ ] Gallery UI
+- [ ] Download manager
+- [ ] Media cache management
+- [ ] Forward messages
+- [ ] Delete messages
+
+**Impacto:** WHATSAPP PARITY - ESSENTIAL FEATURES
+**Esforço:** ~2 semanas (~2.500 LoC)
+
+---
+
+### 💎 DESEJÁVEL (Diferenciação)
+
+#### 6. FASE 14: Videochamadas (100% falta - 2 semanas)
+**Status:** TODO
+**O que falta:**
+- [ ] Video track support no WebRTC
+- [ ] Camera capture (Android CameraX, iOS AVCaptureDevice, Desktop gstreamer)
+- [ ] Video codec (VP8/VP9 ou H264)
+- [ ] Video rendering UI
+- [ ] Bandwidth adaptation
+- [ ] Quality settings (SD/HD/Auto)
+- [ ] Picture-in-Picture
+- [ ] Screen sharing (desktop)
+
+**Dependências:**
+- ✅ VoIP infrastructure - PRONTO (95%)
+
+**Impacto:** NICE-TO-HAVE - Zoom/Meet killer
+**Esforço:** ~2 semanas (~1.800 LoC)
+
+---
+
+#### 7. FASE 17: Multi-Device Sync (100% falta - 2 semanas)
+**Status:** TODO (Low Priority)
+**O que falta:**
+- [ ] CRDTs integration (automerge ou yjs)
+- [ ] Linked devices protocol
+- [ ] QR code pairing
+- [ ] Device management UI
+- [ ] Conflict resolution
+- [ ] Sync state machine
+- [ ] Message history sync
+
+**Impacto:** NICE-TO-HAVE - Desktop + Mobile sync
+**Esforço:** ~2 semanas (~1.500 LoC)
+
+---
+
+### 📅 TIMELINE RECOMENDADA
+
+```
+┌─────────────────────────────────────────────────────┐
+│ SEMANA 1-2                                          │
+├─────────────────────────────────────────────────────┤
+│ ✅ FASE 12 Testing (3 dias)                         │
+│ ✅ FASE 8 APNs (3 dias)                             │
+└─────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────┐
+│ SEMANA 3-5                                          │
+├─────────────────────────────────────────────────────┤
+│ 📱 FASE 13: iOS App (3 semanas)                     │
+└─────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────┐
+│ SEMANA 6-7                                          │
+├─────────────────────────────────────────────────────┤
+│ 👥 FASE 15: Grupos (2 semanas)                      │
+└─────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────┐
+│ SEMANA 8-9                                          │
+├─────────────────────────────────────────────────────┤
+│ 📷 FASE 16: Mídia (2 semanas)                       │
+└─────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────┐
+│ SEMANA 10-11                                        │
+├─────────────────────────────────────────────────────┤
+│ 📹 FASE 14: Video (2 semanas)                       │
+└─────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────┐
+│ SEMANA 12-13                                        │
+├─────────────────────────────────────────────────────┤
+│ 🧪 Testes + Bug Fixes + Polish                      │
+└─────────────────────────────────────────────────────┘
+```
+
+**Total estimado:** ~3 meses para MVP completo
+
+---
+
+### 🎯 MARCOS DE MVP
+
+**MVP Mínimo Viável (4-5 semanas):**
+- ✅ FASE 12 Testing
+- ✅ FASE 8 APNs
+- ✅ FASE 13 iOS App
+- ✅ FASE 15 Grupos
+**= VoIP + iOS + Grupos**
+
+**MVP Competitivo (6-7 semanas):**
+- MVP Mínimo + FASE 16 Mídia
+**= WhatsApp parity**
+
+**MVP Premium (8-9 semanas):**
+- MVP Competitivo + FASE 14 Video
+**= Zoom/Meet killer**
+
+---
+
 **FIM DO DOCUMENTO DE EXECUÇÃO v1**
 
 *Criado: 2025-01-19*
-*Última atualização: 2025-01-20 (FASE 10 completa - 17 tarefas ✅)*
+*Última atualização: 2026-01-20 (FASE 10 completa - P2P Relay + TURN Server)*
+*Progresso: 11/19 fases (58%) | 22.764 LoC (70%)*
