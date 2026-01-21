@@ -128,9 +128,53 @@ pub async fn handle(
                 }
             }
             "apns" => {
-                // TODO: Implement APNs support in FASE 13 (iOS)
-                tracing::warn!("  ⚠️  APNs not yet implemented for {}", device_id);
-                failed_count += 1;
+                // Send via APNs
+                match &state.apns_client {
+                    Some(apns_client) => {
+                        match apns_client
+                            .send(&token, &req.title, &req.body, &req.data, Some(1))
+                            .await
+                        {
+                            Ok(_) => {
+                                tracing::info!("  ✅ APNs notification sent to {}", device_id);
+                                sent_count += 1;
+
+                                // Update last_used_at
+                                let _ = sqlx::query(
+                                    "UPDATE push_tokens SET last_used_at = NOW() WHERE peer_id = $1 AND device_id = $2"
+                                )
+                                .bind(&req.peer_id)
+                                .bind(device_id)
+                                .execute(&state.db_pool)
+                                .await;
+                            }
+                            Err(e) => {
+                                tracing::error!("  ❌ APNs failed for {}: {}", device_id, e);
+                                failed_count += 1;
+
+                                // Mark as inactive if token is invalid
+                                let error_str = e.to_string();
+                                if error_str.contains("BadDeviceToken")
+                                    || error_str.contains("Unregistered")
+                                    || error_str.contains("InvalidProviderToken")
+                                {
+                                    tracing::warn!("  🔄 Marking token as inactive for {}", device_id);
+                                    let _ = sqlx::query(
+                                        "UPDATE push_tokens SET is_active = false WHERE peer_id = $1 AND device_id = $2"
+                                    )
+                                    .bind(&req.peer_id)
+                                    .bind(device_id)
+                                    .execute(&state.db_pool)
+                                    .await;
+                                }
+                            }
+                        }
+                    }
+                    None => {
+                        tracing::warn!("  ⚠️  APNs client not configured - cannot send to {}", device_id);
+                        failed_count += 1;
+                    }
+                }
             }
             _ => {
                 tracing::error!("  ❌ Unknown platform: {}", platform);

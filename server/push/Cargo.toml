@@ -24,6 +24,10 @@ sqlx = { version = "0.7", features = ["postgres", "runtime-tokio-native-tls", "m
 # Firebase Cloud Messaging
 fcm = "0.9"
 
+# Apple Push Notification Service
+a2 = "0.10"
+jsonwebtoken = "9.2"
+
 # Environment variables
 dotenvy = "0.15"
 

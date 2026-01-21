@@ -6,9 +6,10 @@
 //! - Axum web framework for REST API
 //! - PostgreSQL for storing device tokens
 //! - FCM for sending Android notifications
-//! - APNs support coming in future (FASE 13 - iOS)
+//! - APNs for sending iOS notifications
 
 mod api;
+mod apns;
 mod fcm;
 
 use axum::{
@@ -28,6 +29,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 pub struct AppState {
     pub db_pool: sqlx::PgPool,
     pub fcm_client: Arc<fcm::FcmClient>,
+    pub apns_client: Option<Arc<apns::ApnsClient>>,
 }
 
 #[tokio::main]
@@ -66,10 +68,44 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let fcm_client = Arc::new(fcm::FcmClient::new(fcm_server_key));
     tracing::info!("✅ FCM client ready");
 
+    // Initialize APNs client (optional - only if credentials are provided)
+    let apns_client = match (
+        std::env::var("APNS_KEY_PATH").ok(),
+        std::env::var("APNS_KEY_ID").ok(),
+        std::env::var("APNS_TEAM_ID").ok(),
+        std::env::var("APNS_BUNDLE_ID").ok(),
+    ) {
+        (Some(key_path), Some(key_id), Some(team_id), Some(bundle_id)) => {
+            tracing::info!("🍎 Initializing APNs client...");
+            let production = std::env::var("APNS_PRODUCTION")
+                .unwrap_or_else(|_| "false".to_string())
+                .parse::<bool>()
+                .unwrap_or(false);
+
+            match apns::ApnsClient::new(&key_path, key_id, team_id, bundle_id, production) {
+                Ok(client) => {
+                    tracing::info!("✅ APNs client ready - {}", client.info());
+                    Some(Arc::new(client))
+                }
+                Err(e) => {
+                    tracing::error!("❌ Failed to initialize APNs client: {}", e);
+                    tracing::warn!("⚠️  Continuing without APNs support");
+                    None
+                }
+            }
+        }
+        _ => {
+            tracing::info!("ℹ️  APNs credentials not configured - iOS push notifications disabled");
+            tracing::info!("   Set APNS_KEY_PATH, APNS_KEY_ID, APNS_TEAM_ID, APNS_BUNDLE_ID to enable");
+            None
+        }
+    };
+
     // Create app state
     let state = AppState {
         db_pool,
         fcm_client,
+        apns_client,
     };
 
     // Setup CORS
