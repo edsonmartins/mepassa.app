@@ -75,27 +75,33 @@ enum ClientCommand {
         response: oneshot::Sender<Result<(), MePassaFfiError>>,
     },
     // VoIP commands
+    #[cfg(feature = "voip")]
     StartCall {
         to_peer_id: String,
         response: oneshot::Sender<Result<String, MePassaFfiError>>,
     },
+    #[cfg(feature = "voip")]
     AcceptCall {
         call_id: String,
         response: oneshot::Sender<Result<(), MePassaFfiError>>,
     },
+    #[cfg(feature = "voip")]
     RejectCall {
         call_id: String,
         reason: Option<String>,
         response: oneshot::Sender<Result<(), MePassaFfiError>>,
     },
+    #[cfg(feature = "voip")]
     HangupCall {
         call_id: String,
         response: oneshot::Sender<Result<(), MePassaFfiError>>,
     },
+    #[cfg(feature = "voip")]
     ToggleMute {
         call_id: String,
         response: oneshot::Sender<Result<(), MePassaFfiError>>,
     },
+    #[cfg(feature = "voip")]
     ToggleSpeakerphone {
         call_id: String,
         response: oneshot::Sender<Result<(), MePassaFfiError>>,
@@ -181,6 +187,7 @@ async fn run_client_task(mut receiver: mpsc::UnboundedReceiver<ClientCommand>, c
                 let result = client.bootstrap().await.map_err(|e| e.into());
                 let _ = response.send(result);
             }
+            #[cfg(feature = "voip")]
             ClientCommand::StartCall {
                 to_peer_id,
                 response,
@@ -188,10 +195,12 @@ async fn run_client_task(mut receiver: mpsc::UnboundedReceiver<ClientCommand>, c
                 let result = client.start_call(to_peer_id).await.map_err(|e| e.into());
                 let _ = response.send(result);
             }
+            #[cfg(feature = "voip")]
             ClientCommand::AcceptCall { call_id, response } => {
                 let result = client.accept_call(call_id).await.map_err(|e| e.into());
                 let _ = response.send(result);
             }
+            #[cfg(feature = "voip")]
             ClientCommand::RejectCall {
                 call_id,
                 reason,
@@ -200,14 +209,17 @@ async fn run_client_task(mut receiver: mpsc::UnboundedReceiver<ClientCommand>, c
                 let result = client.reject_call(call_id, reason).await.map_err(|e| e.into());
                 let _ = response.send(result);
             }
+            #[cfg(feature = "voip")]
             ClientCommand::HangupCall { call_id, response } => {
                 let result = client.hangup_call(call_id).await.map_err(|e| e.into());
                 let _ = response.send(result);
             }
+            #[cfg(feature = "voip")]
             ClientCommand::ToggleMute { call_id, response } => {
                 let result = client.toggle_mute(call_id).await.map_err(|e| e.into());
                 let _ = response.send(result);
             }
+            #[cfg(feature = "voip")]
             ClientCommand::ToggleSpeakerphone { call_id, response } => {
                 let result = client
                     .toggle_speakerphone(call_id)
@@ -468,6 +480,7 @@ impl MePassaClient {
 
     // ========== VoIP Methods ==========
 
+    #[cfg(feature = "voip")]
     /// Start a voice call to a peer
     pub async fn start_call(&self, to_peer_id: String) -> Result<String, MePassaFfiError> {
         let (tx, rx) = oneshot::channel();
@@ -486,6 +499,7 @@ impl MePassaClient {
         })?
     }
 
+    #[cfg(feature = "voip")]
     /// Accept an incoming call
     pub async fn accept_call(&self, call_id: String) -> Result<(), MePassaFfiError> {
         let (tx, rx) = oneshot::channel();
@@ -504,6 +518,7 @@ impl MePassaClient {
         })?
     }
 
+    #[cfg(feature = "voip")]
     /// Reject an incoming call
     pub async fn reject_call(&self, call_id: String, reason: Option<String>) -> Result<(), MePassaFfiError> {
         let (tx, rx) = oneshot::channel();
@@ -523,6 +538,7 @@ impl MePassaClient {
         })?
     }
 
+    #[cfg(feature = "voip")]
     /// Hang up an active call
     pub async fn hangup_call(&self, call_id: String) -> Result<(), MePassaFfiError> {
         let (tx, rx) = oneshot::channel();
@@ -541,6 +557,7 @@ impl MePassaClient {
         })?
     }
 
+    #[cfg(feature = "voip")]
     /// Toggle audio mute
     pub async fn toggle_mute(&self, call_id: String) -> Result<(), MePassaFfiError> {
         let (tx, rx) = oneshot::channel();
@@ -559,6 +576,7 @@ impl MePassaClient {
         })?
     }
 
+    #[cfg(feature = "voip")]
     /// Toggle speakerphone
     pub async fn toggle_speakerphone(&self, call_id: String) -> Result<(), MePassaFfiError> {
         let (tx, rx) = oneshot::channel();

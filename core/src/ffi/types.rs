@@ -143,9 +143,11 @@ impl From<Conversation> for FfiConversation {
 
 // ========== VoIP Types ==========
 
+#[cfg(feature = "voip")]
 use crate::voip::{Call, CallDirection as InternalCallDirection, CallEndReason as InternalCallEndReason, CallState as InternalCallState, CallStats};
 
 /// FFI-safe call state enum
+#[cfg(feature = "voip")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FfiCallState {
     Initiating,
@@ -156,6 +158,7 @@ pub enum FfiCallState {
     Ended,
 }
 
+#[cfg(feature = "voip")]
 impl From<InternalCallState> for FfiCallState {
     fn from(state: InternalCallState) -> Self {
         match state {
@@ -170,12 +173,14 @@ impl From<InternalCallState> for FfiCallState {
 }
 
 /// FFI-safe call direction enum
+#[cfg(feature = "voip")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FfiCallDirection {
     Outgoing,
     Incoming,
 }
 
+#[cfg(feature = "voip")]
 impl From<InternalCallDirection> for FfiCallDirection {
     fn from(dir: InternalCallDirection) -> Self {
         match dir {
@@ -186,6 +191,7 @@ impl From<InternalCallDirection> for FfiCallDirection {
 }
 
 /// FFI-safe call end reason enum
+#[cfg(feature = "voip")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FfiCallEndReason {
     Hangup,
@@ -197,6 +203,7 @@ pub enum FfiCallEndReason {
     NetworkError,
 }
 
+#[cfg(feature = "voip")]
 impl From<InternalCallEndReason> for FfiCallEndReason {
     fn from(reason: InternalCallEndReason) -> Self {
         match reason {
@@ -212,6 +219,7 @@ impl From<InternalCallEndReason> for FfiCallEndReason {
 }
 
 /// FFI-safe call record
+#[cfg(feature = "voip")]
 #[derive(Debug, Clone)]
 pub struct FfiCall {
     pub id: String,
@@ -225,6 +233,7 @@ pub struct FfiCall {
     pub speakerphone: bool,
 }
 
+#[cfg(feature = "voip")]
 impl From<Call> for FfiCall {
     fn from(call: Call) -> Self {
         Self {
@@ -242,6 +251,7 @@ impl From<Call> for FfiCall {
 }
 
 /// FFI-safe call statistics
+#[cfg(feature = "voip")]
 #[derive(Debug, Clone)]
 pub struct FfiCallStats {
     pub avg_rtt_ms: u32,
@@ -252,6 +262,7 @@ pub struct FfiCallStats {
     pub audio_bitrate_kbps: u32,
 }
 
+#[cfg(feature = "voip")]
 impl From<CallStats> for FfiCallStats {
     fn from(stats: CallStats) -> Self {
         Self {

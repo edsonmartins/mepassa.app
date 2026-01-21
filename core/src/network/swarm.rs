@@ -218,6 +218,7 @@ impl NetworkManager {
         Ok(())
     }
 
+    #[cfg(feature = "voip")]
     /// Send a VoIP signaling message to a peer
     pub fn send_voip_signal(
         &mut self,
@@ -234,6 +235,7 @@ impl NetworkManager {
         Ok(())
     }
 
+    #[cfg(feature = "voip")]
     /// Send a VoIP signaling response to a peer
     pub fn send_voip_response(
         &mut self,
@@ -388,6 +390,7 @@ impl NetworkManager {
                     }
                 }
             }
+            #[cfg(feature = "voip")]
             MePassaBehaviourEvent::VoipSignaling(voip_event) => {
                 match voip_event {
                     libp2p::request_response::Event::Message { peer, message } => {

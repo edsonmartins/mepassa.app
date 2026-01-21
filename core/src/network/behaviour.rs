@@ -16,6 +16,7 @@ use std::time::Duration;
 
 use super::messaging::MePassaCodec;
 use crate::utils::error::MePassaError;
+#[cfg(feature = "voip")]
 use crate::voip::signaling::SignalingCodec;
 
 /// MePassa network behaviour
@@ -34,6 +35,7 @@ pub struct MePassaBehaviour {
     /// Request/Response for direct messaging
     pub request_response: request_response::Behaviour<MePassaCodec>,
     /// Request/Response for VoIP signaling (WebRTC)
+    #[cfg(feature = "voip")]
     pub voip_signaling: request_response::Behaviour<SignalingCodec>,
     /// DCUtR for hole punching (requires relay transport)
     pub dcutr: dcutr::Behaviour,
@@ -97,10 +99,12 @@ impl MePassaBehaviour {
         );
 
         // Request/Response for VoIP signaling (WebRTC)
+        #[cfg(feature = "voip")]
         let voip_protocols = std::iter::once((
             StreamProtocol::new("/mepassa/voip/1.0.0"),
             request_response::ProtocolSupport::Full,
         ));
+        #[cfg(feature = "voip")]
         let voip_signaling = request_response::Behaviour::with_codec(
             SignalingCodec,
             voip_protocols,
@@ -118,6 +122,7 @@ impl MePassaBehaviour {
             ping,
             gossipsub,
             request_response,
+            #[cfg(feature = "voip")]
             voip_signaling,
             dcutr,
         })

@@ -14,8 +14,9 @@ use crate::{
     protocol::{pb::message::Payload, Message, MessageType, TextMessage},
     storage::{Database, NewMessage, MessageStatus},
     utils::error::{MePassaError, Result},
-    voip::{CallManager, VoIPIntegration},
 };
+#[cfg(feature = "voip")]
+use crate::voip::{CallManager, VoIPIntegration};
 
 /// MePassa Client
 ///
@@ -34,8 +35,10 @@ pub struct Client {
     /// Data directory
     data_dir: PathBuf,
     /// Call manager (VoIP)
+    #[cfg(feature = "voip")]
     call_manager: Arc<CallManager>,
     /// VoIP integration (network ↔ calls)
+    #[cfg(feature = "voip")]
     voip_integration: Arc<VoIPIntegration>,
 }
 
@@ -47,7 +50,9 @@ impl Client {
         network: Arc<RwLock<NetworkManager>>,
         database: Database,
         data_dir: PathBuf,
+        #[cfg(feature = "voip")]
         call_manager: Arc<CallManager>,
+        #[cfg(feature = "voip")]
         voip_integration: Arc<VoIPIntegration>,
     ) -> Self {
         Self {
@@ -57,7 +62,9 @@ impl Client {
             database,
             callbacks: Arc::new(RwLock::new(Vec::new())),
             data_dir,
+            #[cfg(feature = "voip")]
             call_manager,
+            #[cfg(feature = "voip")]
             voip_integration,
         }
     }
@@ -220,7 +227,7 @@ impl Client {
     }
 
     // === VoIP Methods ===
-
+    #[cfg(feature = "voip")]
     /// Start a voice call to a peer
     pub async fn start_call(&self, to_peer_id: String) -> Result<String> {
         self.voip_integration
@@ -229,6 +236,7 @@ impl Client {
             .map_err(|e| MePassaError::Other(format!("VoIP error: {}", e)))
     }
 
+    #[cfg(feature = "voip")]
     /// Accept an incoming call
     pub async fn accept_call(&self, call_id: String) -> Result<()> {
         self.voip_integration
@@ -237,6 +245,7 @@ impl Client {
             .map_err(|e| MePassaError::Other(format!("VoIP error: {}", e)))
     }
 
+    #[cfg(feature = "voip")]
     /// Reject an incoming call
     pub async fn reject_call(&self, call_id: String, reason: Option<String>) -> Result<()> {
         self.voip_integration
@@ -245,6 +254,7 @@ impl Client {
             .map_err(|e| MePassaError::Other(format!("VoIP error: {}", e)))
     }
 
+    #[cfg(feature = "voip")]
     /// Hang up an active call
     pub async fn hangup_call(&self, call_id: String) -> Result<()> {
         self.voip_integration
@@ -253,6 +263,7 @@ impl Client {
             .map_err(|e| MePassaError::Other(format!("VoIP error: {}", e)))
     }
 
+    #[cfg(feature = "voip")]
     /// Toggle audio mute for a call
     pub async fn toggle_mute(&self, call_id: String) -> Result<()> {
         // TODO: Implement mute toggle in CallManager
@@ -260,6 +271,7 @@ impl Client {
         Ok(())
     }
 
+    #[cfg(feature = "voip")]
     /// Toggle speakerphone for a call
     pub async fn toggle_speakerphone(&self, call_id: String) -> Result<()> {
         // TODO: Implement speakerphone toggle in CallManager

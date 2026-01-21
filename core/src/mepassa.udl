@@ -97,26 +97,26 @@ interface MePassaClient {
     [Throws=MePassaFfiError, Async]
     void bootstrap();
 
-    // VoIP methods (simplified - complex types commented out)
-    [Throws=MePassaFfiError, Async]
-    string start_call(string to_peer_id);
-
-    [Throws=MePassaFfiError, Async]
-    void accept_call(string call_id);
-
-    [Throws=MePassaFfiError, Async]
-    void reject_call(string call_id, string? reason);
-
-    [Throws=MePassaFfiError, Async]
-    void hangup_call(string call_id);
-
-    [Throws=MePassaFfiError, Async]
-    void toggle_mute(string call_id);
-
-    [Throws=MePassaFfiError, Async]
-    void toggle_speakerphone(string call_id);
-
-    // TODO: Re-enable when enum issues are fixed
+    // VoIP methods temporarily commented out (require voip feature)
+    // TODO: Re-enable when building with voip feature or use #[uniffi::export] macro
+    // [Throws=MePassaFfiError, Async]
+    // string start_call(string to_peer_id);
+    //
+    // [Throws=MePassaFfiError, Async]
+    // void accept_call(string call_id);
+    //
+    // [Throws=MePassaFfiError, Async]
+    // void reject_call(string call_id, string? reason);
+    //
+    // [Throws=MePassaFfiError, Async]
+    // void hangup_call(string call_id);
+    //
+    // [Throws=MePassaFfiError, Async]
+    // void toggle_mute(string call_id);
+    //
+    // [Throws=MePassaFfiError, Async]
+    // void toggle_speakerphone(string call_id);
+    //
     // FfiCall? get_current_call();
     // FfiCallStats? get_call_stats(string call_id);
 };
