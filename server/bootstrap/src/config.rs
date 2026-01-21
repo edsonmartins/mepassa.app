@@ -18,6 +18,18 @@ pub struct Config {
 
     /// Log level
     pub log_level: String,
+
+    /// Enable relay server functionality
+    pub relay_enabled: bool,
+
+    /// Maximum number of concurrent relay circuits
+    pub relay_max_circuits: usize,
+
+    /// Maximum circuits per peer
+    pub relay_max_per_peer: usize,
+
+    /// Maximum bytes per second per circuit
+    pub relay_max_bytes_per_second: u64,
 }
 
 impl Config {
@@ -43,6 +55,22 @@ impl Config {
 
             log_level: std::env::var("RUST_LOG")
                 .unwrap_or_else(|_| "info".to_string()),
+
+            relay_enabled: std::env::var("RELAY_ENABLED")
+                .unwrap_or_else(|_| "true".to_string())
+                .parse()?,
+
+            relay_max_circuits: std::env::var("RELAY_MAX_CIRCUITS")
+                .unwrap_or_else(|_| "100".to_string())
+                .parse()?,
+
+            relay_max_per_peer: std::env::var("RELAY_MAX_PER_PEER")
+                .unwrap_or_else(|_| "10".to_string())
+                .parse()?,
+
+            relay_max_bytes_per_second: std::env::var("RELAY_MAX_BYTES_PER_SEC")
+                .unwrap_or_else(|_| "1000000".to_string())
+                .parse()?,
         })
     }
 

@@ -49,7 +49,7 @@ async fn main() -> Result<()> {
         .boxed();
 
     // 5. Create swarm
-    let behaviour = BootstrapBehaviour::new(local_peer_id, local_public_key);
+    let behaviour = BootstrapBehaviour::new(local_peer_id, local_public_key, &config);
     let mut swarm = Swarm::new(
         transport,
         behaviour,
@@ -209,6 +209,45 @@ async fn handle_behaviour_event(
                     warn!("🏓 Ping to {} failed: {}", ping_event.peer, e);
                 }
             }
+        }
+
+        // Relay events
+        behaviour::BootstrapBehaviourEvent::Relay(relay_event) => {
+            match relay_event {
+                libp2p::relay::Event::ReservationReqAccepted { src_peer_id, renewed } => {
+                    if renewed {
+                        info!("🔗 Relay reservation renewed for {}", src_peer_id);
+                    } else {
+                        info!("🔗 Relay reservation accepted for {}", src_peer_id);
+                    }
+                }
+                libp2p::relay::Event::ReservationReqDenied { src_peer_id } => {
+                    warn!("⛔ Relay reservation denied for {}", src_peer_id);
+                }
+                libp2p::relay::Event::ReservationTimedOut { src_peer_id } => {
+                    info!("⏱️ Relay reservation timed out for {}", src_peer_id);
+                }
+                libp2p::relay::Event::CircuitReqDenied { src_peer_id, dst_peer_id } => {
+                    warn!("⛔ Circuit denied: {} → {}", src_peer_id, dst_peer_id);
+                }
+                libp2p::relay::Event::CircuitReqAccepted { src_peer_id, dst_peer_id } => {
+                    info!("🌉 Circuit created: {} ↔ {}", src_peer_id, dst_peer_id);
+                }
+                libp2p::relay::Event::CircuitClosed { src_peer_id, dst_peer_id, error } => {
+                    if let Some(err) = error {
+                        warn!("🔌 Circuit closed: {} ↔ {} (error: {})", src_peer_id, dst_peer_id, err);
+                    } else {
+                        info!("🔌 Circuit closed: {} ↔ {}", src_peer_id, dst_peer_id);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        // DCUtR events
+        behaviour::BootstrapBehaviourEvent::Dcutr(dcutr_event) => {
+            // DCUtR events are logged at debug level
+            tracing::debug!("🎯 DCUtR event: {:?}", dcutr_event);
         }
     }
 }

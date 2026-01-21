@@ -1,0 +1,28 @@
+[package]
+name = "turn-credentials"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "TURN credentials generation service for MePassa WebRTC"
+license.workspace = true
+
+[dependencies]
+# Workspace dependencies
+axum = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+tower-http = { workspace = true, features = ["cors", "trace"] }
+chrono = { workspace = true }
+base64 = { workspace = true }
+
+# HMAC for TURN credential generation
+hmac = "0.12"
+sha1 = "0.10"
+
+[[bin]]
+name = "turn-credentials"
+path = "src/main.rs"

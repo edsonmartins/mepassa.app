@@ -1,0 +1,58 @@
+//! TURN Credentials Service
+//!
+//! Microservice for generating time-limited TURN credentials for WebRTC.
+//! Uses HMAC-SHA1 as per RFC 5389.
+
+use axum::{
+    routing::{get, post},
+    Router,
+};
+use std::net::SocketAddr;
+use tower_http::cors::{Any, CorsLayer};
+
+mod auth;
+mod config;
+mod handlers;
+
+use config::Config;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    // Initialize logging
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            std::env::var("RUST_LOG").unwrap_or_else(|_| "info,turn_credentials=debug".to_string()),
+        )
+        .init();
+
+    tracing::info!("🚀 Starting TURN credentials service");
+
+    // Load configuration
+    let config = Config::from_env()?;
+    config.validate()?;
+
+    tracing::info!("   TURN URIs: {:?}", config.turn_uris);
+    tracing::info!("   Server port: {}", config.server_port);
+
+    // Create CORS layer (allow all origins in development)
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
+
+    // Build router
+    let app = Router::new()
+        .route("/health", get(handlers::health_check))
+        .route("/api/turn/credentials", post(handlers::generate_credentials))
+        .layer(cors)
+        .with_state(config.clone());
+
+    // Start server
+    let addr = SocketAddr::from(([0, 0, 0, 0], config.server_port));
+    tracing::info!("🔐 TURN credentials server listening on {}", addr);
+
+    let listener = tokio::net::TcpListener::bind(&addr).await?;
+    axum::serve(listener, app).await?;
+
+    Ok(())
+}
