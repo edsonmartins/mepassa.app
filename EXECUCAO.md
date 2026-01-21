@@ -2165,25 +2165,32 @@ mepassa/
 
 ---
 
-#### 2. FASE 13: iOS App (100% falta - 3 semanas)
-**Status:** TODO
+#### 2. FASE 13: iOS App (40% falta - 2 semanas)
+**Status:** IN_PROGRESS (60%)
+**O que foi feito:**
+- ✅ Xcode project setup (via xcodegen CLI)
+- ✅ Swift + SwiftUI UI (Login, Conversations, Chat, Settings, Call) - 2.100+ LoC
+- ✅ UniFFI bindings gerados (mepassa.swift 2.357 LoC)
+- ✅ VoIP integration com CallKit (CallManager 309 LoC)
+- ✅ Primeira build bem-sucedida no Simulator
+
 **O que falta:**
-- [ ] Xcode project setup
-- [ ] Swift + SwiftUI UI (Login, Conversations, Chat, Settings, Call)
-- [ ] UniFFI bindings para mepassa-core
-- [ ] VoIP integration com CallKit
 - [ ] Audio I/O com AVAudioEngine
-- [ ] Push notifications (APNs)
+- [ ] Conectar CallManager ao WebRTC via FFI
+- [ ] Resolver build do Rust core para iOS (audiopus_sys CMake issue)
+- [ ] QR Scanner com AVFoundation
+- [ ] Push notifications (APNs - aguarda FASE 8)
+- [ ] Testes VoIP em 2 iPhones físicos (latência, MOS score)
 - [ ] Build & deploy pipeline
 - [ ] TestFlight beta testing
 
 **Dependências:**
 - ✅ Core FFI (UniFFI) - PRONTO
-- 🚧 APNs (FASE 8) - 75% pronto
-- ✅ VoIP core - PRONTO
+- 🚧 APNs (FASE 8) - 75% pronto (bloqueando push notifications)
+- ✅ VoIP core - PRONTO (mas precisa build para iOS)
 
 **Impacto:** SEM iOS = 50% DO MERCADO PERDIDO
-**Esforço:** ~3 semanas (~4.000 LoC)
+**Esforço restante:** ~2 semanas
 
 ---
 
