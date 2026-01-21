@@ -49,7 +49,7 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 | **FASE 11: Server - Message Store** | Rust | 100% | `DONE` | 7/10 | ~900/1.500 | 2026-01-20 |
 | **FASE 12: VOIP - Chamadas** 🔥 | Multi | 95% | `READY_FOR_TEST` | 21/24 | ~4.600/2.500 | 2026-01-20 |
 | **FASE 13: iOS App** | Swift | 100% | `DONE` | 30/30 | ~3.920/4.000 | 2026-01-21 |
-| **FASE 14: Videochamadas** | Multi | 25% | `IN_PROGRESS` | 5/19 | 786/2.200 | 2026-01-21 |
+| **FASE 14: Videochamadas** | Multi | 42% | `IN_PROGRESS` | 8/19 | 1.045/2.200 | 2026-01-21 |
 | **FASE 15: Grupos** | Multi | 0% | `TODO` | 0/15 | 0/2.000 | - |
 | **FASE 16: Mídia & Polimento** | Multi | 0% | `TODO` | 0/20 | 0/2.500 | - |
 | **FASE 17: Multi-Device Sync** | Rust | 0% | `TODO` | 0/10 | 0/1.500 | - |
@@ -1845,7 +1845,7 @@ App iOS com paridade de features (mensagens + chamadas).
 
 ---
 
-## 📹 FASE 14: VIDEOCHAMADAS (Mês 5) - 🚧 IN_PROGRESS (25%)
+## 📹 FASE 14: VIDEOCHAMADAS (Mês 5) - 🚧 IN_PROGRESS (42%)
 
 ### Objetivo
 Videochamadas 1:1 (extensão do VoIP).
@@ -1857,7 +1857,15 @@ Videochamadas 1:1 (extensão do VoIP).
 - Arquivos modificados: `webrtc.rs`, `manager.rs`, `mod.rs`
 - Total: 786 linhas adicionadas
 
-**🚧 PRÓXIMO: TRACK 2 - FFI Video API**
+**✅ TRACK 2: FFI - Video API (COMPLETO)**
+- Commit: `e6c33a2` - feat(ffi): Add video call FFI bindings (FASE 14 - TRACK 2)
+- Arquivos modificados: `ffi/types.rs`, `ffi/client.rs`, `api/client.rs`, `voip/webrtc.rs`
+- Novos tipos FFI: FfiVideoCodec, FfiVideoResolution, FfiCameraPosition, FfiVideoStats
+- Novos métodos: enable_video(), disable_video(), send_video_frame()
+- Total: 259 linhas adicionadas
+- Build: Compila com sucesso ✅
+
+**🚧 PRÓXIMO: TRACK 3 - Android CameraX integration**
 
 ### Tarefas
 
@@ -1870,9 +1878,9 @@ Videochamadas 1:1 (extensão do VoIP).
 | 14.1.4 | Modificar manager.rs (enable/disable video) | `DONE` | Claude | 2026-01-21 | 2026-01-21 | 2026-01-21 | 14.1.3 |
 | 14.1.5 | Modificar mod.rs (re-exports) | `DONE` | Claude | 2026-01-21 | 2026-01-21 | 2026-01-21 | 14.1.4 |
 | **14.2 - FFI (TRACK 2)** ||||||||
-| 14.2.1 | Modificar types.rs (FfiVideoCodec, etc) | `TODO` | - | - | - | - | 14.1.5 |
-| 14.2.2 | Modificar client.rs (enable_video, etc) | `TODO` | - | - | - | - | 14.2.1 |
-| 14.2.3 | Gerar bindings UniFFI (Kotlin/Swift) | `TODO` | - | - | - | - | 14.2.2 |
+| 14.2.1 | Modificar types.rs (FfiVideoCodec, etc) | `DONE` | Claude | 2026-01-21 | 2026-01-21 | 2026-01-21 | 14.1.5 |
+| 14.2.2 | Modificar client.rs (enable_video, etc) | `DONE` | Claude | 2026-01-21 | 2026-01-21 | 2026-01-21 | 14.2.1 |
+| 14.2.3 | Build core (bindings gerados automaticamente) | `DONE` | Claude | 2026-01-21 | 2026-01-21 | 2026-01-21 | 14.2.2 |
 | **14.3 - Android (TRACK 3)** ||||||||
 | 14.3.1 | Adicionar CameraX dependencies (build.gradle) | `TODO` | - | - | - | - | 14.2.3 |
 | 14.3.2 | Adicionar CAMERA permission (AndroidManifest) | `TODO` | - | - | - | - | 14.3.1 |
