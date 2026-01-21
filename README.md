@@ -91,7 +91,7 @@
 
 ## 🚧 Progresso Atual
 
-**Status:** 🔥 **FASE 13 (iOS App) - 78% COMPLETA** - AudioManager, QR Scanner e UI prontos!
+**Status:** 🔥 **FASE 13 (iOS App) - 90% COMPLETA** - Rust Core integrado, Build funcionando!
 
 ### ✅ Completado (11 de 19 fases - 58%)
 
@@ -154,15 +154,17 @@
 - ✅ Call history database (SQLite schema v2)
 - 📊 **~4.600 LoC**, 24/24 tarefas completas
 
-**FASE 13: iOS App (78%)** 🔥 **← VOCÊ ESTÁ AQUI**
+**FASE 13: iOS App (90%)** 🔥 **← VOCÊ ESTÁ AQUI**
 - ✅ Xcode project setup (via xcodegen CLI)
 - ✅ Swift + SwiftUI UI (Login, Conversations, Chat, Settings, Call) - 2.100+ LoC
 - ✅ UniFFI bindings gerados (mepassa.swift 2.357 LoC)
 - ✅ VoIP integration com CallKit (CallManager 309 LoC)
 - ✅ Audio I/O com AVAudioEngine (AudioManager 311 LoC)
 - ✅ QR Scanner com AVFoundation (238 LoC)
-- ✅ Primeira build bem-sucedida no Simulator
-- ⏳ **Pendente:** Conectar WebRTC via FFI (bloqueado: build Rust core para iOS)
+- ✅ **Rust core compila para iOS** (conditional compilation #[cfg(feature = "voip")])
+- ✅ **Library integrada** (libmepassa_core_ios.a + libmepassa_core_sim.a)
+- ✅ **Build bem-sucedida:** xcodebuild -scheme MePassa build → BUILD SUCCEEDED!
+- ⏳ **Pendente:** Testes end-to-end no Simulator (mensagens P2P, QR Scanner)
 - 📊 **~3.700 LoC Swift + 2.357 LoC bindings**, 7/9 tarefas completas
 
 ### 📊 Estatísticas Gerais
@@ -172,22 +174,24 @@
 | Core (Rust) | ✅ 100% | 70 | ~11.200 | 110+ |
 | FFI Bindings | ✅ 100% | 5 | ~300 | - |
 | Android (Kotlin) | ✅ 100% | 30 | ~3.000 | - |
-| iOS (Swift) | 🔥 78% | 20 | ~6.000 | - |
+| iOS (Swift) | 🔥 90% | 21 | ~6.100 | - |
 | Desktop (TypeScript) | ✅ 100% | 25 | ~2.900 | - |
 | Servers (Rust) | ✅ 100% | 45 | ~4.200 | - |
 | Docs | ✅ | 14 | ~4.450 | - |
-| **TOTAL** | **75%** | **218** | **~28.764** | **110+** |
+| **TOTAL** | **77%** | **219** | **~28.864** | **110+** |
 
-### 🎯 Próximo: Completar iOS App
+### 🎯 Próximo: Completar iOS App (90% → 100%)
 
 **Finalizar FASE 13:**
-- [ ] Resolver build Rust core para iOS (audiopus_sys CMake issue)
-- [ ] Conectar CallManager ao WebRTC via FFI
+- [x] Resolver build Rust core para iOS (conditional compilation ✅)
+- [x] Integrar library com Xcode project (bridging header + linker ✅)
+- [ ] Testes end-to-end no Simulator (mensagens P2P, QR Scanner)
+- [ ] Conectar CallManager ao WebRTC via FFI (aguarda FASE 12 VoIP)
 - [ ] Integrar APNs Push Notifications (aguarda FASE 8)
 - [ ] Testar VoIP em 2 iPhones físicos
 - [ ] Configurar build pipeline e TestFlight
 
-**Bloqueio atual:** Build do Rust core para iOS (audiopus_sys não compila)
+**Status atual:** Build funcionando! Pronto para testes.
 
 **Após FASE 13:** Testes VoIP cross-platform (Android ↔ iOS)
 
@@ -218,12 +222,14 @@
 - [x] Qualidade validada
 - **Próximo:** Testes cross-platform com beta testers
 
-### Mês 5: iOS App 🔥 **78% COMPLETO**
+### Mês 5: iOS App 🔥 **90% COMPLETO**
 - [x] App iOS (Swift + SwiftUI)
 - [x] CallKit integration
 - [x] AVAudioEngine audio I/O
 - [x] QR Scanner
-- [ ] Build Rust core para iOS (bloqueado)
+- [x] **Build Rust core para iOS** (conditional compilation ✅)
+- [x] **Library integrada com Xcode** (libmepassa_core_sim.a ✅)
+- [ ] Testes end-to-end no Simulator
 - [ ] Testes em dispositivos físicos
 - [ ] Videochamadas 1:1 (FASE 14)
 
