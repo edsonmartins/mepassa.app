@@ -3,13 +3,14 @@
 //! Usage: cargo run --example generate_bindings
 
 use camino::Utf8PathBuf;
+use std::path::PathBuf;
 use std::process;
 
 fn main() {
     // Ensure library is built first
     println!("Building library...");
     let build_status = process::Command::new("cargo")
-        .args(&["build", "--lib"])
+        .args(&["build", "--lib", "--release"])
         .status()
         .expect("Failed to execute cargo build");
 
@@ -19,36 +20,47 @@ fn main() {
     }
 
     // Setup paths
-    let udl_path = Utf8PathBuf::from("src/mepassa.udl");
-    let out_dir = Utf8PathBuf::from("target/bindings");
+    let crate_root = std::env::current_dir().expect("Failed to get current dir");
+    let udl_path = crate_root.join("src/mepassa.udl");
+    let out_dir = crate_root.join("../target/bindings");
+
+    // Find the compiled library
+    let lib_path = crate_root.join("../target/release/libmepassa_core.dylib");
+
+    if !lib_path.exists() {
+        eprintln!("Library not found at: {}", lib_path.display());
+        process::exit(1);
+    }
 
     // Create output directory
     std::fs::create_dir_all(&out_dir).expect("Failed to create output directory");
 
-    // Generate bindings for both Kotlin and Swift
-    println!("\nGenerating Kotlin and Swift bindings...");
+    println!("\nGenerating Swift bindings...");
+    println!("UDL file: {}", udl_path.display());
+    println!("Library: {}", lib_path.display());
+    println!("Output: {}", out_dir.display());
 
-    let options = uniffi_bindgen::bindings::GenerateOptions {
-        languages: vec![
-            uniffi_bindgen::bindings::TargetLanguage::Kotlin,
-            uniffi_bindgen::bindings::TargetLanguage::Swift,
-        ],
-        source: udl_path,
-        out_dir: out_dir.clone(),
-        config_override: None,
-        format: false,
-        crate_filter: None,
-        metadata_no_deps: false,
-    };
+    // Generate Swift bindings using library mode
+    let result = uniffi_bindgen::library_mode::generate_bindings(
+        &lib_path,
+        None, // crate_name - will be detected from library
+        &uniffi_bindgen::BindingsConfig::default(),
+        None, // config_file_override
+        &out_dir,
+        false, // try_format_code
+    );
 
-    match uniffi_bindgen::bindings::generate(options) {
+    match result {
         Ok(_) => {
-            println!("✓ Bindings generated successfully!");
-            println!("\nOutput directory: {}", out_dir);
+            println!("✓ Swift bindings generated successfully!");
+            println!("\nOutput directory: {}", out_dir.display());
             println!("\nGenerated files:");
-            println!("  - Kotlin: target/bindings/uniffi/mepassa/mepassa.kt");
-            println!("  - Swift: target/bindings/mepassaFFI.swift");
-            println!("  - Swift header: target/bindings/mepassaFFI.h");
+            // List generated files
+            if let Ok(entries) = std::fs::read_dir(&out_dir) {
+                for entry in entries.flatten() {
+                    println!("  - {}", entry.path().display());
+                }
+            }
         }
         Err(e) => {
             eprintln!("✗ Failed to generate bindings: {}", e);
