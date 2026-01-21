@@ -10,6 +10,8 @@ pub mod manager;
 pub mod pipeline;
 pub mod signaling;
 pub mod turn;
+pub mod video;
+pub mod video_pipeline;
 pub mod webrtc;
 
 use thiserror::Error;
@@ -46,4 +48,9 @@ pub use manager::{CallEvent, CallManager, TurnCredentials};
 pub use pipeline::AudioPipeline;
 pub use signaling::{SignalingCodec, SignalingMessage};
 pub use turn::TurnCredentialsClient;
+pub use video::{
+    CameraInfo, CameraPosition, PixelFormat, VideoCapture, VideoCodec, VideoConfig, VideoFrame,
+    VideoResolution,
+};
+pub use video_pipeline::{VideoDecoderPipeline, VideoEncoderPipeline, VideoStats};
 pub use webrtc::{build_turn_config, WebRTCPeer};

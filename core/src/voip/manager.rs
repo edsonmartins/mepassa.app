@@ -5,6 +5,7 @@
 use super::{
     call::{Call, CallDirection, CallEndReason, CallState},
     signaling::SignalingMessage,
+    video::VideoCodec,
     webrtc::{build_turn_config, WebRTCPeer},
     Result, VoipError,
 };
@@ -47,6 +48,25 @@ pub enum CallEvent {
         call_id: String,
         data: Vec<u8>,
     },
+
+    /// Video enabled for call
+    VideoEnabled {
+        call_id: String,
+        codec: VideoCodec,
+    },
+
+    /// Video disabled for call
+    VideoDisabled {
+        call_id: String,
+    },
+
+    /// Remote video frame received
+    VideoFrameReceived {
+        call_id: String,
+        frame_data: Vec<u8>,
+        width: u32,
+        height: u32,
+    },
 }
 
 /// Manages all active calls
@@ -54,8 +74,11 @@ pub struct CallManager {
     /// Active calls by call_id
     calls: Arc<RwLock<HashMap<String, CallState>>>,
 
-    /// WebRTC peers by call_id
-    peers: Arc<RwLock<HashMap<String, Arc<WebRTCPeer>>>>,
+    /// WebRTC peers by call_id (wrapped in RwLock for video track mutations)
+    peers: Arc<RwLock<HashMap<String, Arc<RwLock<WebRTCPeer>>>>>,
+
+    /// Video enabled state by call_id
+    video_enabled: Arc<RwLock<HashMap<String, bool>>>,
 
     /// Event sender
     event_tx: mpsc::UnboundedSender<CallEvent>,
@@ -75,6 +98,7 @@ impl CallManager {
         Self {
             calls: Arc::new(RwLock::new(HashMap::new())),
             peers: Arc::new(RwLock::new(HashMap::new())),
+            video_enabled: Arc::new(RwLock::new(HashMap::new())),
             event_tx,
             event_rx: Arc::new(RwLock::new(event_rx)),
             turn_credentials: Arc::new(RwLock::new(None)),
@@ -129,7 +153,7 @@ impl CallManager {
         }
         {
             let mut peers = self.peers.write().await;
-            peers.insert(call_id.clone(), Arc::new(peer));
+            peers.insert(call_id.clone(), Arc::new(RwLock::new(peer)));
         }
 
         // Emit event
@@ -170,7 +194,7 @@ impl CallManager {
         }
         {
             let mut peers = self.peers.write().await;
-            peers.insert(call_id.clone(), Arc::new(peer));
+            peers.insert(call_id.clone(), Arc::new(RwLock::new(peer)));
         }
 
         // Emit incoming call event
@@ -187,13 +211,11 @@ impl CallManager {
     /// Accept an incoming call
     pub async fn accept_call(&self, call_id: String) -> Result<String> {
         let peers = self.peers.read().await;
-        let peer = peers
+        let peer_lock = peers
             .get(&call_id)
             .ok_or_else(|| VoipError::InvalidState("Call not found".to_string()))?;
 
-        // Add audio track if not already added
-        // Note: This is a bit tricky because we need mutable access
-        // In real implementation, we'd need to handle this better
+        let peer = peer_lock.read().await;
 
         // Create answer
         let answer_sdp = peer.create_answer().await?;
@@ -219,10 +241,11 @@ impl CallManager {
     /// Handle incoming answer (for outgoing call)
     pub async fn handle_answer(&self, call_id: String, answer_sdp: String) -> Result<()> {
         let peers = self.peers.read().await;
-        let peer = peers
+        let peer_lock = peers
             .get(&call_id)
             .ok_or_else(|| VoipError::InvalidState("Call not found".to_string()))?;
 
+        let peer = peer_lock.read().await;
         peer.set_remote_description(answer_sdp, "answer").await?;
 
         // Update state to connecting
@@ -250,10 +273,11 @@ impl CallManager {
         candidate: String,
     ) -> Result<()> {
         let peers = self.peers.read().await;
-        let peer = peers
+        let peer_lock = peers
             .get(&call_id)
             .ok_or_else(|| VoipError::InvalidState("Call not found".to_string()))?;
 
+        let peer = peer_lock.read().await;
         peer.add_ice_candidate(candidate).await?;
 
         tracing::debug!("🧊 ICE candidate added for call: {}", call_id);
@@ -266,7 +290,8 @@ impl CallManager {
         // Close peer connection
         {
             let mut peers = self.peers.write().await;
-            if let Some(peer) = peers.remove(&call_id) {
+            if let Some(peer_lock) = peers.remove(&call_id) {
+                let peer = peer_lock.read().await;
                 let _ = peer.close().await;
             }
         }
@@ -292,7 +317,8 @@ impl CallManager {
         // Close peer connection
         {
             let mut peers = self.peers.write().await;
-            if let Some(peer) = peers.remove(&call_id) {
+            if let Some(peer_lock) = peers.remove(&call_id) {
+                let peer = peer_lock.read().await;
                 let _ = peer.close().await;
             }
         }
@@ -309,6 +335,80 @@ impl CallManager {
         });
 
         tracing::info!("📴 Call ended: {}", call_id);
+
+        Ok(())
+    }
+
+    /// Enable video for an active call
+    pub async fn enable_video(&self, call_id: &str, codec: VideoCodec) -> Result<()> {
+        let peers = self.peers.read().await;
+        let peer_lock = peers
+            .get(call_id)
+            .ok_or_else(|| VoipError::InvalidState("Call not found".to_string()))?;
+
+        // Get mutable access to add video track
+        let mut peer = peer_lock.write().await;
+        peer.add_video_track(codec).await?;
+
+        // Update video enabled state
+        {
+            let mut video_enabled = self.video_enabled.write().await;
+            video_enabled.insert(call_id.to_string(), true);
+        }
+
+        // Emit event
+        let _ = self.event_tx.send(CallEvent::VideoEnabled {
+            call_id: call_id.to_string(),
+            codec,
+        });
+
+        tracing::info!("📹 Video enabled for call: {} (codec: {:?})", call_id, codec);
+
+        Ok(())
+    }
+
+    /// Disable video for an active call
+    pub async fn disable_video(&self, call_id: &str) -> Result<()> {
+        let peers = self.peers.read().await;
+        let peer_lock = peers
+            .get(call_id)
+            .ok_or_else(|| VoipError::InvalidState("Call not found".to_string()))?;
+
+        // Get mutable access to remove video track
+        let mut peer = peer_lock.write().await;
+        peer.remove_video_track().await?;
+
+        // Update video enabled state
+        {
+            let mut video_enabled = self.video_enabled.write().await;
+            video_enabled.insert(call_id.to_string(), false);
+        }
+
+        // Emit event
+        let _ = self.event_tx.send(CallEvent::VideoDisabled {
+            call_id: call_id.to_string(),
+        });
+
+        tracing::info!("🚫 Video disabled for call: {}", call_id);
+
+        Ok(())
+    }
+
+    /// Check if video is enabled for a call
+    pub async fn is_video_enabled(&self, call_id: &str) -> bool {
+        let video_enabled = self.video_enabled.read().await;
+        video_enabled.get(call_id).copied().unwrap_or(false)
+    }
+
+    /// Send video frame to remote peer
+    pub async fn send_video_frame(&self, call_id: &str, frame_data: &[u8]) -> Result<()> {
+        let peers = self.peers.read().await;
+        let peer_lock = peers
+            .get(call_id)
+            .ok_or_else(|| VoipError::InvalidState("Call not found".to_string()))?;
+
+        let peer = peer_lock.read().await;
+        peer.send_video_frame(frame_data).await?;
 
         Ok(())
     }
@@ -363,7 +463,8 @@ impl CallManager {
         // Close peer connection
         {
             let mut peers = self.peers.write().await;
-            if let Some(peer) = peers.remove(&call_id) {
+            if let Some(peer_lock) = peers.remove(&call_id) {
+                let peer = peer_lock.read().await;
                 let _ = peer.close().await;
             }
         }

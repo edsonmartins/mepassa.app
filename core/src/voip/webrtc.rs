@@ -1,9 +1,11 @@
 //! WebRTC Peer Connection Management
 //!
-//! Handles WebRTC peer connections, media tracks, and ICE/DTLS.
+//! Handles WebRTC peer connections, media tracks (audio + video), and ICE/DTLS.
 
+use super::video::VideoCodec;
 use super::VoipError;
 use crate::voip::Result;
+use bytes::Bytes;
 use interceptor::registry::Registry;
 use std::sync::Arc;
 use webrtc::api::interceptor_registry::register_default_interceptors;
@@ -24,6 +26,7 @@ use webrtc::track::track_local::TrackLocal;
 pub struct WebRTCPeer {
     peer_connection: Arc<RTCPeerConnection>,
     audio_track: Option<Arc<TrackLocalStaticRTP>>,
+    video_track: Option<Arc<TrackLocalStaticRTP>>,
 }
 
 impl WebRTCPeer {
@@ -72,6 +75,7 @@ impl WebRTCPeer {
         Ok(Self {
             peer_connection,
             audio_track: None,
+            video_track: None,
         })
     }
 
@@ -101,6 +105,74 @@ impl WebRTCPeer {
 
         tracing::info!("✅ Audio track added to peer connection");
         Ok(())
+    }
+
+    /// Add video track to the peer connection
+    pub async fn add_video_track(&mut self, codec: VideoCodec) -> Result<()> {
+        // Create a video track with specified codec
+        let video_track = Arc::new(TrackLocalStaticRTP::new(
+            RTCRtpCodecCapability {
+                mime_type: codec.mime_type().to_owned(),
+                clock_rate: codec.clock_rate(),
+                channels: 0, // Video has no channels
+                sdp_fmtp_line: codec.fmtp_line(),
+                rtcp_feedback: vec![],
+            },
+            "video".to_owned(),
+            "mepassa-video".to_owned(),
+        ));
+
+        // Add track to peer connection
+        let _rtp_sender = self
+            .peer_connection
+            .add_track(Arc::clone(&video_track) as Arc<dyn TrackLocal + Send + Sync>)
+            .await
+            .map_err(|e| VoipError::WebRtcError(format!("Failed to add video track: {}", e)))?;
+
+        self.video_track = Some(video_track);
+
+        tracing::info!("✅ Video track added to peer connection - codec: {:?}", codec);
+        Ok(())
+    }
+
+    /// Send video frame to remote peer
+    ///
+    /// Frame data should be pre-encoded (H.264 NALUs or VP8 frames)
+    pub async fn send_video_frame(&self, frame: &[u8]) -> Result<()> {
+        if let Some(video_track) = &self.video_track {
+            video_track
+                .write(&Bytes::from(frame.to_vec()))
+                .await
+                .map_err(|e| VoipError::WebRtcError(format!("Failed to write video frame: {}", e)))?;
+
+            Ok(())
+        } else {
+            Err(VoipError::InvalidState(
+                "Video track not added yet".to_string(),
+            ))
+        }
+    }
+
+    /// Remove video track (disable camera)
+    ///
+    /// Triggers renegotiation to inform remote peer
+    pub async fn remove_video_track(&mut self) -> Result<()> {
+        if self.video_track.is_none() {
+            return Ok(()); // Already removed
+        }
+
+        self.video_track = None;
+
+        // Trigger renegotiation by creating new offer
+        let _ = self.create_offer().await?;
+
+        tracing::info!("🚫 Video track removed from peer connection");
+        Ok(())
+    }
+
+    /// Check if video track is enabled
+    pub fn has_video(&self) -> bool {
+        self.video_track.is_some()
     }
 
     /// Create SDP offer
