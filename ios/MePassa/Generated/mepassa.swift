@@ -514,8 +514,6 @@ fileprivate struct FfiConverterString: FfiConverter {
 
 public protocol MePassaClientProtocol : AnyObject {
     
-    func acceptCall(callId: String) async throws 
-    
     func bootstrap() async throws 
     
     func connectToPeer(peerId: String, multiaddr: String) async throws 
@@ -523,8 +521,6 @@ public protocol MePassaClientProtocol : AnyObject {
     func connectedPeersCount() async throws  -> UInt32
     
     func getConversationMessages(peerId: String, limit: UInt32?, offset: UInt32?) throws  -> [FfiMessage]
-    
-    func hangupCall(callId: String) async throws 
     
     func listConversations() throws  -> [FfiConversation]
     
@@ -534,17 +530,9 @@ public protocol MePassaClientProtocol : AnyObject {
     
     func markConversationRead(peerId: String) throws 
     
-    func rejectCall(callId: String, reason: String?) async throws 
-    
     func searchMessages(query: String, limit: UInt32?) throws  -> [FfiMessage]
     
     func sendTextMessage(toPeerId: String, content: String) async throws  -> String
-    
-    func startCall(toPeerId: String) async throws  -> String
-    
-    func toggleMute(callId: String) async throws 
-    
-    func toggleSpeakerphone(callId: String) async throws 
     
 }
 
@@ -605,23 +593,6 @@ public convenience init(dataDir: String)throws  {
 
     
 
-    
-open func acceptCall(callId: String)async throws  {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_mepassa_core_fn_method_mepassaclient_accept_call(
-                    self.uniffiClonePointer(),
-                    FfiConverterString.lower(callId)
-                )
-            },
-            pollFunc: ffi_mepassa_core_rust_future_poll_void,
-            completeFunc: ffi_mepassa_core_rust_future_complete_void,
-            freeFunc: ffi_mepassa_core_rust_future_free_void,
-            liftFunc: { $0 },
-            errorHandler: FfiConverterTypeMePassaFfiError.lift
-        )
-}
     
 open func bootstrap()async throws  {
     return
@@ -684,23 +655,6 @@ open func getConversationMessages(peerId: String, limit: UInt32?, offset: UInt32
 })
 }
     
-open func hangupCall(callId: String)async throws  {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_mepassa_core_fn_method_mepassaclient_hangup_call(
-                    self.uniffiClonePointer(),
-                    FfiConverterString.lower(callId)
-                )
-            },
-            pollFunc: ffi_mepassa_core_rust_future_poll_void,
-            completeFunc: ffi_mepassa_core_rust_future_complete_void,
-            freeFunc: ffi_mepassa_core_rust_future_free_void,
-            liftFunc: { $0 },
-            errorHandler: FfiConverterTypeMePassaFfiError.lift
-        )
-}
-    
 open func listConversations()throws  -> [FfiConversation] {
     return try  FfiConverterSequenceTypeFfiConversation.lift(try rustCallWithError(FfiConverterTypeMePassaFfiError.lift) {
     uniffi_mepassa_core_fn_method_mepassaclient_list_conversations(self.uniffiClonePointer(),$0
@@ -739,23 +693,6 @@ open func markConversationRead(peerId: String)throws  {try rustCallWithError(Ffi
 }
 }
     
-open func rejectCall(callId: String, reason: String?)async throws  {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_mepassa_core_fn_method_mepassaclient_reject_call(
-                    self.uniffiClonePointer(),
-                    FfiConverterString.lower(callId),FfiConverterOptionString.lower(reason)
-                )
-            },
-            pollFunc: ffi_mepassa_core_rust_future_poll_void,
-            completeFunc: ffi_mepassa_core_rust_future_complete_void,
-            freeFunc: ffi_mepassa_core_rust_future_free_void,
-            liftFunc: { $0 },
-            errorHandler: FfiConverterTypeMePassaFfiError.lift
-        )
-}
-    
 open func searchMessages(query: String, limit: UInt32?)throws  -> [FfiMessage] {
     return try  FfiConverterSequenceTypeFfiMessage.lift(try rustCallWithError(FfiConverterTypeMePassaFfiError.lift) {
     uniffi_mepassa_core_fn_method_mepassaclient_search_messages(self.uniffiClonePointer(),
@@ -778,57 +715,6 @@ open func sendTextMessage(toPeerId: String, content: String)async throws  -> Str
             completeFunc: ffi_mepassa_core_rust_future_complete_rust_buffer,
             freeFunc: ffi_mepassa_core_rust_future_free_rust_buffer,
             liftFunc: FfiConverterString.lift,
-            errorHandler: FfiConverterTypeMePassaFfiError.lift
-        )
-}
-    
-open func startCall(toPeerId: String)async throws  -> String {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_mepassa_core_fn_method_mepassaclient_start_call(
-                    self.uniffiClonePointer(),
-                    FfiConverterString.lower(toPeerId)
-                )
-            },
-            pollFunc: ffi_mepassa_core_rust_future_poll_rust_buffer,
-            completeFunc: ffi_mepassa_core_rust_future_complete_rust_buffer,
-            freeFunc: ffi_mepassa_core_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterString.lift,
-            errorHandler: FfiConverterTypeMePassaFfiError.lift
-        )
-}
-    
-open func toggleMute(callId: String)async throws  {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_mepassa_core_fn_method_mepassaclient_toggle_mute(
-                    self.uniffiClonePointer(),
-                    FfiConverterString.lower(callId)
-                )
-            },
-            pollFunc: ffi_mepassa_core_rust_future_poll_void,
-            completeFunc: ffi_mepassa_core_rust_future_complete_void,
-            freeFunc: ffi_mepassa_core_rust_future_free_void,
-            liftFunc: { $0 },
-            errorHandler: FfiConverterTypeMePassaFfiError.lift
-        )
-}
-    
-open func toggleSpeakerphone(callId: String)async throws  {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_mepassa_core_fn_method_mepassaclient_toggle_speakerphone(
-                    self.uniffiClonePointer(),
-                    FfiConverterString.lower(callId)
-                )
-            },
-            pollFunc: ffi_mepassa_core_rust_future_poll_void,
-            completeFunc: ffi_mepassa_core_rust_future_complete_void,
-            freeFunc: ffi_mepassa_core_rust_future_free_void,
-            liftFunc: { $0 },
             errorHandler: FfiConverterTypeMePassaFfiError.lift
         )
 }
@@ -1546,9 +1432,6 @@ private var initializationResult: InitializationResult = {
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
-    if (uniffi_mepassa_core_checksum_method_mepassaclient_accept_call() != 36665) {
-        return InitializationResult.apiChecksumMismatch
-    }
     if (uniffi_mepassa_core_checksum_method_mepassaclient_bootstrap() != 50425) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -1559,9 +1442,6 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_mepassa_core_checksum_method_mepassaclient_get_conversation_messages() != 5424) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_mepassa_core_checksum_method_mepassaclient_hangup_call() != 41033) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_mepassa_core_checksum_method_mepassaclient_list_conversations() != 61225) {
@@ -1576,22 +1456,10 @@ private var initializationResult: InitializationResult = {
     if (uniffi_mepassa_core_checksum_method_mepassaclient_mark_conversation_read() != 7782) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_mepassa_core_checksum_method_mepassaclient_reject_call() != 59311) {
-        return InitializationResult.apiChecksumMismatch
-    }
     if (uniffi_mepassa_core_checksum_method_mepassaclient_search_messages() != 45022) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_mepassa_core_checksum_method_mepassaclient_send_text_message() != 56271) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_mepassa_core_checksum_method_mepassaclient_start_call() != 10921) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_mepassa_core_checksum_method_mepassaclient_toggle_mute() != 36733) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_mepassa_core_checksum_method_mepassaclient_toggle_speakerphone() != 42924) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_mepassa_core_checksum_constructor_mepassaclient_new() != 5686) {

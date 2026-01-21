@@ -19,10 +19,9 @@ targets:
       - path: MePassa/MePassa
         excludes:
           - "**/.DS_Store"
-      # TODO: Re-enable Generated folder when Rust core library is linked
-      # - path: MePassa/Generated
-      #   excludes:
-      #     - "**/.DS_Store"
+      - path: MePassa/Generated
+        excludes:
+          - "**/.DS_Store"
 
     info:
       path: MePassa/Info.plist
@@ -71,16 +70,21 @@ targets:
         SWIFT_VERSION: "5.0"
         ENABLE_BITCODE: false
 
-        # Library search paths for libmepassa_core (TODO: Enable when core library builds)
-        # LIBRARY_SEARCH_PATHS:
-        #   - $(inherited)
-        #   - $(PROJECT_DIR)/../target/aarch64-apple-ios/release
-        #   - $(PROJECT_DIR)/../target/aarch64-apple-ios-sim/release
-        #   - $(PROJECT_DIR)/../target/x86_64-apple-ios/release
+        # Bridging header for Rust FFI
+        SWIFT_OBJC_BRIDGING_HEADER: $(PROJECT_DIR)/MePassa/MePassa-Bridging-Header.h
 
-        # Linker flags (TODO: Enable when core library builds)
-        # OTHER_LDFLAGS:
-        #   - -lmepassa_core
+        # Library search paths for libmepassa_core
+        LIBRARY_SEARCH_PATHS:
+          - $(inherited)
+          - $(PROJECT_DIR)/Libraries
+
+        # Linker flags for Rust core library
+        OTHER_LDFLAGS:
+          - $(inherited)
+          - -L$(PROJECT_DIR)/Libraries
+          - -lmepassa_core_sim
+          - "-Wl,-search_paths_first"
+          - "-Wl,-headerpad_max_install_names"
 
         # Swift import paths for Generated module
         SWIFT_INCLUDE_PATHS:
@@ -91,6 +95,7 @@ targets:
           - $(PROJECT_DIR)/MePassa/Generated
 
     dependencies:
+      # System frameworks
       - framework: Foundation.framework
         embed: false
       - framework: SwiftUI.framework
@@ -104,6 +109,12 @@ targets:
       - framework: UserNotifications.framework
         embed: false
       - framework: PushKit.framework
+        embed: false
+      - framework: Security.framework
+        embed: false
+      - framework: SystemConfiguration.framework
+        embed: false
+      - framework: libresolv.tbd
         embed: false
 
     scheme:

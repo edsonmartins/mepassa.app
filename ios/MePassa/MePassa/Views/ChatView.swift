@@ -186,16 +186,12 @@ struct Message: Identifiable {
     let status: MessageStatus
 }
 
-enum MessageStatus {
-    case sending
-    case sent
-    case delivered
-    case read
-    case failed
-
+// MessageStatus enum is provided by the Rust FFI bindings (mepassa.swift)
+// Extension to add UI helpers
+extension MessageStatus {
     var iconName: String {
         switch self {
-        case .sending: return "clock"
+        case .pending: return "clock"
         case .sent: return "checkmark"
         case .delivered: return "checkmark.circle"
         case .read: return "checkmark.circle.fill"

@@ -333,7 +333,7 @@ enum MePassaCoreError: LocalizedError {
 extension MessageStatus {
     var displayText: String {
         switch self {
-        case .sending: return "Sending"
+        case .pending: return "Pending"
         case .sent: return "Sent"
         case .delivered: return "Delivered"
         case .read: return "Read"
