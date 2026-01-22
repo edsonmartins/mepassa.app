@@ -125,6 +125,12 @@ export default function ConversationsView({ localPeerId }: ConversationsViewProp
               <span>{peerCount} peers</span>
             </div>
             <button
+              onClick={() => navigate('/groups')}
+              className="btn-secondary text-sm"
+            >
+              Groups
+            </button>
+            <button
               onClick={() => setShowNewChatDialog(true)}
               className="btn-primary text-sm"
             >

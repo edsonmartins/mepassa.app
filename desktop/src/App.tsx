@@ -6,6 +6,8 @@ import OnboardingView from './views/OnboardingView'
 import ConversationsView from './views/ConversationsView'
 import ChatView from './views/ChatView'
 import CallView from './views/CallView'
+import GroupListView from './views/GroupListView'
+import GroupChatView from './views/GroupChatView'
 
 function App() {
   const [isInitialized, setIsInitialized] = useState(false)
@@ -68,6 +70,8 @@ function App() {
       <Route path="/conversations" element={<ConversationsView localPeerId={localPeerId} />} />
       <Route path="/chat/:peerId" element={<ChatView localPeerId={localPeerId} />} />
       <Route path="/call/:callId/:remotePeerId" element={<CallView localPeerId={localPeerId} />} />
+      <Route path="/groups" element={<GroupListView localPeerId={localPeerId} />} />
+      <Route path="/group/:groupId" element={<GroupChatView />} />
       <Route path="*" element={<Navigate to={isInitialized ? "/conversations" : "/onboarding"} replace />} />
     </Routes>
   )
