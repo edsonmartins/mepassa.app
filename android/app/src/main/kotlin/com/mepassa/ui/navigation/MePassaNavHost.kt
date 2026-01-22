@@ -16,6 +16,9 @@ import com.mepassa.ui.screens.call.CallScreen
 import com.mepassa.ui.screens.call.IncomingCallScreen
 import com.mepassa.ui.screens.chat.ChatScreen
 import com.mepassa.ui.screens.conversations.ConversationsScreen
+import com.mepassa.ui.screens.group.GroupChatScreen
+import com.mepassa.ui.screens.group.GroupInfoScreen
+import com.mepassa.ui.screens.group.GroupListScreen
 import com.mepassa.ui.screens.onboarding.OnboardingScreen
 import com.mepassa.ui.utils.getPermissionDeniedMessage
 import com.mepassa.ui.utils.rememberVoipPermissions
@@ -29,6 +32,13 @@ sealed class Screen(val route: String) {
     object Conversations : Screen("conversations")
     object Chat : Screen("chat/{peerId}") {
         fun createRoute(peerId: String) = "chat/$peerId"
+    }
+    object GroupList : Screen("groups")
+    object GroupChat : Screen("group_chat/{groupId}") {
+        fun createRoute(groupId: String) = "group_chat/$groupId"
+    }
+    object GroupInfo : Screen("group_info/{groupId}") {
+        fun createRoute(groupId: String) = "group_info/$groupId"
     }
     object IncomingCall : Screen("incoming_call/{callId}/{callerPeerId}") {
         fun createRoute(callId: String, callerPeerId: String) = "incoming_call/$callId/$callerPeerId"
@@ -79,6 +89,9 @@ fun MePassaNavHost(
             ConversationsScreen(
                 onConversationClick = { peerId ->
                     navController.navigate(Screen.Chat.createRoute(peerId))
+                },
+                onGroupsClick = {
+                    navController.navigate(Screen.GroupList.route)
                 }
             )
         }
@@ -152,6 +165,55 @@ fun MePassaNavHost(
                         // Solicitar permissões primeiro
                         voipPermissions.requestPermissions()
                     }
+                }
+            )
+        }
+
+        // Group List (lista de grupos)
+        composable(Screen.GroupList.route) {
+            GroupListScreen(
+                onGroupClick = { groupId ->
+                    navController.navigate(Screen.GroupChat.createRoute(groupId))
+                },
+                onBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // Group Chat (conversa em grupo)
+        composable(
+            route = Screen.GroupChat.route,
+            arguments = listOf(
+                navArgument("groupId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val groupId = backStackEntry.arguments?.getString("groupId") ?: return@composable
+
+            GroupChatScreen(
+                groupId = groupId,
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onGroupInfo = { groupId ->
+                    navController.navigate(Screen.GroupInfo.createRoute(groupId))
+                }
+            )
+        }
+
+        // Group Info (informações do grupo)
+        composable(
+            route = Screen.GroupInfo.route,
+            arguments = listOf(
+                navArgument("groupId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val groupId = backStackEntry.arguments?.getString("groupId") ?: return@composable
+
+            GroupInfoScreen(
+                groupId = groupId,
+                onNavigateBack = {
+                    navController.popBackStack()
                 }
             )
         }

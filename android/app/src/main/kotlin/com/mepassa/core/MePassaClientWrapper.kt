@@ -306,6 +306,111 @@ object MePassaClientWrapper {
         }
     }
 
+    // ========== Group Methods (FASE 15) ==========
+
+    /**
+     * Cria um novo grupo
+     *
+     * @param name Nome do grupo
+     * @param description Descrição do grupo (opcional)
+     * @return FfiGroup criado
+     */
+    suspend fun createGroup(name: String, description: String?): FfiGroup =
+        withContext(Dispatchers.IO) {
+            try {
+                val group = getClient().createGroup(name, description)
+                Log.i(TAG, "Group created successfully: ${group.id}")
+                group
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to create group", e)
+                throw e
+            }
+        }
+
+    /**
+     * Entra em um grupo existente
+     *
+     * @param groupId ID do grupo
+     * @param groupName Nome do grupo
+     */
+    suspend fun joinGroup(groupId: String, groupName: String): Boolean =
+        withContext(Dispatchers.IO) {
+            try {
+                getClient().joinGroup(groupId, groupName)
+                Log.i(TAG, "Joined group successfully: $groupId")
+                true
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to join group", e)
+                false
+            }
+        }
+
+    /**
+     * Sai de um grupo
+     *
+     * @param groupId ID do grupo
+     */
+    suspend fun leaveGroup(groupId: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            getClient().leaveGroup(groupId)
+            Log.i(TAG, "Left group successfully: $groupId")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to leave group", e)
+            false
+        }
+    }
+
+    /**
+     * Adiciona um membro ao grupo (apenas admin)
+     *
+     * @param groupId ID do grupo
+     * @param peerId ID do peer a adicionar
+     */
+    suspend fun addGroupMember(groupId: String, peerId: String): Boolean =
+        withContext(Dispatchers.IO) {
+            try {
+                getClient().addGroupMember(groupId, peerId)
+                Log.i(TAG, "Added member to group $groupId: $peerId")
+                true
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to add group member", e)
+                throw e
+            }
+        }
+
+    /**
+     * Remove um membro do grupo (apenas admin)
+     *
+     * @param groupId ID do grupo
+     * @param peerId ID do peer a remover
+     */
+    suspend fun removeGroupMember(groupId: String, peerId: String): Boolean =
+        withContext(Dispatchers.IO) {
+            try {
+                getClient().removeGroupMember(groupId, peerId)
+                Log.i(TAG, "Removed member from group $groupId: $peerId")
+                true
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to remove group member", e)
+                false
+            }
+        }
+
+    /**
+     * Lista todos os grupos do usuário
+     *
+     * @return Lista de grupos
+     */
+    suspend fun getGroups(): List<FfiGroup> = withContext(Dispatchers.IO) {
+        try {
+            getClient().getGroups()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to get groups", e)
+            emptyList()
+        }
+    }
+
     /**
      * Shutdown do client (chame no onDestroy da Application)
      */

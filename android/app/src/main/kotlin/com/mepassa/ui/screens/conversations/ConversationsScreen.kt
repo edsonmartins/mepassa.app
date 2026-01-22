@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,7 +30,8 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConversationsScreen(
-    onConversationClick: (String) -> Unit
+    onConversationClick: (String) -> Unit,
+    onGroupsClick: (() -> Unit)? = null
 ) {
     val scope = rememberCoroutineScope()
     var conversations by remember { mutableStateOf<List<FfiConversation>>(emptyList()) }
@@ -59,6 +61,18 @@ fun ConversationsScreen(
             TopAppBar(
                 title = {
                     Text(stringResource(R.string.conversations_title))
+                },
+                actions = {
+                    // Botão de grupos
+                    if (onGroupsClick != null) {
+                        IconButton(onClick = onGroupsClick) {
+                            Icon(
+                                imageVector = Icons.Default.Group,
+                                contentDescription = "Grupos",
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
