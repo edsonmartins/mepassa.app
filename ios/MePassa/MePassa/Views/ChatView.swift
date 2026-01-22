@@ -21,6 +21,11 @@ struct ChatView: View {
     // Voice recorder state
     @StateObject private var voiceRecorderVM = VoiceRecorderViewModel()
 
+    // Message actions state
+    @State private var selectedMessage: Message?
+    @State private var showDeleteAlert = false
+    @State private var showForwardAlert = false
+
     var body: some View {
         VStack(spacing: 0) {
             // Messages list
@@ -44,6 +49,21 @@ struct ChatView: View {
                             ForEach(messages) { message in
                                 MessageBubble(message: message)
                                     .id(message.id)
+                                    .contextMenu {
+                                        Button(action: {
+                                            selectedMessage = message
+                                            showForwardAlert = true
+                                        }) {
+                                            Label("Encaminhar", systemImage: "arrowshape.turn.up.forward")
+                                        }
+
+                                        Button(role: .destructive, action: {
+                                            selectedMessage = message
+                                            showDeleteAlert = true
+                                        }) {
+                                            Label("Excluir", systemImage: "trash")
+                                        }
+                                    }
                             }
                         }
                     }
@@ -150,6 +170,19 @@ struct ChatView: View {
         .onAppear {
             loadMessages()
         }
+        .alert("Excluir mensagem", isPresented: $showDeleteAlert, presenting: selectedMessage) { message in
+            Button("Cancelar", role: .cancel) { }
+            Button("Excluir", role: .destructive) {
+                deleteMessage(message)
+            }
+        } message: { _ in
+            Text("Tem certeza que deseja excluir esta mensagem?")
+        }
+        .alert("Encaminhar mensagem", isPresented: $showForwardAlert, presenting: selectedMessage) { message in
+            Button("OK", role: .cancel) { }
+        } message: { _ in
+            Text("Funcionalidade de encaminhamento será implementada em breve.\n\nTODO: Adicionar seletor de conversas.")
+        }
     }
 
     private func sendMessage() {
@@ -182,6 +215,33 @@ struct ChatView: View {
     private func startVideoCall() {
         // TODO: Initiate video call
         print("📹 Starting video call with \(conversation.peerId)")
+    }
+
+    private func deleteMessage(_ message: Message) {
+        do {
+            try MePassaCore.shared.deleteMessage(messageId: message.id)
+            print("✅ Message deleted: \(message.id)")
+            // Reload messages
+            loadMessages()
+        } catch {
+            print("❌ Error deleting message: \(error)")
+        }
+    }
+
+    private func forwardMessage(_ message: Message, to peerId: String) {
+        Task {
+            do {
+                let newMessageId = try await MePassaCore.shared.forwardMessage(
+                    messageId: message.id,
+                    toPeerId: peerId
+                )
+                print("✅ Message forwarded: \(newMessageId)")
+                // Reload messages
+                loadMessages()
+            } catch {
+                print("❌ Error forwarding message: \(error)")
+            }
+        }
     }
 }
 

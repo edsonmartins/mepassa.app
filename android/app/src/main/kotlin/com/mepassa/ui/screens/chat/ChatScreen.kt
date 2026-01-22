@@ -1,7 +1,9 @@
 package com.mepassa.ui.screens.chat
 
 import android.net.Uri
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -57,6 +59,11 @@ fun ChatScreen(
 
     // Voice recorder
     val voiceRecorderViewModel = remember { VoiceRecorderViewModel(context) }
+
+    // Message actions state
+    var selectedMessage by remember { mutableStateOf<FfiMessage?>(null) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showForwardDialog by remember { mutableStateOf(false) }
 
     // Carregar mensagens
     LaunchedEffect(peerId) {
@@ -263,11 +270,79 @@ fun ChatScreen(
                 items(messages) { message ->
                     MessageBubble(
                         message = message,
-                        isOwnMessage = message.senderPeerId == localPeerId
+                        isOwnMessage = message.senderPeerId == localPeerId,
+                        onLongPress = {
+                            selectedMessage = message
+                        },
+                        onDelete = {
+                            selectedMessage = message
+                            showDeleteDialog = true
+                        },
+                        onForward = {
+                            selectedMessage = message
+                            showForwardDialog = true
+                        }
                     )
                 }
             }
         }
+    }
+
+    // Delete confirmation dialog
+    if (showDeleteDialog && selectedMessage != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Excluir mensagem") },
+            text = { Text("Tem certeza que deseja excluir esta mensagem?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        scope.launch {
+                            try {
+                                MePassaClientWrapper.client?.deleteMessage(selectedMessage!!.messageId)
+                                // Reload messages
+                                messages = MePassaClientWrapper.getConversationMessages(peerId)
+                            } catch (e: Exception) {
+                                println("Error deleting message: ${e.message}")
+                            }
+                        }
+                        showDeleteDialog = false
+                        selectedMessage = null
+                    }
+                ) {
+                    Text("Excluir", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
+    // Forward dialog (simple version - TODO: add conversation selector)
+    if (showForwardDialog && selectedMessage != null) {
+        AlertDialog(
+            onDismissRequest = { showForwardDialog = false },
+            title = { Text("Encaminhar mensagem") },
+            text = { Text("Funcionalidade de encaminhamento será implementada em breve.\n\nTODO: Adicionar seletor de conversas.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        // TODO: Show conversation selector, then:
+                        // MePassaClientWrapper.client?.forwardMessage(
+                        //     selectedMessage!!.messageId,
+                        //     targetPeerId
+                        // )
+                        showForwardDialog = false
+                        selectedMessage = null
+                    }
+                ) {
+                    Text("OK")
+                }
+            }
+        )
     }
 }
 
@@ -346,45 +421,82 @@ fun MessageInputBar(
 /**
  * Bolha de mensagem individual
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MessageBubble(
     message: FfiMessage,
-    isOwnMessage: Boolean
+    isOwnMessage: Boolean,
+    onLongPress: () -> Unit = {},
+    onDelete: () -> Unit = {},
+    onForward: () -> Unit = {}
 ) {
+    var showMenu by remember { mutableStateOf(false) }
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (isOwnMessage) Arrangement.End else Arrangement.Start
     ) {
-        Surface(
-            shape = RoundedCornerShape(
-                topStart = 16.dp,
-                topEnd = 16.dp,
-                bottomStart = if (isOwnMessage) 16.dp else 4.dp,
-                bottomEnd = if (isOwnMessage) 4.dp else 16.dp
-            ),
-            color = if (isOwnMessage) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant
-            },
-            modifier = Modifier.widthIn(max = 280.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(12.dp)
+        Box {
+            Surface(
+                shape = RoundedCornerShape(
+                    topStart = 16.dp,
+                    topEnd = 16.dp,
+                    bottomStart = if (isOwnMessage) 16.dp else 4.dp,
+                    bottomEnd = if (isOwnMessage) 4.dp else 16.dp
+                ),
+                color = if (isOwnMessage) {
+                    MaterialTheme.colorScheme.primaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant
+                },
+                modifier = Modifier
+                    .widthIn(max = 280.dp)
+                    .combinedClickable(
+                        onClick = {},
+                        onLongClick = {
+                            onLongPress()
+                            showMenu = true
+                        }
+                    )
             ) {
-                message.contentPlaintext?.let { content ->
+                Column(
+                    modifier = Modifier.padding(12.dp)
+                ) {
+                    message.contentPlaintext?.let { content ->
+                        Text(
+                            text = content,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
                     Text(
-                        text = content,
-                        style = MaterialTheme.typography.bodyMedium
+                        text = formatMessageTime(message.createdAt),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+            }
 
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = formatMessageTime(message.createdAt),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            // Context menu
+            DropdownMenu(
+                expanded = showMenu,
+                onDismissRequest = { showMenu = false }
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Encaminhar") },
+                    onClick = {
+                        showMenu = false
+                        onForward()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Excluir", color = MaterialTheme.colorScheme.error) },
+                    onClick = {
+                        showMenu = false
+                        onDelete()
+                    }
                 )
             }
         }
