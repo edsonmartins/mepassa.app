@@ -34,6 +34,9 @@ struct ChatView: View {
     // Media gallery state
     @State private var showMediaGallery = false
 
+    // Search state
+    @State private var showSearch = false
+
     var body: some View {
         VStack(spacing: 0) {
             // Messages list
@@ -238,6 +241,10 @@ struct ChatView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 16) {
+                    Button(action: { showSearch = true }) {
+                        Image(systemName: "magnifyingglass")
+                    }
+
                     Button(action: { showMediaGallery = true }) {
                         Image(systemName: "photo.on.rectangle")
                     }
@@ -256,6 +263,17 @@ struct ChatView: View {
             MediaGalleryView(
                 conversationId: conversation.id,
                 peerName: conversation.displayName ?? "Desconhecido"
+            )
+        }
+        .sheet(isPresented: $showSearch) {
+            MessageSearchView(
+                conversationId: conversation.id,
+                peerName: conversation.displayName,
+                onMessageTap: { message in
+                    // Navigate to message
+                    // TODO: Scroll to message in conversation
+                    print("Navigate to message: \(message.messageId)")
+                }
             )
         }
         .onAppear {

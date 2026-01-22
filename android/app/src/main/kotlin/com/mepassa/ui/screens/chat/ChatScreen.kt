@@ -14,6 +14,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Photo
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -46,7 +47,8 @@ fun ChatScreen(
     peerId: String,
     onNavigateBack: () -> Unit,
     onStartCall: () -> Unit,
-    onOpenMediaGallery: () -> Unit = {}
+    onOpenMediaGallery: () -> Unit = {},
+    onOpenSearch: () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
@@ -195,6 +197,15 @@ fun ChatScreen(
                     }
                 },
                 actions = {
+                    // Botão de busca
+                    IconButton(onClick = onOpenSearch) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Buscar mensagens",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+
                     // Botão de galeria de mídia
                     IconButton(onClick = onOpenMediaGallery) {
                         Icon(
