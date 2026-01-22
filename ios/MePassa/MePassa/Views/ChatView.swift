@@ -148,6 +148,34 @@ struct ChatView: View {
                     }
                 }
 
+                // Video picker button
+                VideoPickerButton(isEnabled: true) { videoInfo in
+                    Task {
+                        do {
+                            // Read video file data
+                            let videoData = try Data(contentsOf: videoInfo.url)
+
+                            // Send video message
+                            let messageId = try await MePassaCore.shared.sendVideoMessage(
+                                toPeerId: conversation.peerId,
+                                videoData: videoData,
+                                fileName: videoInfo.fileName,
+                                width: Int32(videoInfo.width),
+                                height: Int32(videoInfo.height),
+                                durationSeconds: Int32(videoInfo.durationSeconds),
+                                thumbnailData: videoInfo.thumbnailData
+                            )
+
+                            print("✅ Video sent: \(messageId)")
+
+                            // Reload messages
+                            loadMessages()
+                        } catch {
+                            print("❌ Error sending video: \(error)")
+                        }
+                    }
+                }
+
                 // Text field
                 TextField("Mensagem", text: $messageText)
                     .textFieldStyle(.plain)
