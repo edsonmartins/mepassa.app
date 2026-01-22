@@ -56,17 +56,19 @@ class AppState: ObservableObject {
     @Published var isAuthenticated = false
     @Published var currentUser: User?
     @Published var conversations: [Conversation] = []
-    
+    @Published var groups: [Group] = []
+
     func login(peerId: String) {
         // TODO: Implement login with UniFFI
         self.isAuthenticated = true
         print("✅ Logged in as: \(peerId)")
     }
-    
+
     func logout() {
         self.isAuthenticated = false
         self.currentUser = nil
         self.conversations = []
+        self.groups = []
     }
 }
 
@@ -83,4 +85,13 @@ struct Conversation: Identifiable {
     let displayName: String
     let lastMessage: String?
     let unreadCount: Int
+}
+
+struct Group: Identifiable {
+    let id: String
+    let name: String
+    let description: String?
+    let memberCount: Int
+    let isAdmin: Bool
+    let createdAt: Date
 }

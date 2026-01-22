@@ -12,6 +12,7 @@ struct ConversationsView: View {
     @EnvironmentObject var appState: AppState
     @State private var showingNewChat = false
     @State private var showingSettings = false
+    @State private var showingGroups = false
 
     var body: some View {
         NavigationView {
@@ -53,7 +54,11 @@ struct ConversationsView: View {
                     }
                 }
 
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    Button(action: { showingGroups = true }) {
+                        Image(systemName: "person.3")
+                    }
+
                     Button(action: { showingNewChat = true }) {
                         Image(systemName: "plus")
                     }
@@ -64,6 +69,9 @@ struct ConversationsView: View {
             }
             .sheet(isPresented: $showingSettings) {
                 SettingsView()
+            }
+            .sheet(isPresented: $showingGroups) {
+                GroupListView()
             }
         }
     }

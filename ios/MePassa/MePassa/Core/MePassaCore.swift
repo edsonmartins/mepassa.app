@@ -234,6 +234,110 @@ class MePassaCore: ObservableObject {
 
         print("🔊 Toggled speaker for call: \(callId)")
     }
+
+    // MARK: - Groups (FASE 15)
+
+    /// Create a new group
+    func createGroup(name: String, description: String?) async throws -> FfiGroupWrapper {
+        // TODO: Call client.createGroup()
+        /*
+        let group = try await client?.createGroup(name: name, description: description)
+        return FfiGroupWrapper(ffi: group!)
+        */
+
+        // Mock implementation
+        let group = FfiGroupWrapper(
+            id: UUID().uuidString,
+            name: name,
+            description: description,
+            avatarHash: nil,
+            creatorPeerId: localPeerId ?? "",
+            memberCount: 1,
+            isAdmin: true,
+            createdAt: Date()
+        )
+        print("👥 Created group: \(name)")
+        return group
+    }
+
+    /// Join an existing group
+    func joinGroup(groupId: String, groupName: String) async throws {
+        // TODO: Call client.joinGroup()
+        /*
+        try await client?.joinGroup(groupId: groupId, groupName: groupName)
+        */
+
+        print("✅ Joined group: \(groupName)")
+    }
+
+    /// Leave a group
+    func leaveGroup(groupId: String) async throws {
+        // TODO: Call client.leaveGroup()
+        /*
+        try await client?.leaveGroup(groupId: groupId)
+        */
+
+        print("👋 Left group: \(groupId)")
+    }
+
+    /// Add member to group (admin only)
+    func addGroupMember(groupId: String, peerId: String) async throws {
+        // TODO: Call client.addGroupMember()
+        /*
+        try await client?.addGroupMember(groupId: groupId, peerId: peerId)
+        */
+
+        print("➕ Added member to group \(groupId): \(peerId)")
+    }
+
+    /// Remove member from group (admin only)
+    func removeGroupMember(groupId: String, peerId: String) async throws {
+        // TODO: Call client.removeGroupMember()
+        /*
+        try await client?.removeGroupMember(groupId: groupId, peerId: peerId)
+        */
+
+        print("➖ Removed member from group \(groupId): \(peerId)")
+    }
+
+    /// Get all groups
+    func getGroups() async throws -> [FfiGroupWrapper] {
+        // TODO: Call client.getGroups()
+        /*
+        let groups = try await client?.getGroups() ?? []
+        return groups.map { FfiGroupWrapper(ffi: $0) }
+        */
+
+        return [] // Mock
+    }
+
+    /// Get group messages
+    func getGroupMessages(groupId: String, limit: Int? = nil) async throws -> [FfiMessageWrapper] {
+        // TODO: Implement when group messaging is available
+        /*
+        let messages = try await client?.getGroupMessages(
+            groupId: groupId,
+            limit: limit.map { UInt32($0) },
+            offset: nil
+        ) ?? []
+        return messages.map { FfiMessageWrapper(ffi: $0) }
+        */
+
+        return [] // Mock
+    }
+
+    /// Send message to group
+    func sendGroupMessage(groupId: String, content: String) async throws -> String {
+        // TODO: Implement when group messaging is available
+        /*
+        return try await client?.sendGroupMessage(groupId: groupId, content: content) ?? ""
+        */
+
+        // Mock
+        let messageId = UUID().uuidString
+        print("📨 Sent group message to \(groupId): \(content)")
+        return messageId
+    }
 }
 
 // MARK: - Wrapper Types
@@ -299,6 +403,43 @@ struct FfiConversationWrapper: Identifiable {
         self.lastMessageId = ffi.lastMessageId
         self.lastMessageAt = ffi.lastMessageAt.map { Date(timeIntervalSince1970: TimeInterval($0) / 1000.0) }
         self.unreadCount = Int(ffi.unreadCount)
+    }
+    */
+}
+
+/// Swift wrapper for FfiGroup (from UniFFI)
+struct FfiGroupWrapper: Identifiable {
+    let id: String
+    let name: String
+    let description: String?
+    let avatarHash: String?
+    let creatorPeerId: String
+    let memberCount: Int
+    let isAdmin: Bool
+    let createdAt: Date
+
+    init(id: String, name: String, description: String?, avatarHash: String?, creatorPeerId: String, memberCount: Int, isAdmin: Bool, createdAt: Date) {
+        self.id = id
+        self.name = name
+        self.description = description
+        self.avatarHash = avatarHash
+        self.creatorPeerId = creatorPeerId
+        self.memberCount = memberCount
+        self.isAdmin = isAdmin
+        self.createdAt = createdAt
+    }
+
+    // TODO: Uncomment after UniFFI bindings are generated
+    /*
+    init(ffi: FfiGroup) {
+        self.id = ffi.id
+        self.name = ffi.name
+        self.description = ffi.description
+        self.avatarHash = ffi.avatarHash
+        self.creatorPeerId = ffi.creatorPeerId
+        self.memberCount = Int(ffi.memberCount)
+        self.isAdmin = ffi.isAdmin
+        self.createdAt = Date(timeIntervalSince1970: TimeInterval(ffi.createdAt))
     }
     */
 }
