@@ -273,6 +273,9 @@ interface MePassaClient {
     string send_document_message(string to_peer_id, sequence<u8> file_data, string file_name, string mime_type);
 
     [Throws=MePassaFfiError, Async]
+    string send_video_message(string to_peer_id, sequence<u8> video_data, string file_name, i32? width, i32? height, i32 duration_seconds, sequence<u8>? thumbnail_data);
+
+    [Throws=MePassaFfiError, Async]
     sequence<u8> download_media(string media_hash);
 
     [Throws=MePassaFfiError]

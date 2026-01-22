@@ -359,6 +359,74 @@ impl Client {
         Ok(message_id)
     }
 
+    /// Send a video message
+    pub async fn send_video_message(
+        &self,
+        to: PeerId,
+        video_data: &[u8],
+        file_name: String,
+        width: Option<i32>,
+        height: Option<i32>,
+        duration_seconds: i32,
+        thumbnail_data: Option<&[u8]>,
+    ) -> Result<String> {
+        use sha2::{Digest, Sha256};
+
+        // Calculate video hash
+        let mut hasher = Sha256::new();
+        hasher.update(video_data);
+        let media_hash = format!("{:x}", hasher.finalize());
+
+        // Generate message ID
+        let message_id = uuid::Uuid::new_v4().to_string();
+
+        // Store in database
+        let conversation_id = self.database.get_or_create_conversation(&to.to_string())?;
+        let new_msg = crate::storage::NewMessage {
+            message_id: message_id.clone(),
+            conversation_id: conversation_id.clone(),
+            sender_peer_id: self.local_peer_id().to_string(),
+            recipient_peer_id: Some(to.to_string()),
+            message_type: "video".to_string(),
+            content_encrypted: None,
+            content_plaintext: Some(format!("[Video: {}s]", duration_seconds)),
+            status: MessageStatus::Sent,
+            parent_message_id: None,
+        };
+        self.database.insert_message(&new_msg)?;
+
+        // Calculate thumbnail hash if provided
+        let thumbnail_path = if let Some(thumb_data) = thumbnail_data {
+            let mut thumb_hasher = Sha256::new();
+            thumb_hasher.update(thumb_data);
+            let thumb_hash = format!("{:x}", thumb_hasher.finalize());
+            // TODO: Save thumbnail to disk
+            Some(format!("thumbnails/{}.jpg", thumb_hash))
+        } else {
+            None
+        };
+
+        // Store media record
+        let new_media = crate::storage::NewMedia {
+            media_hash: media_hash.clone(),
+            message_id: message_id.clone(),
+            media_type: crate::storage::MediaType::Video,
+            file_name: Some(file_name),
+            file_size: Some(video_data.len() as i64),
+            mime_type: Some("video/mp4".to_string()),
+            local_path: None, // TODO: Save to disk
+            thumbnail_path,
+            width,
+            height,
+            duration_seconds: Some(duration_seconds),
+        };
+        self.database.insert_media(&new_media)?;
+
+        // TODO: Send via network
+
+        Ok(message_id)
+    }
+
     /// Download media by hash
     pub async fn download_media(&self, media_hash: &str) -> Result<Vec<u8>> {
         // TODO: Implement actual download from peer

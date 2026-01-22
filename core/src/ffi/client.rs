@@ -183,6 +183,16 @@ enum ClientCommand {
         mime_type: String,
         response: oneshot::Sender<Result<String, MePassaFfiError>>,
     },
+    SendVideoMessage {
+        to_peer_id: String,
+        video_data: Vec<u8>,
+        file_name: String,
+        width: Option<i32>,
+        height: Option<i32>,
+        duration_seconds: i32,
+        thumbnail_data: Option<Vec<u8>>,
+        response: oneshot::Sender<Result<String, MePassaFfiError>>,
+    },
     DownloadMedia {
         media_hash: String,
         response: oneshot::Sender<Result<Vec<u8>, MePassaFfiError>>,
@@ -503,6 +513,40 @@ async fn run_client_task(mut receiver: mpsc::UnboundedReceiver<ClientCommand>, c
 
                 let result = client
                     .send_document_message(to, &file_data, file_name, mime_type)
+                    .await
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            ClientCommand::SendVideoMessage {
+                to_peer_id,
+                video_data,
+                file_name,
+                width,
+                height,
+                duration_seconds,
+                thumbnail_data,
+                response,
+            } => {
+                let to: libp2p::PeerId = match to_peer_id.parse() {
+                    Ok(peer_id) => peer_id,
+                    Err(_) => {
+                        let _ = response.send(Err(MePassaFfiError::Network {
+                            message: "Invalid peer ID".to_string(),
+                        }));
+                        continue;
+                    }
+                };
+
+                let result = client
+                    .send_video_message(
+                        to,
+                        &video_data,
+                        file_name,
+                        width,
+                        height,
+                        duration_seconds,
+                        thumbnail_data.as_deref(),
+                    )
                     .await
                     .map_err(|e| e.into());
                 let _ = response.send(result);
@@ -1355,6 +1399,39 @@ impl MePassaClient {
                 file_data,
                 file_name,
                 mime_type,
+                response: tx,
+            })
+            .map_err(|_| MePassaFfiError::Other {
+                message: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| MePassaFfiError::Other {
+            message: "Failed to receive response".to_string(),
+        })?
+    }
+
+    /// Send a video message
+    pub async fn send_video_message(
+        &self,
+        to_peer_id: String,
+        video_data: Vec<u8>,
+        file_name: String,
+        width: Option<i32>,
+        height: Option<i32>,
+        duration_seconds: i32,
+        thumbnail_data: Option<Vec<u8>>,
+    ) -> Result<String, MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::SendVideoMessage {
+                to_peer_id,
+                video_data,
+                file_name,
+                width,
+                height,
+                duration_seconds,
+                thumbnail_data,
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
