@@ -206,6 +206,9 @@ interface MePassaClient {
     [Throws=MePassaFfiError, Async]
     void send_video_frame(string call_id, sequence<u8> frame_data, u32 width, u32 height);
 
+    [Throws=MePassaFfiError, Async]
+    void switch_camera(string call_id);
+
     // Group methods (FASE 15)
     [Throws=MePassaFfiError, Async]
     FfiGroup create_group(string name, string? description);

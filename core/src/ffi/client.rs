@@ -126,6 +126,11 @@ enum ClientCommand {
         height: u32,
         response: oneshot::Sender<Result<(), MePassaFfiError>>,
     },
+    #[cfg(feature = "voip")]
+    SwitchCamera {
+        call_id: String,
+        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+    },
     // Group commands (FASE 15)
     CreateGroup {
         name: String,
@@ -302,6 +307,14 @@ async fn run_client_task(mut receiver: mpsc::UnboundedReceiver<ClientCommand>, c
             } => {
                 let result = client
                     .send_video_frame(call_id, &frame_data, width, height)
+                    .await
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            #[cfg(feature = "voip")]
+            ClientCommand::SwitchCamera { call_id, response } => {
+                let result = client
+                    .switch_camera(call_id)
                     .await
                     .map_err(|e| e.into());
                 let _ = response.send(result);
@@ -809,6 +822,28 @@ impl MePassaClient {
         })?
     }
 
+    #[cfg(feature = "voip")]
+    /// Switch camera (front/back) during video call
+    ///
+    /// Only applicable on mobile devices with multiple cameras.
+    /// Desktop platforms may ignore this call or return an error.
+    pub async fn switch_camera(&self, call_id: String) -> Result<(), MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::SwitchCamera {
+                call_id,
+                response: tx,
+            })
+            .map_err(|_| MePassaFfiError::Other {
+                message: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| MePassaFfiError::Other {
+            message: "Failed to receive response".to_string(),
+        })?
+    }
+
     // ========== VoIP Method Stubs (when feature is disabled) ==========
 
     #[cfg(not(feature = "voip"))]
@@ -884,6 +919,14 @@ impl MePassaClient {
         _width: u32,
         _height: u32,
     ) -> Result<(), MePassaFfiError> {
+        Err(MePassaFfiError::Other {
+            message: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
+        })
+    }
+
+    #[cfg(not(feature = "voip"))]
+    /// Switch camera (stub - VoIP feature disabled)
+    pub async fn switch_camera(&self, _call_id: String) -> Result<(), MePassaFfiError> {
         Err(MePassaFfiError::Other {
             message: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
         })

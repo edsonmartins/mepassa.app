@@ -326,6 +326,18 @@ impl Client {
             .map_err(|e| MePassaError::Other(format!("Failed to send video frame: {}", e)))
     }
 
+    #[cfg(feature = "voip")]
+    /// Switch camera (front/back) during video call
+    ///
+    /// Only applicable on mobile devices. Platform-specific camera manager
+    /// handles the actual camera switching.
+    pub async fn switch_camera(&self, call_id: String) -> Result<()> {
+        self.call_manager
+            .switch_camera(&call_id)
+            .await
+            .map_err(|e| MePassaError::Other(format!("Failed to switch camera: {}", e)))
+    }
+
     // ========== Group Methods (FASE 15) ==========
 
     /// Create a new group

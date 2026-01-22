@@ -456,6 +456,28 @@ impl CallManager {
         Ok(())
     }
 
+    /// Switch camera (front/back) during video call
+    ///
+    /// This method doesn't directly control the camera - it emits an event
+    /// that the platform-specific camera manager should handle.
+    /// The actual camera switching is done by:
+    /// - Android: CameraManager.switchCamera()
+    /// - iOS: CameraManager.switchCamera()
+    pub async fn switch_camera(&self, call_id: &str) -> Result<()> {
+        // Verify call exists
+        let calls = self.calls.read().await;
+        calls
+            .get(call_id)
+            .ok_or_else(|| VoipError::InvalidState("Call not found".to_string()))?;
+
+        tracing::info!("📸 Switch camera requested for call: {}", call_id);
+
+        // TODO: Emit event for platform to handle camera switching
+        // Platform-specific code will receive this and call their camera manager
+
+        Ok(())
+    }
+
     /// Toggle mute for an active call
     pub async fn toggle_mute(&self, call_id: String) -> Result<()> {
         let mut calls = self.calls.write().await;
