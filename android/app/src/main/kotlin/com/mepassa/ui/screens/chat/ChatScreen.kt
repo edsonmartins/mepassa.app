@@ -1,5 +1,6 @@
 package com.mepassa.ui.screens.chat
 
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -20,6 +21,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.mepassa.R
 import com.mepassa.core.MePassaClientWrapper
+import com.mepassa.ui.components.ImagePickerButton
+import com.mepassa.ui.components.SelectedImagesPreview
 import kotlinx.coroutines.launch
 import uniffi.mepassa.FfiMessage
 import java.text.SimpleDateFormat
@@ -45,6 +48,9 @@ fun ChatScreen(
     var messageInput by remember { mutableStateOf("") }
     var isSending by remember { mutableStateOf(false) }
     val localPeerId by MePassaClientWrapper.localPeerId.collectAsState()
+
+    // Image selection state
+    var selectedImages by remember { mutableStateOf<List<Uri>>(emptyList()) }
 
     // Carregar mensagens
     LaunchedEffect(peerId) {
@@ -115,31 +121,61 @@ fun ChatScreen(
             )
         },
         bottomBar = {
-            MessageInputBar(
-                messageInput = messageInput,
-                onMessageInputChange = { messageInput = it },
-                onSendClick = {
-                    if (messageInput.isNotBlank() && !isSending) {
-                        val content = messageInput.trim()
-                        messageInput = ""
-                        isSending = true
-
-                        scope.launch {
-                            val result = MePassaClientWrapper.sendTextMessage(peerId, content)
-                            isSending = false
-
-                            if (result.isSuccess) {
-                                // Recarregar mensagens
-                                messages = MePassaClientWrapper.getConversationMessages(peerId)
-                                listState.animateScrollToItem(messages.lastIndex)
-                            } else {
-                                // TODO: Mostrar erro
+            Column {
+                // Selected images preview
+                if (selectedImages.isNotEmpty()) {
+                    SelectedImagesPreview(
+                        selectedImages = selectedImages.map { uri ->
+                            com.mepassa.core.MediaItem(
+                                uri = uri,
+                                type = com.mepassa.core.MediaType.IMAGE,
+                                fileName = null,
+                                fileSize = null
+                            )
+                        },
+                        onRemoveImage = { uri ->
+                            selectedImages = selectedImages.filterNot { it == uri }
+                        },
+                        onSendImages = {
+                            // TODO: Implement image sending
+                            scope.launch {
+                                // For now, just clear selection
+                                selectedImages = emptyList()
                             }
                         }
-                    }
-                },
-                isSending = isSending
-            )
+                    )
+                }
+
+                // Message input bar
+                MessageInputBar(
+                    messageInput = messageInput,
+                    onMessageInputChange = { messageInput = it },
+                    onSendClick = {
+                        if (messageInput.isNotBlank() && !isSending) {
+                            val content = messageInput.trim()
+                            messageInput = ""
+                            isSending = true
+
+                            scope.launch {
+                                val result = MePassaClientWrapper.sendTextMessage(peerId, content)
+                                isSending = false
+
+                                if (result.isSuccess) {
+                                    // Recarregar mensagens
+                                    messages = MePassaClientWrapper.getConversationMessages(peerId)
+                                    listState.animateScrollToItem(messages.lastIndex)
+                                } else {
+                                    // TODO: Mostrar erro
+                                }
+                            }
+                        }
+                    },
+                    onSelectImages = { uris ->
+                        selectedImages = selectedImages + uris
+                    },
+                    isSending = isSending
+                )
+            }
         }
     ) { paddingValues ->
         if (messages.isEmpty()) {
@@ -183,6 +219,7 @@ fun MessageInputBar(
     messageInput: String,
     onMessageInputChange: (String) -> Unit,
     onSendClick: () -> Unit,
+    onSelectImages: (List<Uri>) -> Unit,
     isSending: Boolean
 ) {
     Surface(
@@ -196,6 +233,13 @@ fun MessageInputBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            // Image picker button
+            ImagePickerButton(
+                onImagesPicked = onSelectImages,
+                maxSelection = 10,
+                enabled = !isSending
+            )
+
             OutlinedTextField(
                 value = messageInput,
                 onValueChange = onMessageInputChange,
