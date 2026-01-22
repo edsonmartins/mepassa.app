@@ -55,6 +55,9 @@ bs58 = { workspace = true }
 reqwest = { workspace = true }
 async-trait = { workspace = true }
 
+# Media processing (FASE 16)
+image = "0.25"
+
 [dev-dependencies]
 proptest = "1.4"
 criterion = "0.5"

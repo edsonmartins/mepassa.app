@@ -44,6 +44,7 @@ pub mod ffi;
 pub mod group;
 pub mod identity;
 pub mod identity_client;
+pub mod media;
 pub mod network;
 pub mod protocol;
 pub mod storage;
