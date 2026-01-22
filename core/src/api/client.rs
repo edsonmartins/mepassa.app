@@ -40,6 +40,8 @@ pub struct Client {
     /// VoIP integration (network ↔ calls)
     #[cfg(feature = "voip")]
     voip_integration: Arc<VoIPIntegration>,
+    /// Group manager (FASE 15)
+    group_manager: Arc<crate::group::GroupManager>,
 }
 
 impl Client {
@@ -54,6 +56,7 @@ impl Client {
         call_manager: Arc<CallManager>,
         #[cfg(feature = "voip")]
         voip_integration: Arc<VoIPIntegration>,
+        group_manager: Arc<crate::group::GroupManager>,
     ) -> Self {
         Self {
             peer_id,
@@ -66,6 +69,7 @@ impl Client {
             call_manager,
             #[cfg(feature = "voip")]
             voip_integration,
+            group_manager,
         }
     }
 
@@ -318,6 +322,71 @@ impl Client {
             .send_video_frame(&call_id, frame_data)
             .await
             .map_err(|e| MePassaError::Other(format!("Failed to send video frame: {}", e)))
+    }
+
+    // ========== Group Methods (FASE 15) ==========
+
+    /// Create a new group
+    pub async fn create_group(
+        &self,
+        name: String,
+        description: Option<String>,
+    ) -> Result<crate::ffi::FfiGroup> {
+        use crate::ffi::FfiGroup;
+
+        let (group, _topic_hash) = self
+            .group_manager
+            .create_group(name, description)
+            .await
+            .map_err(|e| MePassaError::Other(format!("Failed to create group: {}", e)))?;
+
+        Ok(FfiGroup::from_group(&group, &self.local_peer_id().to_string()))
+    }
+
+    /// Join an existing group
+    pub async fn join_group(&self, group_id: String, group_name: String) -> Result<()> {
+        let _topic_hash = self.group_manager
+            .join_group(group_id, group_name)
+            .await
+            .map_err(|e| MePassaError::Other(format!("Failed to join group: {}", e)))?;
+        Ok(())
+    }
+
+    /// Leave a group
+    pub async fn leave_group(&self, group_id: String) -> Result<()> {
+        self.group_manager
+            .leave_group(&group_id)
+            .await
+            .map_err(|e| MePassaError::Other(format!("Failed to leave group: {}", e)))
+    }
+
+    /// Add a member to a group (admin only)
+    pub async fn add_group_member(&self, group_id: String, peer_id: String) -> Result<()> {
+        self.group_manager
+            .add_member(&group_id, &peer_id)
+            .await
+            .map_err(|e| MePassaError::Other(format!("Failed to add member: {}", e)))
+    }
+
+    /// Remove a member from a group (admin only)
+    pub async fn remove_group_member(&self, group_id: String, peer_id: String) -> Result<()> {
+        self.group_manager
+            .remove_member(&group_id, &peer_id)
+            .await
+            .map_err(|e| MePassaError::Other(format!("Failed to remove member: {}", e)))
+    }
+
+    /// Get all groups
+    pub async fn get_groups(&self) -> Result<Vec<crate::ffi::FfiGroup>> {
+        use crate::ffi::FfiGroup;
+
+        let groups = self.group_manager.get_all_groups().await;
+        let local_peer_id = self.local_peer_id().to_string();
+
+        Ok(groups
+            .iter()
+            .map(|g| FfiGroup::from_group(g, &local_peer_id))
+            .collect())
     }
 
     // /// Run event loop (blocking)

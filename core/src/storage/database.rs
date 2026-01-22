@@ -13,6 +13,14 @@ pub struct Database {
     conn: Arc<Mutex<Connection>>,
 }
 
+impl Clone for Database {
+    fn clone(&self) -> Self {
+        Self {
+            conn: Arc::clone(&self.conn),
+        }
+    }
+}
+
 impl Database {
     /// Open or create a database at the specified path
     ///

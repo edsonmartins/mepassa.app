@@ -102,6 +102,9 @@ impl ClientBuilder {
             migrate(&database)?;
         }
 
+        // Create Arc for shared database access
+        let database_arc = Arc::new(database);
+
         // Get peer ID from libp2p keypair
         let peer_id = libp2p::PeerId::from(keypair.public());
 
@@ -125,17 +128,33 @@ impl ClientBuilder {
             Arc::clone(&call_manager),
         ));
 
+        // Create Group Manager (FASE 15)
+        let group_manager = Arc::new(
+            crate::group::GroupManager::new(
+                peer_id.to_string(),
+                Arc::clone(&database_arc),
+            )
+            .map_err(|e| MePassaError::Other(format!("Failed to create group manager: {}", e)))?
+        );
+
+        // Initialize group manager (load existing groups)
+        group_manager.init().await.map_err(|e| {
+            MePassaError::Other(format!("Failed to initialize group manager: {}", e))
+        })?;
+
         // Create client (keep network as Arc since it's shared with VoIPIntegration)
+        // Note: Client takes ownership of database Arc
         let client = Client::new(
             peer_id,
             identity,
             network_arc,
-            database,
+            Arc::try_unwrap(database_arc).unwrap_or_else(|arc| (*arc).clone()),
             data_dir,
             #[cfg(feature = "voip")]
             call_manager,
             #[cfg(feature = "voip")]
             voip_integration,
+            group_manager,
         );
 
         Ok(client)

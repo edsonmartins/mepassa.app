@@ -353,3 +353,91 @@ pub struct FfiVideoStats {
     pub frames_received: u64,
     pub frames_dropped: u64,
 }
+
+// ========== Group Types (FASE 15) ==========
+
+use crate::group::{Group as InternalGroup, GroupRole as InternalGroupRole};
+
+/// FFI-safe group
+#[derive(Debug, Clone)]
+pub struct FfiGroup {
+    /// Group ID
+    pub id: String,
+
+    /// Group name
+    pub name: String,
+
+    /// Group description (optional)
+    pub description: Option<String>,
+
+    /// Avatar hash (optional)
+    pub avatar_hash: Option<String>,
+
+    /// Creator peer ID
+    pub creator_peer_id: String,
+
+    /// Member count
+    pub member_count: u32,
+
+    /// Whether local user is admin
+    pub is_admin: bool,
+
+    /// Created timestamp (Unix epoch)
+    pub created_at: i64,
+}
+
+impl FfiGroup {
+    pub fn from_group(group: &InternalGroup, local_peer_id: &str) -> Self {
+        Self {
+            id: group.id.clone(),
+            name: group.name.clone(),
+            description: group.description.clone(),
+            avatar_hash: group.avatar_hash.clone(),
+            creator_peer_id: group.creator_peer_id.clone(),
+            member_count: group.member_count() as u32,
+            is_admin: group.is_admin(local_peer_id),
+            created_at: group.created_at,
+        }
+    }
+}
+
+/// FFI-safe group member
+#[derive(Debug, Clone)]
+pub struct FfiGroupMember {
+    /// Peer ID
+    pub peer_id: String,
+
+    /// Member role
+    pub role: FfiGroupRole,
+
+    /// Joined timestamp (Unix epoch)
+    pub joined_at: i64,
+}
+
+/// FFI-safe group role enum
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FfiGroupRole {
+    Creator,
+    Admin,
+    Member,
+}
+
+impl From<InternalGroupRole> for FfiGroupRole {
+    fn from(role: InternalGroupRole) -> Self {
+        match role {
+            InternalGroupRole::Creator => FfiGroupRole::Creator,
+            InternalGroupRole::Admin => FfiGroupRole::Admin,
+            InternalGroupRole::Member => FfiGroupRole::Member,
+        }
+    }
+}
+
+impl From<FfiGroupRole> for InternalGroupRole {
+    fn from(role: FfiGroupRole) -> Self {
+        match role {
+            FfiGroupRole::Creator => InternalGroupRole::Creator,
+            FfiGroupRole::Admin => InternalGroupRole::Admin,
+            FfiGroupRole::Member => InternalGroupRole::Member,
+        }
+    }
+}

@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use std::sync::OnceLock;
 use tokio::sync::{mpsc, oneshot};
 
-use super::types::{self as types, FfiConversation, FfiMessage, MePassaFfiError};
+use super::types::{self as types, FfiConversation, FfiGroup, FfiMessage, MePassaFfiError};
 use crate::api::{Client, ClientBuilder};
 
 use std::thread;
@@ -125,6 +125,34 @@ enum ClientCommand {
         width: u32,
         height: u32,
         response: oneshot::Sender<Result<(), MePassaFfiError>>,
+    },
+    // Group commands (FASE 15)
+    CreateGroup {
+        name: String,
+        description: Option<String>,
+        response: oneshot::Sender<Result<FfiGroup, MePassaFfiError>>,
+    },
+    JoinGroup {
+        group_id: String,
+        group_name: String,
+        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+    },
+    LeaveGroup {
+        group_id: String,
+        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+    },
+    AddGroupMember {
+        group_id: String,
+        peer_id: String,
+        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+    },
+    RemoveGroupMember {
+        group_id: String,
+        peer_id: String,
+        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+    },
+    GetGroups {
+        response: oneshot::Sender<Result<Vec<FfiGroup>, MePassaFfiError>>,
     },
 }
 
@@ -274,6 +302,65 @@ async fn run_client_task(mut receiver: mpsc::UnboundedReceiver<ClientCommand>, c
             } => {
                 let result = client
                     .send_video_frame(call_id, &frame_data, width, height)
+                    .await
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            // Group command handlers (FASE 15)
+            ClientCommand::CreateGroup {
+                name,
+                description,
+                response,
+            } => {
+                let result = client
+                    .create_group(name, description)
+                    .await
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            ClientCommand::JoinGroup {
+                group_id,
+                group_name,
+                response,
+            } => {
+                let result = client
+                    .join_group(group_id, group_name)
+                    .await
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            ClientCommand::LeaveGroup { group_id, response } => {
+                let result = client
+                    .leave_group(group_id)
+                    .await
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            ClientCommand::AddGroupMember {
+                group_id,
+                peer_id,
+                response,
+            } => {
+                let result = client
+                    .add_group_member(group_id, peer_id)
+                    .await
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            ClientCommand::RemoveGroupMember {
+                group_id,
+                peer_id,
+                response,
+            } => {
+                let result = client
+                    .remove_group_member(group_id, peer_id)
+                    .await
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            ClientCommand::GetGroups { response } => {
+                let result = client
+                    .get_groups()
                     .await
                     .map_err(|e| e.into());
                 let _ = response.send(result);
@@ -713,6 +800,133 @@ impl MePassaClient {
                 height,
                 response: tx,
             })
+            .map_err(|_| MePassaFfiError::Other {
+                message: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| MePassaFfiError::Other {
+            message: "Failed to receive response".to_string(),
+        })?
+    }
+
+    // ========== Group Methods (FASE 15) ==========
+
+    /// Create a new group
+    pub async fn create_group(
+        &self,
+        name: String,
+        description: Option<String>,
+    ) -> Result<FfiGroup, MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::CreateGroup {
+                name,
+                description,
+                response: tx,
+            })
+            .map_err(|_| MePassaFfiError::Other {
+                message: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| MePassaFfiError::Other {
+            message: "Failed to receive response".to_string(),
+        })?
+    }
+
+    /// Join an existing group (invited by admin)
+    pub async fn join_group(
+        &self,
+        group_id: String,
+        group_name: String,
+    ) -> Result<(), MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::JoinGroup {
+                group_id,
+                group_name,
+                response: tx,
+            })
+            .map_err(|_| MePassaFfiError::Other {
+                message: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| MePassaFfiError::Other {
+            message: "Failed to receive response".to_string(),
+        })?
+    }
+
+    /// Leave a group
+    pub async fn leave_group(&self, group_id: String) -> Result<(), MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::LeaveGroup {
+                group_id,
+                response: tx,
+            })
+            .map_err(|_| MePassaFfiError::Other {
+                message: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| MePassaFfiError::Other {
+            message: "Failed to receive response".to_string(),
+        })?
+    }
+
+    /// Add a member to a group (admin only)
+    pub async fn add_group_member(
+        &self,
+        group_id: String,
+        peer_id: String,
+    ) -> Result<(), MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::AddGroupMember {
+                group_id,
+                peer_id,
+                response: tx,
+            })
+            .map_err(|_| MePassaFfiError::Other {
+                message: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| MePassaFfiError::Other {
+            message: "Failed to receive response".to_string(),
+        })?
+    }
+
+    /// Remove a member from a group (admin only)
+    pub async fn remove_group_member(
+        &self,
+        group_id: String,
+        peer_id: String,
+    ) -> Result<(), MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::RemoveGroupMember {
+                group_id,
+                peer_id,
+                response: tx,
+            })
+            .map_err(|_| MePassaFfiError::Other {
+                message: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| MePassaFfiError::Other {
+            message: "Failed to receive response".to_string(),
+        })?
+    }
+
+    /// Get all groups
+    pub async fn get_groups(&self) -> Result<Vec<FfiGroup>, MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::GetGroups { response: tx })
             .map_err(|_| MePassaFfiError::Other {
                 message: "Failed to send command".to_string(),
             })?;
