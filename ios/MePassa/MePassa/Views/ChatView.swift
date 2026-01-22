@@ -119,6 +119,35 @@ struct ChatView: View {
                         .foregroundColor(.blue)
                 }
 
+                // Document picker button
+                DocumentPickerButton(isEnabled: true) { fileURL in
+                    Task {
+                        do {
+                            // Read file data
+                            let fileData = try Data(contentsOf: fileURL)
+
+                            // Get file info
+                            let fileName = fileURL.lastPathComponent
+                            let mimeType = fileURL.mimeType() ?? "application/octet-stream"
+
+                            // Send via FFI
+                            let messageId = try await MePassaCore.shared.sendDocumentMessage(
+                                to: conversation.peerId,
+                                fileData: fileData,
+                                fileName: fileName,
+                                mimeType: mimeType
+                            )
+
+                            print("✅ Document sent: \(messageId)")
+
+                            // Reload messages
+                            loadMessages()
+                        } catch {
+                            print("❌ Error sending document: \(error)")
+                        }
+                    }
+                }
+
                 // Text field
                 TextField("Mensagem", text: $messageText)
                     .textFieldStyle(.plain)
@@ -394,6 +423,25 @@ extension MessageStatus {
         case .delivered: return "checkmark.circle"
         case .read: return "checkmark.circle.fill"
         case .failed: return "exclamationmark.circle"
+        }
+    }
+}
+
+// MARK: - URL Extension
+
+extension URL {
+    /// Get MIME type from file URL
+    func mimeType() -> String? {
+        guard let uti = try? self.resourceValues(forKeys: [.typeIdentifierKey]).typeIdentifier else {
+            return nil
+        }
+
+        if #available(iOS 14.0, *) {
+            guard let utType = UTType(uti) else { return nil }
+            return utType.preferredMIMEType
+        } else {
+            // Fallback for iOS 13
+            return nil
         }
     }
 }
