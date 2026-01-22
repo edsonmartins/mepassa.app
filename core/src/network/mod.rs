@@ -4,6 +4,7 @@
 
 pub mod behaviour;
 pub mod connection;
+pub mod message_handler;
 pub mod messaging;
 pub mod nat_detection;
 pub mod relay;
@@ -15,6 +16,7 @@ pub mod transport;
 
 pub use behaviour::MePassaBehaviour;
 pub use connection::{ConnectionManager, ConnectionState, ConnectionStrategy, ConnectionType};
+pub use message_handler::{MessageEvent, MessageHandler};
 pub use messaging::MePassaCodec;
 pub use nat_detection::{ConnectionStrategy as NatConnectionStrategy, NatDetector, NatType};
 pub use relay::{RelayManager, ReservationStatus};

@@ -112,6 +112,19 @@ impl ClientBuilder {
         let network = NetworkManager::new(keypair)?;
         let network_arc = Arc::new(RwLock::new(network));
 
+        // Create message handler for processing incoming messages
+        let message_handler = Arc::new(crate::network::MessageHandler::new(
+            peer_id.to_string(),
+            Arc::new(RwLock::new(database_arc.as_ref().clone())),
+            None, // No event channel for now (TODO: add event system)
+        ));
+
+        // Set message handler in network manager
+        {
+            let mut network = network_arc.write().await;
+            network.set_message_handler(Arc::clone(&message_handler));
+        }
+
         // Add bootstrap peers to DHT (if any)
         if !self.bootstrap_peers.is_empty() {
             // Bootstrap peers will be added when the network starts

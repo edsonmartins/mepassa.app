@@ -7,7 +7,7 @@ use rusqlite::{params, Row};
 use super::{Database, Result};
 
 /// Message status
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MessageStatus {
     Pending,
     Sent,

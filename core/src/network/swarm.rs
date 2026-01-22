@@ -8,17 +8,21 @@ use libp2p::{
     Multiaddr, PeerId,
 };
 use futures::stream::StreamExt;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 use tokio::select;
 
 use super::{
     behaviour::MePassaBehaviour,
     connection::{ConnectionManager, ConnectionType},
+    message_handler::MessageHandler,
     relay::RelayManager,
     retry::RetryPolicy,
     transport::build_transport,
 };
-use crate::utils::error::{MePassaError, Result};
+use crate::{
+    protocol::{AckMessage, Message},
+    utils::error::{MePassaError, Result},
+};
 
 /// P2P Network Manager
 pub struct NetworkManager {
@@ -26,6 +30,7 @@ pub struct NetworkManager {
     local_peer_id: PeerId,
     connection_manager: ConnectionManager,
     relay_manager: RelayManager,
+    message_handler: Option<std::sync::Arc<MessageHandler>>,
 }
 
 impl NetworkManager {
@@ -68,12 +73,18 @@ impl NetworkManager {
             local_peer_id,
             connection_manager,
             relay_manager,
+            message_handler: None,
         })
     }
 
     /// Get local peer ID
     pub fn local_peer_id(&self) -> &PeerId {
         &self.local_peer_id
+    }
+
+    /// Set message handler for processing incoming messages
+    pub fn set_message_handler(&mut self, handler: std::sync::Arc<MessageHandler>) {
+        self.message_handler = Some(handler);
     }
 
     /// Start listening on a multiaddr
@@ -336,28 +347,65 @@ impl NetworkManager {
                             libp2p::request_response::Message::Request {
                                 request_id,
                                 request,
-                                channel: _,
+                                channel,
                             } => {
                                 tracing::info!(
-                                    "Received message from {}: {:?} (request_id: {:?})",
+                                    "📨 Received request from {}: {} (request_id: {:?})",
                                     peer,
                                     request.id,
                                     request_id
                                 );
-                                // TODO: Process message and send response (FASE 4)
-                                // For now, just log the request
+
+                                // Process message through handler
+                                if let Some(ref handler) = self.message_handler {
+                                    let handler = Arc::clone(handler);
+                                    let request_clone = request.clone();
+                                    let peer_clone = peer;
+
+                                    tokio::spawn(async move {
+                                        match handler.handle_incoming_message(peer_clone, request_clone).await {
+                                            Ok(ack) => {
+                                                tracing::info!("✅ Processed message {}, sending ACK", ack.message_id);
+                                                // Send ACK response back
+                                                // TODO: Store channel and send response via channel.send()
+                                                // For now, the ACK is created but not sent back
+                                            }
+                                            Err(e) => {
+                                                tracing::error!("❌ Failed to process message: {}", e);
+                                            }
+                                        }
+                                    });
+                                } else {
+                                    tracing::warn!("⚠️ No message handler configured, message will be dropped");
+                                }
                             }
                             libp2p::request_response::Message::Response {
                                 request_id,
                                 response,
                             } => {
                                 tracing::info!(
-                                    "Received response from {}: {:?} (request_id: {:?})",
+                                    "✅ Received ACK response from {}: {} (request_id: {:?})",
                                     peer,
                                     response.id,
                                     request_id
                                 );
-                                // TODO: Process acknowledgment (FASE 4)
+
+                                // Process ACK through handler
+                                if let Some(ref handler) = self.message_handler {
+                                    // Extract ACK from response payload
+                                    if let Some(crate::protocol::pb::message::Payload::Ack(ack)) = response.payload {
+                                        let handler = Arc::clone(handler);
+                                        tokio::spawn(async move {
+                                            if let Err(e) = handler.handle_outgoing_ack(ack).await {
+                                                tracing::error!("❌ Failed to process ACK: {}", e);
+                                            }
+                                        });
+                                    } else {
+                                        tracing::warn!("⚠️ Response is not an ACK message");
+                                    }
+                                } else {
+                                    tracing::debug!("No message handler configured for ACK processing");
+                                }
                             }
                         }
                     }
