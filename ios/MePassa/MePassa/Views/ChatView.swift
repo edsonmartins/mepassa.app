@@ -26,6 +26,11 @@ struct ChatView: View {
     @State private var showDeleteAlert = false
     @State private var showForwardAlert = false
 
+    // Reactions state
+    @State private var messageReactions: [String: [ReactionCount]] = [:]
+    @State private var showReactionPicker = false
+    @State private var reactionPickerMessageId: String?
+
     var body: some View {
         VStack(spacing: 0) {
             // Messages list
@@ -47,23 +52,39 @@ struct ChatView: View {
                             .padding(.top, 100)
                         } else {
                             ForEach(messages) { message in
-                                MessageBubble(message: message)
-                                    .id(message.id)
-                                    .contextMenu {
-                                        Button(action: {
-                                            selectedMessage = message
-                                            showForwardAlert = true
-                                        }) {
-                                            Label("Encaminhar", systemImage: "arrowshape.turn.up.forward")
+                                VStack(alignment: message.isOutgoing ? .trailing : .leading, spacing: 4) {
+                                    MessageBubble(message: message)
+                                        .contextMenu {
+                                            Button(action: {
+                                                selectedMessage = message
+                                                showForwardAlert = true
+                                            }) {
+                                                Label("Encaminhar", systemImage: "arrowshape.turn.up.forward")
+                                            }
+
+                                            Button(role: .destructive, action: {
+                                                selectedMessage = message
+                                                showDeleteAlert = true
+                                            }) {
+                                                Label("Excluir", systemImage: "trash")
+                                            }
                                         }
 
-                                        Button(role: .destructive, action: {
-                                            selectedMessage = message
-                                            showDeleteAlert = true
-                                        }) {
-                                            Label("Excluir", systemImage: "trash")
-                                        }
+                                    // Reaction bar
+                                    if let reactions = messageReactions[message.id], !reactions.isEmpty {
+                                        ReactionBar(
+                                            reactions: reactions,
+                                            onReactionTap: { emoji in
+                                                handleReactionTap(messageId: message.id, emoji: emoji)
+                                            },
+                                            onAddReactionTap: {
+                                                reactionPickerMessageId = message.id
+                                                showReactionPicker = true
+                                            }
+                                        )
                                     }
+                                }
+                                .id(message.id)
                             }
                         }
                     }
@@ -183,6 +204,16 @@ struct ChatView: View {
         } message: { _ in
             Text("Funcionalidade de encaminhamento será implementada em breve.\n\nTODO: Adicionar seletor de conversas.")
         }
+        .sheet(isPresented: $showReactionPicker) {
+            if let messageId = reactionPickerMessageId {
+                ReactionPicker { emoji in
+                    handleReactionTap(messageId: messageId, emoji: emoji)
+                }
+            }
+        }
+        .onChange(of: messages) { _ in
+            loadReactions()
+        }
     }
 
     private func sendMessage() {
@@ -240,6 +271,66 @@ struct ChatView: View {
                 loadMessages()
             } catch {
                 print("❌ Error forwarding message: \(error)")
+            }
+        }
+    }
+
+    private func loadReactions() {
+        Task {
+            var reactionsMap: [String: [ReactionCount]] = [:]
+
+            for message in messages {
+                do {
+                    let reactions = try MePassaCore.shared.getMessageReactions(messageId: message.id)
+
+                    // Aggregate by emoji
+                    let grouped = Dictionary(grouping: reactions, by: { $0.emoji })
+                    let reactionCounts = grouped.map { emoji, reactionList in
+                        ReactionCount(
+                            emoji: emoji,
+                            count: reactionList.count,
+                            hasReacted: reactionList.contains { $0.peerId == appState.currentUser?.peerId }
+                        )
+                    }.sorted { $0.count > $1.count }
+
+                    reactionsMap[message.id] = reactionCounts
+                } catch {
+                    print("❌ Error loading reactions for message \(message.id): \(error)")
+                }
+            }
+
+            messageReactions = reactionsMap
+        }
+    }
+
+    private func handleReactionTap(messageId: String, emoji: String) {
+        Task {
+            do {
+                let currentReactions = messageReactions[messageId] ?? []
+                let hasReacted = currentReactions.first(where: { $0.emoji == emoji })?.hasReacted ?? false
+
+                if hasReacted {
+                    // Remove reaction
+                    try MePassaCore.shared.removeReaction(messageId: messageId, emoji: emoji)
+                } else {
+                    // Add reaction
+                    try MePassaCore.shared.addReaction(messageId: messageId, emoji: emoji)
+                }
+
+                // Reload reactions for this message
+                let reactions = try MePassaCore.shared.getMessageReactions(messageId: messageId)
+                let grouped = Dictionary(grouping: reactions, by: { $0.emoji })
+                let reactionCounts = grouped.map { emoji, reactionList in
+                    ReactionCount(
+                        emoji: emoji,
+                        count: reactionList.count,
+                        hasReacted: reactionList.contains { $0.peerId == appState.currentUser?.peerId }
+                    )
+                }.sorted { $0.count > $1.count }
+
+                messageReactions[messageId] = reactionCounts
+            } catch {
+                print("❌ Error toggling reaction: \(error)")
             }
         }
     }
