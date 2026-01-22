@@ -1,6 +1,8 @@
 package com.mepassa.ui.screens.chat
 
 import android.net.Uri
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -30,6 +32,7 @@ import com.mepassa.ui.components.ImagePickerButton
 import com.mepassa.ui.components.MessageStatusIndicator
 import com.mepassa.ui.components.SelectedImagesPreview
 import com.mepassa.ui.components.VoiceRecordButton
+import com.mepassa.utils.rememberHapticFeedback
 import kotlinx.coroutines.launch
 import uniffi.mepassa.FfiMessage
 import java.text.SimpleDateFormat
@@ -53,6 +56,7 @@ fun ChatScreen(
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
     val context = androidx.compose.ui.platform.LocalContext.current
+    val haptic = rememberHapticFeedback()
 
     var messages by remember { mutableStateOf<List<FfiMessage>>(emptyList()) }
     var messageInput by remember { mutableStateOf("") }
@@ -143,6 +147,7 @@ fun ChatScreen(
                 } else {
                     // Add reaction
                     MePassaClientWrapper.client?.addReaction(messageId, emoji)
+                    haptic.medium()  // Haptic feedback on reaction
                 }
 
                 // Reload reactions for this message
@@ -298,11 +303,12 @@ fun ChatScreen(
                                 isSending = false
 
                                 if (result.isSuccess) {
+                                    haptic.light()  // Haptic feedback on send
                                     // Recarregar mensagens
                                     messages = MePassaClientWrapper.getConversationMessages(peerId)
                                     listState.animateScrollToItem(messages.lastIndex)
                                 } else {
-                                    // TODO: Mostrar erro
+                                    haptic.reject()  // Haptic feedback on error
                                 }
                             }
                         }
@@ -364,29 +370,43 @@ fun ChatScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(messages) { message ->
-                    MessageBubble(
-                        message = message,
-                        isOwnMessage = message.senderPeerId == localPeerId,
-                        reactions = messageReactions[message.messageId] ?: emptyList(),
-                        onLongPress = {
-                            selectedMessage = message
-                        },
-                        onDelete = {
-                            selectedMessage = message
-                            showDeleteDialog = true
-                        },
-                        onForward = {
-                            selectedMessage = message
-                            showForwardDialog = true
-                        },
-                        onReactionClick = { emoji ->
-                            handleReactionClick(message.messageId, emoji)
-                        },
-                        onAddReactionClick = {
-                            showReactionPickerForMessage(message.messageId)
+                items(
+                    items = messages,
+                    key = { it.messageId }
+                ) { message ->
+                    AnimatedVisibility(
+                        visible = true,
+                        enter = slideInVertically(
+                            initialOffsetY = { it / 4 },
+                            animationSpec = tween(300, easing = FastOutSlowInEasing)
+                        ) + fadeIn(
+                            animationSpec = tween(300)
+                        ),
+                        modifier = Modifier.animateItemPlacement()
+                    ) {
+                        MessageBubble(
+                            message = message,
+                            isOwnMessage = message.senderPeerId == localPeerId,
+                            reactions = messageReactions[message.messageId] ?: emptyList(),
+                            onLongPress = {
+                                selectedMessage = message
+                            },
+                            onDelete = {
+                                selectedMessage = message
+                                showDeleteDialog = true
+                            },
+                            onForward = {
+                                selectedMessage = message
+                                showForwardDialog = true
+                            },
+                            onReactionClick = { emoji ->
+                                handleReactionClick(message.messageId, emoji)
+                            },
+                            onAddReactionClick = {
+                                showReactionPickerForMessage(message.messageId)
                         }
                     )
+                    }
                 }
             }
         }

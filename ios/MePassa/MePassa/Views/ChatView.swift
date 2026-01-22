@@ -60,6 +60,11 @@ struct ChatView: View {
                             ForEach(messages) { message in
                                 VStack(alignment: message.isOutgoing ? .trailing : .leading, spacing: 4) {
                                     MessageBubble(message: message)
+                                        .transition(.asymmetric(
+                                            insertion: .move(edge: .bottom).combined(with: .opacity),
+                                            removal: .opacity
+                                        ))
+                                        .animation(.easeOut(duration: 0.3), value: messages.count)
                                         .contextMenu {
                                             Button(action: {
                                                 selectedMessage = message
@@ -145,6 +150,7 @@ struct ChatView: View {
                             )
 
                             print("✅ Document sent: \(messageId)")
+                            HapticFeedback.light()  // Haptic feedback on send
 
                             // Reload messages
                             loadMessages()
@@ -173,6 +179,7 @@ struct ChatView: View {
                             )
 
                             print("✅ Video sent: \(messageId)")
+                            HapticFeedback.light()  // Haptic feedback on send
 
                             // Reload messages
                             loadMessages()
@@ -428,6 +435,7 @@ struct ChatView: View {
                 } else {
                     // Add reaction
                     try MePassaCore.shared.addReaction(messageId: messageId, emoji: emoji)
+                    HapticFeedback.medium()  // Haptic feedback on reaction
                 }
 
                 // Reload reactions for this message
