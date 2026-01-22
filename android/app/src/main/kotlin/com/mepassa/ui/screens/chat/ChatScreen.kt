@@ -65,6 +65,11 @@ fun ChatScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showForwardDialog by remember { mutableStateOf(false) }
 
+    // Reactions state
+    var messageReactions by remember { mutableStateOf<Map<String, List<com.mepassa.ui.components.ReactionCount>>>(emptyMap()) }
+    var showReactionPicker by remember { mutableStateOf(false) }
+    var reactionPickerMessageId by remember { mutableStateOf<String?>(null) }
+
     // Carregar mensagens
     LaunchedEffect(peerId) {
         scope.launch {
@@ -89,6 +94,75 @@ fun ChatScreen(
                 }
             }
         }
+    }
+
+    // Load reactions for all messages
+    LaunchedEffect(messages) {
+        scope.launch {
+            val reactionsMap = mutableMapOf<String, List<com.mepassa.ui.components.ReactionCount>>()
+            messages.forEach { message ->
+                try {
+                    val reactions = MePassaClientWrapper.client?.getMessageReactions(message.messageId) ?: emptyList()
+
+                    // Aggregate reactions by emoji
+                    val reactionCounts = reactions
+                        .groupBy { it.emoji }
+                        .map { (emoji, reactionList) ->
+                            com.mepassa.ui.components.ReactionCount(
+                                emoji = emoji,
+                                count = reactionList.size,
+                                hasReacted = reactionList.any { it.peerId == localPeerId }
+                            )
+                        }
+                        .sortedByDescending { it.count }
+
+                    reactionsMap[message.messageId] = reactionCounts
+                } catch (e: Exception) {
+                    println("Error loading reactions for message ${message.messageId}: ${e.message}")
+                }
+            }
+            messageReactions = reactionsMap
+        }
+    }
+
+    // Helper functions
+    fun handleReactionClick(messageId: String, emoji: String) {
+        scope.launch {
+            try {
+                val currentReactions = messageReactions[messageId] ?: emptyList()
+                val hasReacted = currentReactions.find { it.emoji == emoji }?.hasReacted ?: false
+
+                if (hasReacted) {
+                    // Remove reaction
+                    MePassaClientWrapper.client?.removeReaction(messageId, emoji)
+                } else {
+                    // Add reaction
+                    MePassaClientWrapper.client?.addReaction(messageId, emoji)
+                }
+
+                // Reload reactions for this message
+                val reactions = MePassaClientWrapper.client?.getMessageReactions(messageId) ?: emptyList()
+                val reactionCounts = reactions
+                    .groupBy { it.emoji }
+                    .map { (emoji, reactionList) ->
+                        com.mepassa.ui.components.ReactionCount(
+                            emoji = emoji,
+                            count = reactionList.size,
+                            hasReacted = reactionList.any { it.peerId == localPeerId }
+                        )
+                    }
+                    .sortedByDescending { it.count }
+
+                messageReactions = messageReactions + (messageId to reactionCounts)
+            } catch (e: Exception) {
+                println("Error toggling reaction: ${e.message}")
+            }
+        }
+    }
+
+    fun showReactionPickerForMessage(messageId: String) {
+        reactionPickerMessageId = messageId
+        showReactionPicker = true
     }
 
     Scaffold(
@@ -271,6 +345,7 @@ fun ChatScreen(
                     MessageBubble(
                         message = message,
                         isOwnMessage = message.senderPeerId == localPeerId,
+                        reactions = messageReactions[message.messageId] ?: emptyList(),
                         onLongPress = {
                             selectedMessage = message
                         },
@@ -281,6 +356,12 @@ fun ChatScreen(
                         onForward = {
                             selectedMessage = message
                             showForwardDialog = true
+                        },
+                        onReactionClick = { emoji ->
+                            handleReactionClick(message.messageId, emoji)
+                        },
+                        onAddReactionClick = {
+                            showReactionPickerForMessage(message.messageId)
                         }
                     )
                 }
@@ -341,6 +422,19 @@ fun ChatScreen(
                 ) {
                     Text("OK")
                 }
+            }
+        )
+    }
+
+    // Reaction picker bottom sheet
+    if (showReactionPicker && reactionPickerMessageId != null) {
+        com.mepassa.ui.components.ReactionPicker(
+            onReactionSelected = { emoji ->
+                handleReactionClick(reactionPickerMessageId!!, emoji)
+            },
+            onDismiss = {
+                showReactionPicker = false
+                reactionPickerMessageId = null
             }
         )
     }
@@ -426,9 +520,12 @@ fun MessageInputBar(
 fun MessageBubble(
     message: FfiMessage,
     isOwnMessage: Boolean,
+    reactions: List<com.mepassa.ui.components.ReactionCount> = emptyList(),
     onLongPress: () -> Unit = {},
     onDelete: () -> Unit = {},
-    onForward: () -> Unit = {}
+    onForward: () -> Unit = {},
+    onReactionClick: (String) -> Unit = {},
+    onAddReactionClick: () -> Unit = {}
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
@@ -436,7 +533,9 @@ fun MessageBubble(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (isOwnMessage) Arrangement.End else Arrangement.Start
     ) {
-        Box {
+        Column(
+            horizontalAlignment = if (isOwnMessage) Alignment.End else Alignment.Start
+        ) {
             Surface(
                 shape = RoundedCornerShape(
                     topStart = 16.dp,
@@ -497,6 +596,17 @@ fun MessageBubble(
                         showMenu = false
                         onDelete()
                     }
+                )
+            }
+        }
+
+            // Reaction bar
+            if (reactions.isNotEmpty()) {
+                com.mepassa.ui.components.ReactionBar(
+                    reactions = reactions,
+                    onReactionClick = onReactionClick,
+                    onAddReactionClick = onAddReactionClick,
+                    modifier = Modifier.widthIn(max = 280.dp)
                 )
             }
         }
