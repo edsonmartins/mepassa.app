@@ -31,6 +31,9 @@ struct ChatView: View {
     @State private var showReactionPicker = false
     @State private var reactionPickerMessageId: String?
 
+    // Media gallery state
+    @State private var showMediaGallery = false
+
     var body: some View {
         VStack(spacing: 0) {
             // Messages list
@@ -235,6 +238,10 @@ struct ChatView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 16) {
+                    Button(action: { showMediaGallery = true }) {
+                        Image(systemName: "photo.on.rectangle")
+                    }
+
                     Button(action: startVoiceCall) {
                         Image(systemName: "phone.fill")
                     }
@@ -244,6 +251,12 @@ struct ChatView: View {
                     }
                 }
             }
+        }
+        .sheet(isPresented: $showMediaGallery) {
+            MediaGalleryView(
+                conversationId: conversation.id,
+                peerName: conversation.displayName ?? "Desconhecido"
+            )
         }
         .onAppear {
             loadMessages()

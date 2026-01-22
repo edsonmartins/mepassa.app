@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -43,7 +44,8 @@ import java.util.*
 fun ChatScreen(
     peerId: String,
     onNavigateBack: () -> Unit,
-    onStartCall: () -> Unit
+    onStartCall: () -> Unit,
+    onOpenMediaGallery: () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
@@ -192,6 +194,15 @@ fun ChatScreen(
                     }
                 },
                 actions = {
+                    // Botão de galeria de mídia
+                    IconButton(onClick = onOpenMediaGallery) {
+                        Icon(
+                            imageVector = Icons.Default.Photo,
+                            contentDescription = "Galeria de mídia",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+
                     // Botão de chamada de voz
                     IconButton(onClick = onStartCall) {
                         Icon(
