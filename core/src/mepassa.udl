@@ -21,11 +21,43 @@ enum MessageStatus {
     "Failed",
 };
 
-// VoIP enums temporarily commented out due to UniFFI generation issues
-// TODO: Fix enum generation and re-enable
-// enum FfiCallState { ... }
-// enum FfiCallDirection { ... }
-// enum FfiCallEndReason { ... }
+// VoIP enums (FASE 12 - VoIP Audio)
+enum FfiCallState {
+    "Initiating",
+    "Ringing",
+    "Connecting",
+    "Active",
+    "Ending",
+    "Ended",
+};
+
+enum FfiCallDirection {
+    "Outgoing",
+    "Incoming",
+};
+
+enum FfiCallEndReason {
+    "Hangup",
+    "Rejected",
+    "LocalHangup",
+    "RemoteHangup",
+    "ConnectionFailed",
+    "Timeout",
+    "NetworkError",
+};
+
+// VoIP video enums (FASE 14 - Videochamadas)
+enum FfiVideoCodec {
+    "H264",
+    "VP8",
+    "VP9",
+};
+
+enum FfiCameraPosition {
+    "Front",
+    "Back",
+    "External",
+};
 
 // Message record
 dictionary FfiMessage {
@@ -57,10 +89,46 @@ dictionary FfiConversation {
     i64 created_at;
 };
 
-// VoIP types temporarily commented out due to UniFFI enum issues
-// TODO: Fix enum generation and re-enable
-// dictionary FfiCall { ... }
-// dictionary FfiCallStats { ... }
+// VoIP call record (FASE 12)
+dictionary FfiCall {
+    string id;
+    string remote_peer_id;
+    FfiCallDirection direction;
+    FfiCallState state;
+    i64 started_at;
+    i64? connected_at;
+    i64? ended_at;
+    boolean audio_muted;
+    boolean speakerphone;
+    boolean video_enabled;
+    FfiVideoCodec? video_codec;
+};
+
+// VoIP call statistics
+dictionary FfiCallStats {
+    u32 avg_rtt_ms;
+    u64 packets_sent;
+    u64 packets_received;
+    u64 packets_lost;
+    u32 jitter_ms;
+    u32 audio_bitrate_kbps;
+};
+
+// VoIP video resolution (FASE 14)
+dictionary FfiVideoResolution {
+    u32 width;
+    u32 height;
+};
+
+// VoIP video statistics (FASE 14)
+dictionary FfiVideoStats {
+    FfiVideoResolution resolution;
+    u32 fps;
+    u32 bitrate_kbps;
+    u64 frames_sent;
+    u64 frames_received;
+    u64 frames_dropped;
+};
 
 // Group types (FASE 15)
 dictionary FfiGroup {
@@ -109,28 +177,34 @@ interface MePassaClient {
     [Throws=MePassaFfiError, Async]
     void bootstrap();
 
-    // VoIP methods temporarily commented out (require voip feature)
-    // TODO: Re-enable when building with voip feature or use #[uniffi::export] macro
-    // [Throws=MePassaFfiError, Async]
-    // string start_call(string to_peer_id);
-    //
-    // [Throws=MePassaFfiError, Async]
-    // void accept_call(string call_id);
-    //
-    // [Throws=MePassaFfiError, Async]
-    // void reject_call(string call_id, string? reason);
-    //
-    // [Throws=MePassaFfiError, Async]
-    // void hangup_call(string call_id);
-    //
-    // [Throws=MePassaFfiError, Async]
-    // void toggle_mute(string call_id);
-    //
-    // [Throws=MePassaFfiError, Async]
-    // void toggle_speakerphone(string call_id);
-    //
-    // FfiCall? get_current_call();
-    // FfiCallStats? get_call_stats(string call_id);
+    // VoIP methods (FASE 12 - VoIP Audio)
+    [Throws=MePassaFfiError, Async]
+    string start_call(string to_peer_id);
+
+    [Throws=MePassaFfiError, Async]
+    void accept_call(string call_id);
+
+    [Throws=MePassaFfiError, Async]
+    void reject_call(string call_id, string? reason);
+
+    [Throws=MePassaFfiError, Async]
+    void hangup_call(string call_id);
+
+    [Throws=MePassaFfiError, Async]
+    void toggle_mute(string call_id);
+
+    [Throws=MePassaFfiError, Async]
+    void toggle_speakerphone(string call_id);
+
+    // VoIP video methods (FASE 14 - Videochamadas)
+    [Throws=MePassaFfiError, Async]
+    void enable_video(string call_id, FfiVideoCodec codec);
+
+    [Throws=MePassaFfiError, Async]
+    void disable_video(string call_id);
+
+    [Throws=MePassaFfiError, Async]
+    void send_video_frame(string call_id, sequence<u8> frame_data, u32 width, u32 height);
 
     // Group methods (FASE 15)
     [Throws=MePassaFfiError, Async]

@@ -123,10 +123,9 @@ impl ClientBuilder {
         #[cfg(feature = "voip")]
         let call_manager = Arc::new(CallManager::new());
         #[cfg(feature = "voip")]
-        let voip_integration = Arc::new(VoIPIntegration::new(
-            Arc::clone(&network_arc),
-            Arc::clone(&call_manager),
-        ));
+        let voip_integration = Arc::new(
+            VoIPIntegration::new(Arc::clone(&network_arc), Arc::clone(&call_manager)).await,
+        );
 
         // Create Group Manager (FASE 15)
         let group_manager = Arc::new(

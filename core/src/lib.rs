@@ -31,6 +31,13 @@ pub use ffi::{
     FfiConversation, FfiGroup, FfiMessage, MePassaClient, MePassaFfiError, MessageStatus,
 };
 
+// Re-export VoIP FFI types (when voip feature is enabled)
+#[cfg(feature = "voip")]
+pub use ffi::{
+    FfiCall, FfiCallDirection, FfiCallEndReason, FfiCallState, FfiCallStats, FfiCameraPosition,
+    FfiVideoCodec, FfiVideoResolution, FfiVideoStats,
+};
+
 // Public modules
 pub mod api;
 pub mod crypto;
