@@ -5,6 +5,7 @@
 pub mod contacts;
 pub mod database;
 pub mod groups;
+pub mod media;
 pub mod messages;
 pub mod migrations;
 pub mod schema;
@@ -12,6 +13,7 @@ pub mod schema;
 pub use contacts::{Contact, NewContact, UpdateContact};
 pub use database::Database;
 pub use groups::{Group, GroupMember, MemberRole, NewGroup, NewGroupMember};
+pub use media::{Media, MediaType, NewMedia};
 pub use messages::{Conversation, Message, MessageStatus, NewMessage, UpdateMessage};
 pub use migrations::{migrate, needs_migration};
 pub use schema::{init_fts, init_schema, SCHEMA_VERSION};
