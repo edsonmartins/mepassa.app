@@ -12,7 +12,17 @@
 //! - https://signal.org/docs/specifications/sesame/
 
 use crate::utils::error::{MePassaError, Result};
+use aes_gcm::{
+    aead::{Aead, KeyInit},
+    Aes256Gcm, Nonce,
+};
+use hkdf::Hkdf;
 use serde::{Deserialize, Serialize};
+use sha2::Sha256;
+
+// HKDF info strings (as per Signal Protocol spec)
+const HKDF_INFO_CHAIN_KEY: &[u8] = b"MePassaSenderKeyChain";
+const HKDF_INFO_MESSAGE_KEY: &[u8] = b"MePassaSenderKeyMessage";
 
 /// Sender Key for group encryption
 ///
@@ -56,42 +66,145 @@ impl SenderKey {
 
     /// Encrypt a message with this sender key
     pub fn encrypt(&mut self, plaintext: &[u8]) -> Result<Vec<u8>> {
-        // TODO: Implement proper Sender Key encryption
-        // For MVP: Just return plaintext (groups will work, but without E2E encryption)
+        // Derive message key from current chain key
+        let message_key = self.derive_message_key()?;
 
-        // Ratchet forward
+        // Increment iteration BEFORE ratcheting
+        let current_iteration = self.iteration;
         self.iteration += 1;
-        self.ratchet_forward();
 
-        // For now, return plaintext
-        // TODO: Use libsignal-protocol or implement Signal's Sender Key algorithm
-        Ok(plaintext.to_vec())
+        // Ratchet forward to get new chain key
+        self.ratchet_forward()?;
+
+        // Encrypt with AES-256-GCM
+        let cipher = Aes256Gcm::new_from_slice(&message_key)
+            .map_err(|e| MePassaError::Crypto(format!("Failed to create cipher: {}", e)))?;
+
+        // Generate nonce from iteration (12 bytes for GCM)
+        let nonce_bytes = self.iteration_to_nonce(current_iteration);
+        let nonce = Nonce::from_slice(&nonce_bytes);
+
+        // Encrypt
+        let ciphertext = cipher
+            .encrypt(nonce, plaintext)
+            .map_err(|e| MePassaError::Crypto(format!("Encryption failed: {}", e)))?;
+
+        // Prepend iteration (4 bytes) to ciphertext for recipient
+        let mut result = current_iteration.to_be_bytes().to_vec();
+        result.extend_from_slice(&ciphertext);
+
+        Ok(result)
     }
 
     /// Decrypt a message with this sender key
-    pub fn decrypt(&mut self, ciphertext: &[u8], iteration: u32) -> Result<Vec<u8>> {
-        // TODO: Implement proper Sender Key decryption
-        // For MVP: Just return ciphertext (groups will work, but without E2E encryption)
-
-        // Update iteration if needed
-        if iteration > self.iteration {
-            self.iteration = iteration;
-            self.ratchet_forward();
+    pub fn decrypt(&mut self, data: &[u8]) -> Result<Vec<u8>> {
+        // Extract iteration from first 4 bytes
+        if data.len() < 4 {
+            return Err(MePassaError::Crypto("Invalid ciphertext: too short".to_string()));
         }
 
-        // For now, return ciphertext
-        Ok(ciphertext.to_vec())
+        let iteration_bytes: [u8; 4] = data[0..4].try_into()
+            .map_err(|_| MePassaError::Crypto("Failed to parse iteration".to_string()))?;
+        let message_iteration = u32::from_be_bytes(iteration_bytes);
+        let ciphertext = &data[4..];
+
+        // Handle out-of-order messages by deriving the correct message key
+        // NOTE: In production, should cache previous message keys for out-of-order delivery
+        let message_key = if message_iteration == self.iteration {
+            // Current message
+            self.derive_message_key()?
+        } else if message_iteration > self.iteration {
+            // Future message - need to ratchet forward
+            let steps = message_iteration - self.iteration;
+            self.ratchet_n_times(steps)?;
+            self.derive_message_key()?
+        } else {
+            // Past message - this is a simplified implementation
+            // Production should maintain a sliding window of message keys
+            return Err(MePassaError::Crypto(format!(
+                "Cannot decrypt past message (iteration {} < {}). Out-of-order delivery not fully supported.",
+                message_iteration, self.iteration
+            )));
+        };
+
+        // Decrypt with AES-256-GCM
+        let cipher = Aes256Gcm::new_from_slice(&message_key)
+            .map_err(|e| MePassaError::Crypto(format!("Failed to create cipher: {}", e)))?;
+
+        // Generate nonce from iteration
+        let nonce_bytes = self.iteration_to_nonce(message_iteration);
+        let nonce = Nonce::from_slice(&nonce_bytes);
+
+        // Decrypt
+        let plaintext = cipher
+            .decrypt(nonce, ciphertext)
+            .map_err(|e| MePassaError::Crypto(format!("Decryption failed: {}", e)))?;
+
+        // Update iteration after successful decryption
+        if message_iteration >= self.iteration {
+            self.iteration = message_iteration + 1;
+            self.ratchet_forward()?;
+        }
+
+        Ok(plaintext)
     }
 
-    /// Ratchet chain key forward (KDF)
-    fn ratchet_forward(&mut self) {
-        // TODO: Implement HKDF ratcheting
-        // For MVP: Just increment (not secure, placeholder)
+    /// Ratchet chain key forward using HKDF-SHA256
+    fn ratchet_forward(&mut self) -> Result<()> {
+        // Use HKDF to derive new chain key from current chain key
+        // New chain key = HKDF(chain_key, salt=iteration, info="MePassaSenderKeyChain")
 
-        // Placeholder: XOR with iteration
-        for (i, byte) in self.chain_key.iter_mut().enumerate() {
-            *byte ^= (self.iteration as u8).wrapping_add(i as u8);
+        let hkdf = Hkdf::<Sha256>::new(
+            Some(&self.iteration.to_be_bytes()), // salt includes iteration for uniqueness
+            &self.chain_key,
+        );
+
+        let mut new_chain_key = [0u8; 32];
+        hkdf.expand(HKDF_INFO_CHAIN_KEY, &mut new_chain_key)
+            .map_err(|e| MePassaError::Crypto(format!("HKDF chain key derivation failed: {}", e)))?;
+
+        self.chain_key = new_chain_key.to_vec();
+        Ok(())
+    }
+
+    /// Derive message key from current chain key
+    fn derive_message_key(&self) -> Result<Vec<u8>> {
+        // Message key = HKDF(chain_key, salt=iteration, info="MePassaSenderKeyMessage")
+        let hkdf = Hkdf::<Sha256>::new(
+            Some(&self.iteration.to_be_bytes()),
+            &self.chain_key,
+        );
+
+        let mut message_key = [0u8; 32];
+        hkdf.expand(HKDF_INFO_MESSAGE_KEY, &mut message_key)
+            .map_err(|e| MePassaError::Crypto(format!("HKDF message key derivation failed: {}", e)))?;
+
+        Ok(message_key.to_vec())
+    }
+
+    /// Convert iteration to 12-byte nonce for AES-GCM
+    fn iteration_to_nonce(&self, iteration: u32) -> [u8; 12] {
+        let mut nonce = [0u8; 12];
+        // Use iteration (4 bytes) + group_id hash (8 bytes)
+        nonce[0..4].copy_from_slice(&iteration.to_be_bytes());
+
+        // Hash group_id to get 8 bytes for uniqueness
+        use sha2::Digest;
+        let mut hasher = Sha256::new();
+        hasher.update(self.group_id.as_bytes());
+        let hash = hasher.finalize();
+        nonce[4..12].copy_from_slice(&hash[0..8]);
+
+        nonce
+    }
+
+    /// Ratchet forward N times (for handling out-of-order messages)
+    fn ratchet_n_times(&mut self, n: u32) -> Result<()> {
+        for _ in 0..n {
+            self.iteration += 1;
+            self.ratchet_forward()?;
         }
+        Ok(())
     }
 
     /// Serialize sender key for transmission
@@ -169,15 +282,16 @@ mod tests {
 
     #[test]
     fn test_encrypt_decrypt() {
-        let mut key = SenderKey::generate("group-1".to_string(), "peer-1".to_string()).unwrap();
+        let mut sender_key = SenderKey::generate("group-1".to_string(), "peer-1".to_string()).unwrap();
+        let mut receiver_key = sender_key.clone();
 
         let plaintext = b"Hello, group!";
-        let ciphertext = key.encrypt(plaintext).unwrap();
+        let ciphertext = sender_key.encrypt(plaintext).unwrap();
 
-        // For MVP, encryption is a no-op, so ciphertext == plaintext
-        assert_eq!(ciphertext, plaintext);
+        // Ciphertext should be different from plaintext (real encryption)
+        assert_ne!(&ciphertext[4..], plaintext); // Skip first 4 bytes (iteration)
 
-        let decrypted = key.decrypt(&ciphertext, key.iteration).unwrap();
+        let decrypted = receiver_key.decrypt(&ciphertext).unwrap();
         assert_eq!(decrypted, plaintext);
     }
 
@@ -197,5 +311,82 @@ mod tests {
 
         store.remove_group("group-1");
         assert!(store.get_key("group-1", "peer-1").is_none());
+    }
+
+    #[test]
+    fn test_ratcheting_forward_secrecy() {
+        let mut key = SenderKey::generate("group-1".to_string(), "peer-1".to_string()).unwrap();
+
+        // Encrypt first message
+        let plaintext1 = b"Message 1";
+        let ciphertext1 = key.encrypt(plaintext1).unwrap();
+
+        // Save chain key state after first message
+        let chain_key_after_msg1 = key.chain_key.clone();
+
+        // Encrypt second message
+        let plaintext2 = b"Message 2";
+        let ciphertext2 = key.encrypt(plaintext2).unwrap();
+
+        // Chain key should have changed (forward secrecy)
+        assert_ne!(key.chain_key, chain_key_after_msg1);
+
+        // Ciphertexts should be different (different keys)
+        assert_ne!(ciphertext1, ciphertext2);
+    }
+
+    #[test]
+    fn test_multiple_messages_in_sequence() {
+        let mut sender_key = SenderKey::generate("group-1".to_string(), "peer-1".to_string()).unwrap();
+        let mut receiver_key = sender_key.clone();
+
+        // Send 5 messages in sequence
+        let messages = vec![
+            b"Message 1".to_vec(),
+            b"Message 2".to_vec(),
+            b"Message 3".to_vec(),
+            b"Message 4".to_vec(),
+            b"Message 5".to_vec(),
+        ];
+
+        let mut ciphertexts = Vec::new();
+
+        for msg in &messages {
+            let ciphertext = sender_key.encrypt(msg).unwrap();
+            ciphertexts.push(ciphertext);
+        }
+
+        // Decrypt all messages
+        for (i, ciphertext) in ciphertexts.iter().enumerate() {
+            let decrypted = receiver_key.decrypt(ciphertext).unwrap();
+            assert_eq!(decrypted, messages[i]);
+        }
+    }
+
+    #[test]
+    fn test_different_keys_different_ciphertext() {
+        let mut key1 = SenderKey::generate("group-1".to_string(), "peer-1".to_string()).unwrap();
+        let mut key2 = SenderKey::generate("group-1".to_string(), "peer-2".to_string()).unwrap();
+
+        let plaintext = b"Same plaintext";
+
+        let ciphertext1 = key1.encrypt(plaintext).unwrap();
+        let ciphertext2 = key2.encrypt(plaintext).unwrap();
+
+        // Different sender keys should produce different ciphertexts
+        assert_ne!(ciphertext1, ciphertext2);
+    }
+
+    #[test]
+    fn test_serialization() {
+        let key = SenderKey::generate("group-1".to_string(), "peer-1".to_string()).unwrap();
+
+        let serialized = key.serialize().unwrap();
+        let deserialized = SenderKey::deserialize(&serialized).unwrap();
+
+        assert_eq!(key.group_id, deserialized.group_id);
+        assert_eq!(key.sender_peer_id, deserialized.sender_peer_id);
+        assert_eq!(key.chain_key, deserialized.chain_key);
+        assert_eq!(key.iteration, deserialized.iteration);
     }
 }
