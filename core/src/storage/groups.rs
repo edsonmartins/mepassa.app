@@ -77,8 +77,8 @@ impl MemberRole {
 impl Database {
     /// Create a new group
     pub fn create_group(&self, group: &NewGroup) -> Result<()> {
-        let conn = self.conn();
-        conn.execute(
+        // Insert group
+        self.conn().execute(
             r#"
             INSERT INTO groups (id, group_name, group_description, avatar_hash, creator_peer_id)
             VALUES (?1, ?2, ?3, ?4, ?5)
@@ -101,7 +101,7 @@ impl Database {
         self.add_group_member(&creator_member)?;
 
         // Create group conversation
-        conn.execute(
+        self.conn().execute(
             r#"
             INSERT INTO conversations (id, conversation_type, group_id, display_name)
             VALUES (?1, 'group', ?2, ?3)
@@ -305,11 +305,11 @@ impl Database {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::schema::init_schema;
+    use crate::storage::migrations::migrate;
 
     fn setup_test_db() -> Database {
         let db = Database::in_memory().unwrap();
-        init_schema(&db).unwrap();
+        migrate(&db).unwrap();
 
         // Insert test contacts (required for foreign keys)
         use crate::storage::contacts::NewContact;
