@@ -18,6 +18,9 @@ struct ChatView: View {
     @StateObject private var mediaPickerVM = MediaPickerViewModel()
     @State private var showingImagePicker = false
 
+    // Voice recorder state
+    @StateObject private var voiceRecorderVM = VoiceRecorderViewModel()
+
     var body: some View {
         VStack(spacing: 0) {
             // Messages list
@@ -84,13 +87,13 @@ struct ChatView: View {
 
                 // Send or voice button
                 if messageText.isEmpty {
-                    Button(action: {
-                        // TODO: Start voice recording
-                    }) {
-                        Image(systemName: "mic.fill")
-                            .font(.title2)
-                            .foregroundColor(.blue)
-                    }
+                    VoiceRecordButton(
+                        viewModel: voiceRecorderVM,
+                        onVoiceMessageRecorded: { audioURL in
+                            // TODO: Send voice message via FFI
+                            print("Voice message recorded: \(audioURL)")
+                        }
+                    )
                 } else {
                     Button(action: sendMessage) {
                         Image(systemName: "arrow.up.circle.fill")

@@ -21,8 +21,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.mepassa.R
 import com.mepassa.core.MePassaClientWrapper
+import com.mepassa.core.VoiceRecorderViewModel
 import com.mepassa.ui.components.ImagePickerButton
 import com.mepassa.ui.components.SelectedImagesPreview
+import com.mepassa.ui.components.VoiceRecordButton
 import kotlinx.coroutines.launch
 import uniffi.mepassa.FfiMessage
 import java.text.SimpleDateFormat
@@ -43,6 +45,7 @@ fun ChatScreen(
 ) {
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     var messages by remember { mutableStateOf<List<FfiMessage>>(emptyList()) }
     var messageInput by remember { mutableStateOf("") }
@@ -51,6 +54,9 @@ fun ChatScreen(
 
     // Image selection state
     var selectedImages by remember { mutableStateOf<List<Uri>>(emptyList()) }
+
+    // Voice recorder
+    val voiceRecorderViewModel = remember { VoiceRecorderViewModel(context) }
 
     // Carregar mensagens
     LaunchedEffect(peerId) {
@@ -173,6 +179,14 @@ fun ChatScreen(
                     onSelectImages = { uris ->
                         selectedImages = selectedImages + uris
                     },
+                    onVoiceMessageRecorded = { audioFile ->
+                        // TODO: Send voice message via FFI
+                        scope.launch {
+                            // For now, just show a placeholder
+                            println("Voice message recorded: ${audioFile.absolutePath}")
+                        }
+                    },
+                    voiceRecorderViewModel = voiceRecorderViewModel,
                     isSending = isSending
                 )
             }
@@ -220,6 +234,8 @@ fun MessageInputBar(
     onMessageInputChange: (String) -> Unit,
     onSendClick: () -> Unit,
     onSelectImages: (List<Uri>) -> Unit,
+    onVoiceMessageRecorded: (java.io.File) -> Unit,
+    voiceRecorderViewModel: VoiceRecorderViewModel,
     isSending: Boolean
 ) {
     Surface(
@@ -252,26 +268,30 @@ fun MessageInputBar(
                 shape = RoundedCornerShape(24.dp)
             )
 
-            IconButton(
-                onClick = onSendClick,
-                enabled = messageInput.isNotBlank() && !isSending
-            ) {
-                if (isSending) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Icon(
-                        Icons.AutoMirrored.Filled.Send,
-                        contentDescription = stringResource(R.string.chat_send),
-                        tint = if (messageInput.isNotBlank()) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                    )
+            // Send button or Voice record button
+            if (messageInput.isNotBlank()) {
+                IconButton(
+                    onClick = onSendClick,
+                    enabled = !isSending
+                ) {
+                    if (isSending) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(
+                            Icons.AutoMirrored.Filled.Send,
+                            contentDescription = stringResource(R.string.chat_send),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
+            } else {
+                VoiceRecordButton(
+                    viewModel = voiceRecorderViewModel,
+                    onVoiceMessageRecorded = onVoiceMessageRecorded
+                )
             }
         }
     }
