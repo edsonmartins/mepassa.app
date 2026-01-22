@@ -514,13 +514,23 @@ fileprivate struct FfiConverterString: FfiConverter {
 
 public protocol MePassaClientProtocol : AnyObject {
     
+    func addGroupMember(groupId: String, peerId: String) async throws 
+    
     func bootstrap() async throws 
     
     func connectToPeer(peerId: String, multiaddr: String) async throws 
     
     func connectedPeersCount() async throws  -> UInt32
     
+    func createGroup(name: String, description: String?) async throws  -> FfiGroup
+    
     func getConversationMessages(peerId: String, limit: UInt32?, offset: UInt32?) throws  -> [FfiMessage]
+    
+    func getGroups() async throws  -> [FfiGroup]
+    
+    func joinGroup(groupId: String, groupName: String) async throws 
+    
+    func leaveGroup(groupId: String) async throws 
     
     func listConversations() throws  -> [FfiConversation]
     
@@ -529,6 +539,8 @@ public protocol MePassaClientProtocol : AnyObject {
     func localPeerId() throws  -> String
     
     func markConversationRead(peerId: String) throws 
+    
+    func removeGroupMember(groupId: String, peerId: String) async throws 
     
     func searchMessages(query: String, limit: UInt32?) throws  -> [FfiMessage]
     
@@ -594,6 +606,23 @@ public convenience init(dataDir: String)throws  {
     
 
     
+open func addGroupMember(groupId: String, peerId: String)async throws  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_mepassa_core_fn_method_mepassaclient_add_group_member(
+                    self.uniffiClonePointer(),
+                    FfiConverterString.lower(groupId),FfiConverterString.lower(peerId)
+                )
+            },
+            pollFunc: ffi_mepassa_core_rust_future_poll_void,
+            completeFunc: ffi_mepassa_core_rust_future_complete_void,
+            freeFunc: ffi_mepassa_core_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeMePassaFfiError.lift
+        )
+}
+    
 open func bootstrap()async throws  {
     return
         try  await uniffiRustCallAsync(
@@ -645,6 +674,23 @@ open func connectedPeersCount()async throws  -> UInt32 {
         )
 }
     
+open func createGroup(name: String, description: String?)async throws  -> FfiGroup {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_mepassa_core_fn_method_mepassaclient_create_group(
+                    self.uniffiClonePointer(),
+                    FfiConverterString.lower(name),FfiConverterOptionString.lower(description)
+                )
+            },
+            pollFunc: ffi_mepassa_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_mepassa_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_mepassa_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeFfiGroup.lift,
+            errorHandler: FfiConverterTypeMePassaFfiError.lift
+        )
+}
+    
 open func getConversationMessages(peerId: String, limit: UInt32?, offset: UInt32?)throws  -> [FfiMessage] {
     return try  FfiConverterSequenceTypeFfiMessage.lift(try rustCallWithError(FfiConverterTypeMePassaFfiError.lift) {
     uniffi_mepassa_core_fn_method_mepassaclient_get_conversation_messages(self.uniffiClonePointer(),
@@ -653,6 +699,57 @@ open func getConversationMessages(peerId: String, limit: UInt32?, offset: UInt32
         FfiConverterOptionUInt32.lower(offset),$0
     )
 })
+}
+    
+open func getGroups()async throws  -> [FfiGroup] {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_mepassa_core_fn_method_mepassaclient_get_groups(
+                    self.uniffiClonePointer()
+                    
+                )
+            },
+            pollFunc: ffi_mepassa_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_mepassa_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_mepassa_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterSequenceTypeFfiGroup.lift,
+            errorHandler: FfiConverterTypeMePassaFfiError.lift
+        )
+}
+    
+open func joinGroup(groupId: String, groupName: String)async throws  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_mepassa_core_fn_method_mepassaclient_join_group(
+                    self.uniffiClonePointer(),
+                    FfiConverterString.lower(groupId),FfiConverterString.lower(groupName)
+                )
+            },
+            pollFunc: ffi_mepassa_core_rust_future_poll_void,
+            completeFunc: ffi_mepassa_core_rust_future_complete_void,
+            freeFunc: ffi_mepassa_core_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeMePassaFfiError.lift
+        )
+}
+    
+open func leaveGroup(groupId: String)async throws  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_mepassa_core_fn_method_mepassaclient_leave_group(
+                    self.uniffiClonePointer(),
+                    FfiConverterString.lower(groupId)
+                )
+            },
+            pollFunc: ffi_mepassa_core_rust_future_poll_void,
+            completeFunc: ffi_mepassa_core_rust_future_complete_void,
+            freeFunc: ffi_mepassa_core_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeMePassaFfiError.lift
+        )
 }
     
 open func listConversations()throws  -> [FfiConversation] {
@@ -691,6 +788,23 @@ open func markConversationRead(peerId: String)throws  {try rustCallWithError(Ffi
         FfiConverterString.lower(peerId),$0
     )
 }
+}
+    
+open func removeGroupMember(groupId: String, peerId: String)async throws  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_mepassa_core_fn_method_mepassaclient_remove_group_member(
+                    self.uniffiClonePointer(),
+                    FfiConverterString.lower(groupId),FfiConverterString.lower(peerId)
+                )
+            },
+            pollFunc: ffi_mepassa_core_rust_future_poll_void,
+            completeFunc: ffi_mepassa_core_rust_future_complete_void,
+            freeFunc: ffi_mepassa_core_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeMePassaFfiError.lift
+        )
 }
     
 open func searchMessages(query: String, limit: UInt32?)throws  -> [FfiMessage] {
@@ -901,6 +1015,120 @@ public func FfiConverterTypeFfiConversation_lift(_ buf: RustBuffer) throws -> Ff
 #endif
 public func FfiConverterTypeFfiConversation_lower(_ value: FfiConversation) -> RustBuffer {
     return FfiConverterTypeFfiConversation.lower(value)
+}
+
+
+public struct FfiGroup {
+    public var id: String
+    public var name: String
+    public var description: String?
+    public var avatarHash: String?
+    public var creatorPeerId: String
+    public var memberCount: UInt32
+    public var isAdmin: Bool
+    public var createdAt: Int64
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(id: String, name: String, description: String?, avatarHash: String?, creatorPeerId: String, memberCount: UInt32, isAdmin: Bool, createdAt: Int64) {
+        self.id = id
+        self.name = name
+        self.description = description
+        self.avatarHash = avatarHash
+        self.creatorPeerId = creatorPeerId
+        self.memberCount = memberCount
+        self.isAdmin = isAdmin
+        self.createdAt = createdAt
+    }
+}
+
+
+
+extension FfiGroup: Equatable, Hashable {
+    public static func ==(lhs: FfiGroup, rhs: FfiGroup) -> Bool {
+        if lhs.id != rhs.id {
+            return false
+        }
+        if lhs.name != rhs.name {
+            return false
+        }
+        if lhs.description != rhs.description {
+            return false
+        }
+        if lhs.avatarHash != rhs.avatarHash {
+            return false
+        }
+        if lhs.creatorPeerId != rhs.creatorPeerId {
+            return false
+        }
+        if lhs.memberCount != rhs.memberCount {
+            return false
+        }
+        if lhs.isAdmin != rhs.isAdmin {
+            return false
+        }
+        if lhs.createdAt != rhs.createdAt {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(name)
+        hasher.combine(description)
+        hasher.combine(avatarHash)
+        hasher.combine(creatorPeerId)
+        hasher.combine(memberCount)
+        hasher.combine(isAdmin)
+        hasher.combine(createdAt)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiGroup: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiGroup {
+        return
+            try FfiGroup(
+                id: FfiConverterString.read(from: &buf), 
+                name: FfiConverterString.read(from: &buf), 
+                description: FfiConverterOptionString.read(from: &buf), 
+                avatarHash: FfiConverterOptionString.read(from: &buf), 
+                creatorPeerId: FfiConverterString.read(from: &buf), 
+                memberCount: FfiConverterUInt32.read(from: &buf), 
+                isAdmin: FfiConverterBool.read(from: &buf), 
+                createdAt: FfiConverterInt64.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: FfiGroup, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.id, into: &buf)
+        FfiConverterString.write(value.name, into: &buf)
+        FfiConverterOptionString.write(value.description, into: &buf)
+        FfiConverterOptionString.write(value.avatarHash, into: &buf)
+        FfiConverterString.write(value.creatorPeerId, into: &buf)
+        FfiConverterUInt32.write(value.memberCount, into: &buf)
+        FfiConverterBool.write(value.isAdmin, into: &buf)
+        FfiConverterInt64.write(value.createdAt, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiGroup_lift(_ buf: RustBuffer) throws -> FfiGroup {
+    return try FfiConverterTypeFfiGroup.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiGroup_lower(_ value: FfiGroup) -> RustBuffer {
+    return FfiConverterTypeFfiGroup.lower(value)
 }
 
 
@@ -1349,6 +1577,31 @@ fileprivate struct FfiConverterSequenceTypeFfiConversation: FfiConverterRustBuff
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterSequenceTypeFfiGroup: FfiConverterRustBuffer {
+    typealias SwiftType = [FfiGroup]
+
+    public static func write(_ value: [FfiGroup], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeFfiGroup.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [FfiGroup] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [FfiGroup]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeFfiGroup.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterSequenceTypeFfiMessage: FfiConverterRustBuffer {
     typealias SwiftType = [FfiMessage]
 
@@ -1432,6 +1685,9 @@ private var initializationResult: InitializationResult = {
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_add_group_member() != 27257) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_mepassa_core_checksum_method_mepassaclient_bootstrap() != 50425) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -1441,7 +1697,19 @@ private var initializationResult: InitializationResult = {
     if (uniffi_mepassa_core_checksum_method_mepassaclient_connected_peers_count() != 44264) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_create_group() != 32075) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_mepassa_core_checksum_method_mepassaclient_get_conversation_messages() != 5424) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_get_groups() != 26850) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_join_group() != 24248) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_leave_group() != 19345) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_mepassa_core_checksum_method_mepassaclient_list_conversations() != 61225) {
@@ -1454,6 +1722,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_mepassa_core_checksum_method_mepassaclient_mark_conversation_read() != 7782) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_remove_group_member() != 37164) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_mepassa_core_checksum_method_mepassaclient_search_messages() != 45022) {

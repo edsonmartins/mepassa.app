@@ -83,3 +83,9 @@ lint-results.xml
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Native libraries (built by build-native.sh)
+app/src/main/jniLibs/
+
+# Python virtual environment
+venv/
