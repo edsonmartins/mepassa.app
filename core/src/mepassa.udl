@@ -62,6 +62,18 @@ dictionary FfiConversation {
 // dictionary FfiCall { ... }
 // dictionary FfiCallStats { ... }
 
+// Group types (FASE 15)
+dictionary FfiGroup {
+    string id;
+    string name;
+    string? description;
+    string? avatar_hash;
+    string creator_peer_id;
+    u32 member_count;
+    boolean is_admin;
+    i64 created_at;
+};
+
 // Client interface (implemented in Rust)
 interface MePassaClient {
     [Throws=MePassaFfiError]
@@ -119,4 +131,23 @@ interface MePassaClient {
     //
     // FfiCall? get_current_call();
     // FfiCallStats? get_call_stats(string call_id);
+
+    // Group methods (FASE 15)
+    [Throws=MePassaFfiError, Async]
+    FfiGroup create_group(string name, string? description);
+
+    [Throws=MePassaFfiError, Async]
+    void join_group(string group_id, string group_name);
+
+    [Throws=MePassaFfiError, Async]
+    void leave_group(string group_id);
+
+    [Throws=MePassaFfiError, Async]
+    void add_group_member(string group_id, string peer_id);
+
+    [Throws=MePassaFfiError, Async]
+    void remove_group_member(string group_id, string peer_id);
+
+    [Throws=MePassaFfiError, Async]
+    sequence<FfiGroup> get_groups();
 };
