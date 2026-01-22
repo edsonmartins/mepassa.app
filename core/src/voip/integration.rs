@@ -28,21 +28,28 @@ pub struct VoIPIntegration {
     // Event channels
     signaling_rx: mpsc::UnboundedReceiver<(PeerId, SignalingMessage)>,
     signaling_tx: mpsc::UnboundedSender<(PeerId, SignalingMessage)>,
+
+    // Call events from CallManager
+    call_event_rx: mpsc::UnboundedReceiver<CallEvent>,
 }
 
 impl VoIPIntegration {
     /// Create a new VoIP integration coordinator
-    pub fn new(
+    pub async fn new(
         network_manager: Arc<RwLock<NetworkManager>>,
         call_manager: Arc<CallManager>,
     ) -> Self {
         let (signaling_tx, signaling_rx) = mpsc::unbounded_channel();
+
+        // Subscribe to call manager events
+        let call_event_rx = call_manager.subscribe_events().await;
 
         Self {
             network_manager,
             call_manager,
             signaling_rx,
             signaling_tx,
+            call_event_rx,
         }
     }
 
@@ -55,24 +62,32 @@ impl VoIPIntegration {
     ///
     /// Processes:
     /// - Incoming signaling messages from network
-    /// - Outgoing signaling messages from CallManager (TODO)
-    /// - Call state changes and events (TODO)
+    /// - Outgoing signaling messages from CallManager
+    /// - Call state changes and events
     pub async fn run(&mut self) -> Result<()> {
         tracing::info!("🔗 VoIP integration started");
 
         loop {
-            // Handle incoming signaling from network
-            if let Some((peer_id, signal)) = self.signaling_rx.recv().await {
-                if let Err(e) = self.handle_incoming_signal(peer_id, signal).await {
-                    tracing::error!("❌ Failed to handle incoming signal: {}", e);
+            tokio::select! {
+                // Handle incoming signaling from network
+                Some((peer_id, signal)) = self.signaling_rx.recv() => {
+                    if let Err(e) = self.handle_incoming_signal(peer_id, signal).await {
+                        tracing::error!("❌ Failed to handle incoming signal: {}", e);
+                    }
                 }
-            } else {
-                tracing::warn!("⚠️ Signaling channel closed");
-                break;
-            }
 
-            // TODO: Add call event handling when CallManager exposes event_rx
-            // For now, we only handle incoming network signals
+                // Handle call events from CallManager
+                Some(event) = self.call_event_rx.recv() => {
+                    if let Err(e) = self.handle_call_event(event).await {
+                        tracing::error!("❌ Failed to handle call event: {}", e);
+                    }
+                }
+
+                else => {
+                    tracing::warn!("⚠️ All channels closed");
+                    break;
+                }
+            }
         }
 
         Ok(())
@@ -166,12 +181,101 @@ impl VoIPIntegration {
         Ok(())
     }
 
-    // TODO: Add call event handling when CallManager exposes event_rx
-    // This would process events like:
-    // - IncomingCall: Already handled via network signals
-    // - StateChanged: Log state transitions
-    // - Ended: Send hangup signal to remote peer
-    // - AudioReceived: Forward to audio playback
+    /// Handle call events from CallManager
+    async fn handle_call_event(&self, event: CallEvent) -> Result<()> {
+        match event {
+            CallEvent::SignalingOffer {
+                call_id,
+                to_peer_id,
+                sdp,
+            } => {
+                tracing::info!("📤 Sending offer to {} (call: {})", to_peer_id, call_id);
+
+                let peer_id = to_peer_id
+                    .parse::<PeerId>()
+                    .map_err(|e| super::VoipError::InvalidState(format!("Invalid peer ID: {}", e)))?;
+
+                let signal = SignalingMessage::CallOffer {
+                    call_id,
+                    sdp,
+                };
+
+                self.send_signal(peer_id, signal).await?;
+            }
+
+            CallEvent::SignalingAnswer {
+                call_id,
+                to_peer_id,
+                sdp,
+            } => {
+                tracing::info!("📤 Sending answer to {} (call: {})", to_peer_id, call_id);
+
+                let peer_id = to_peer_id
+                    .parse::<PeerId>()
+                    .map_err(|e| super::VoipError::InvalidState(format!("Invalid peer ID: {}", e)))?;
+
+                let signal = SignalingMessage::CallAnswer {
+                    call_id,
+                    sdp,
+                };
+
+                self.send_signal(peer_id, signal).await?;
+            }
+
+            CallEvent::SignalingIceCandidate {
+                call_id,
+                to_peer_id,
+                candidate,
+                sdp_mid,
+                sdp_m_line_index,
+            } => {
+                tracing::debug!("📤 Sending ICE candidate to {} (call: {})", to_peer_id, call_id);
+
+                let peer_id = to_peer_id
+                    .parse::<PeerId>()
+                    .map_err(|e| super::VoipError::InvalidState(format!("Invalid peer ID: {}", e)))?;
+
+                let signal = SignalingMessage::IceCandidate {
+                    call_id,
+                    candidate,
+                    sdp_mid,
+                    sdp_m_line_index,
+                };
+
+                self.send_signal(peer_id, signal).await?;
+            }
+
+            CallEvent::Ended { call_id, reason } => {
+                tracing::info!("📴 Call ended: {} ({:?})", call_id, reason);
+                // Hangup signal should be sent explicitly via hangup_call()
+                // This event is just for logging/cleanup
+            }
+
+            CallEvent::StateChanged { call_id, new_state } => {
+                tracing::debug!("🔄 Call {} state changed to: {:?}", call_id, new_state);
+                // Just log state changes
+            }
+
+            CallEvent::IncomingCall { call_id, from_peer_id } => {
+                tracing::info!("📲 Incoming call: {} from {}", call_id, from_peer_id);
+                // Already handled via network signals
+            }
+
+            CallEvent::AudioReceived { .. } | CallEvent::VideoFrameReceived { .. } => {
+                // Audio/video data handled separately by audio/video pipelines
+            }
+
+            CallEvent::VideoEnabled { call_id, codec } => {
+                tracing::info!("📹 Video enabled for call: {} ({:?})", call_id, codec);
+            }
+
+            CallEvent::VideoDisabled { call_id } => {
+                tracing::info!("🚫 Video disabled for call: {}", call_id);
+            }
+        }
+
+        Ok(())
+    }
 
     /// Send signaling message via network
     pub async fn send_signal(&self, peer_id: PeerId, signal: SignalingMessage) -> Result<()> {
@@ -211,13 +315,31 @@ impl VoIPIntegration {
     pub async fn reject_call(&self, call_id: String, reason: Option<String>) -> Result<()> {
         tracing::info!("❌ Rejecting call {}: {:?}", call_id, reason);
 
+        // Get remote peer ID before ending call
+        let remote_peer_id = {
+            let calls = self.call_manager.calls.read().await;
+            calls
+                .get(&call_id)
+                .map(|call| call.remote_peer_id.clone())
+                .ok_or_else(|| super::VoipError::InvalidState("Call not found".to_string()))?
+        };
+
+        // End call
         self.call_manager
             .end_call(call_id.clone(), CallEndReason::Rejected)
             .await?;
 
         // Send rejection signal to remote peer
-        // TODO: Get peer_id for call_id and send CallReject
-        tracing::warn!("⚠️ TODO: Send CallReject signal to remote peer");
+        let peer_id = remote_peer_id
+            .parse::<PeerId>()
+            .map_err(|e| super::VoipError::InvalidState(format!("Invalid peer ID: {}", e)))?;
+
+        let signal = SignalingMessage::CallReject {
+            call_id,
+            reason,
+        };
+
+        self.send_signal(peer_id, signal).await?;
 
         Ok(())
     }
@@ -226,13 +348,30 @@ impl VoIPIntegration {
     pub async fn hangup_call(&self, call_id: String) -> Result<()> {
         tracing::info!("📴 Hanging up call {}", call_id);
 
+        // Get remote peer ID before ending call
+        let remote_peer_id = {
+            let calls = self.call_manager.calls.read().await;
+            calls
+                .get(&call_id)
+                .map(|call| call.remote_peer_id.clone())
+                .ok_or_else(|| super::VoipError::InvalidState("Call not found".to_string()))?
+        };
+
+        // End call
         self.call_manager
             .end_call(call_id.clone(), CallEndReason::LocalHangup)
             .await?;
 
         // Send hangup signal to remote peer
-        // TODO: Get peer_id for call_id and send CallHangup
-        tracing::warn!("⚠️ TODO: Send CallHangup signal to remote peer");
+        let peer_id = remote_peer_id
+            .parse::<PeerId>()
+            .map_err(|e| super::VoipError::InvalidState(format!("Invalid peer ID: {}", e)))?;
+
+        let signal = SignalingMessage::CallHangup {
+            call_id,
+        };
+
+        self.send_signal(peer_id, signal).await?;
 
         Ok(())
     }

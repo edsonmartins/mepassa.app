@@ -67,12 +67,35 @@ pub enum CallEvent {
         width: u32,
         height: u32,
     },
+
+    /// Signaling: Need to send offer to remote peer
+    SignalingOffer {
+        call_id: String,
+        to_peer_id: String,
+        sdp: String,
+    },
+
+    /// Signaling: Need to send answer to remote peer
+    SignalingAnswer {
+        call_id: String,
+        to_peer_id: String,
+        sdp: String,
+    },
+
+    /// Signaling: Need to send ICE candidate to remote peer
+    SignalingIceCandidate {
+        call_id: String,
+        to_peer_id: String,
+        candidate: String,
+        sdp_mid: Option<String>,
+        sdp_m_line_index: Option<u16>,
+    },
 }
 
 /// Manages all active calls
 pub struct CallManager {
     /// Active calls by call_id
-    calls: Arc<RwLock<HashMap<String, CallState>>>,
+    pub(crate) calls: Arc<RwLock<HashMap<String, Call>>>,
 
     /// WebRTC peers by call_id (wrapped in RwLock for video track mutations)
     peers: Arc<RwLock<HashMap<String, Arc<RwLock<WebRTCPeer>>>>>,
@@ -149,24 +172,27 @@ impl CallManager {
         // Store call and peer
         {
             let mut calls = self.calls.write().await;
-            calls.insert(call_id.clone(), call.state.clone());
+            calls.insert(call_id.clone(), call);
         }
         {
             let mut peers = self.peers.write().await;
             peers.insert(call_id.clone(), Arc::new(RwLock::new(peer)));
         }
 
-        // Emit event
+        // Emit state change event
         let _ = self.event_tx.send(CallEvent::StateChanged {
             call_id: call_id.clone(),
             new_state: CallState::Initiating,
         });
 
-        tracing::info!("📞 Starting outgoing call to {}", remote_peer_id);
+        // Emit signaling offer event (for network layer to send)
+        let _ = self.event_tx.send(CallEvent::SignalingOffer {
+            call_id: call_id.clone(),
+            to_peer_id: remote_peer_id.clone(),
+            sdp: offer_sdp,
+        });
 
-        // TODO: Send offer via signaling
-        // This should be done by the network layer
-        // For now, we just return the call_id and SDP needs to be sent separately
+        tracing::info!("📞 Started outgoing call to {}", remote_peer_id);
 
         Ok(call_id)
     }
@@ -190,7 +216,7 @@ impl CallManager {
         // Store call and peer
         {
             let mut calls = self.calls.write().await;
-            calls.insert(call_id.clone(), call.state.clone());
+            calls.insert(call_id.clone(), call);
         }
         {
             let mut peers = self.peers.write().await;
@@ -223,17 +249,34 @@ impl CallManager {
         // Update call state
         {
             let mut calls = self.calls.write().await;
-            if let Some(state) = calls.get_mut(&call_id) {
-                *state = CallState::Connecting;
+            if let Some(call) = calls.get_mut(&call_id) {
+                call.state = CallState::Connecting;
             }
         }
 
+        // Emit state change event
         let _ = self.event_tx.send(CallEvent::StateChanged {
             call_id: call_id.clone(),
             new_state: CallState::Connecting,
         });
 
-        tracing::info!("✅ Accepting call: {}", call_id);
+        // Get remote peer ID for signaling event
+        let remote_peer_id = {
+            let calls = self.calls.read().await;
+            calls
+                .get(&call_id)
+                .map(|call| call.remote_peer_id.clone())
+                .ok_or_else(|| VoipError::InvalidState("Call not found".to_string()))?
+        };
+
+        // Emit signaling answer event (for network layer to send)
+        let _ = self.event_tx.send(CallEvent::SignalingAnswer {
+            call_id: call_id.clone(),
+            to_peer_id: remote_peer_id,
+            sdp: answer_sdp.clone(),
+        });
+
+        tracing::info!("✅ Accepted call: {}", call_id);
 
         Ok(answer_sdp)
     }
@@ -251,8 +294,8 @@ impl CallManager {
         // Update state to connecting
         {
             let mut calls = self.calls.write().await;
-            if let Some(state) = calls.get_mut(&call_id) {
-                *state = CallState::Connecting;
+            if let Some(call) = calls.get_mut(&call_id) {
+                call.state = CallState::Connecting;
             }
         }
 
@@ -422,7 +465,7 @@ impl CallManager {
     /// Get call state
     pub async fn get_call_state(&self, call_id: &str) -> Option<CallState> {
         let calls = self.calls.read().await;
-        calls.get(call_id).cloned()
+        calls.get(call_id).map(|call| call.state.clone())
     }
 
     /// Subscribe to call events
