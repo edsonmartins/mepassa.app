@@ -305,6 +305,60 @@ impl Client {
         Ok(message_id)
     }
 
+    /// Send a document/file
+    pub async fn send_document_message(
+        &self,
+        to: PeerId,
+        file_data: &[u8],
+        file_name: String,
+        mime_type: String,
+    ) -> Result<String> {
+        use sha2::{Digest, Sha256};
+
+        // Calculate media hash
+        let mut hasher = Sha256::new();
+        hasher.update(file_data);
+        let media_hash = format!("{:x}", hasher.finalize());
+
+        // Generate message ID
+        let message_id = uuid::Uuid::new_v4().to_string();
+
+        // Store in database
+        let conversation_id = self.database.get_or_create_conversation(&to.to_string())?;
+        let new_msg = crate::storage::NewMessage {
+            message_id: message_id.clone(),
+            conversation_id: conversation_id.clone(),
+            sender_peer_id: self.local_peer_id().to_string(),
+            recipient_peer_id: Some(to.to_string()),
+            message_type: "document".to_string(),
+            content_encrypted: None,
+            content_plaintext: Some(format!("[File: {}]", file_name)),
+            status: MessageStatus::Sent,
+            parent_message_id: None,
+        };
+        self.database.insert_message(&new_msg)?;
+
+        // Store media record
+        let new_media = crate::storage::NewMedia {
+            media_hash: media_hash.clone(),
+            message_id: message_id.clone(),
+            media_type: crate::storage::MediaType::Document,
+            file_name: Some(file_name),
+            file_size: Some(file_data.len() as i64),
+            mime_type: Some(mime_type),
+            local_path: None, // TODO: Save to disk
+            thumbnail_path: None,
+            width: None,
+            height: None,
+            duration_seconds: None,
+        };
+        self.database.insert_media(&new_media)?;
+
+        // TODO: Send via network
+
+        Ok(message_id)
+    }
+
     /// Download media by hash
     pub async fn download_media(&self, media_hash: &str) -> Result<Vec<u8>> {
         // TODO: Implement actual download from peer

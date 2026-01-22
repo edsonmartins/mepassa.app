@@ -176,6 +176,13 @@ enum ClientCommand {
         duration_seconds: i32,
         response: oneshot::Sender<Result<String, MePassaFfiError>>,
     },
+    SendDocumentMessage {
+        to_peer_id: String,
+        file_data: Vec<u8>,
+        file_name: String,
+        mime_type: String,
+        response: oneshot::Sender<Result<String, MePassaFfiError>>,
+    },
     DownloadMedia {
         media_hash: String,
         response: oneshot::Sender<Result<Vec<u8>, MePassaFfiError>>,
@@ -473,6 +480,29 @@ async fn run_client_task(mut receiver: mpsc::UnboundedReceiver<ClientCommand>, c
 
                 let result = client
                     .send_voice_message(to, &audio_data, file_name, duration_seconds)
+                    .await
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            ClientCommand::SendDocumentMessage {
+                to_peer_id,
+                file_data,
+                file_name,
+                mime_type,
+                response,
+            } => {
+                let to: libp2p::PeerId = match to_peer_id.parse() {
+                    Ok(peer_id) => peer_id,
+                    Err(_) => {
+                        let _ = response.send(Err(MePassaFfiError::Network {
+                            message: "Invalid peer ID".to_string(),
+                        }));
+                        continue;
+                    }
+                };
+
+                let result = client
+                    .send_document_message(to, &file_data, file_name, mime_type)
                     .await
                     .map_err(|e| e.into());
                 let _ = response.send(result);
@@ -1298,6 +1328,33 @@ impl MePassaClient {
                 audio_data,
                 file_name,
                 duration_seconds,
+                response: tx,
+            })
+            .map_err(|_| MePassaFfiError::Other {
+                message: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| MePassaFfiError::Other {
+            message: "Failed to receive response".to_string(),
+        })?
+    }
+
+    /// Send a document/file message
+    pub async fn send_document_message(
+        &self,
+        to_peer_id: String,
+        file_data: Vec<u8>,
+        file_name: String,
+        mime_type: String,
+    ) -> Result<String, MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::SendDocumentMessage {
+                to_peer_id,
+                file_data,
+                file_name,
+                mime_type,
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
