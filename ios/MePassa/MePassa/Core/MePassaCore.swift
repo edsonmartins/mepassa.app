@@ -9,12 +9,11 @@
 //  This provides a cleaner API for SwiftUI views
 
 import Foundation
-// import mepassa // TODO: Uncomment after UniFFI bindings are generated
+import mepassa
 
 /// Swift wrapper for MePassa Core FFI
 class MePassaCore: ObservableObject {
-    // TODO: Replace with actual UniFFI client after bindings are generated
-    // private var client: MePassaClient?
+    private var client: MePassaClient?
 
     private let dataDir: String
     @Published var isInitialized = false
@@ -28,16 +27,10 @@ class MePassaCore: ObservableObject {
 
     /// Initialize the MePassa core library
     func initialize() async throws {
-        // TODO: Initialize UniFFI client
-        /*
-        client = try MePassaClient(dataDir: dataDir)
-        localPeerId = try await client?.localPeerId()
-        */
-
-        // Temporary mock implementation
         print("📱 MePassa Core initializing at: \(dataDir)")
-        try await Task.sleep(nanoseconds: 500_000_000) // 0.5s delay
-        localPeerId = "12D3KooW" + UUID().uuidString.prefix(40)
+
+        client = try await MePassaClient(dataDir: dataDir)
+        localPeerId = try await client?.localPeerId()
 
         DispatchQueue.main.async {
             self.isInitialized = true
@@ -50,17 +43,9 @@ class MePassaCore: ObservableObject {
 
     /// Generate new identity (keypair)
     func generateNewIdentity() async throws -> String {
-        // TODO: Call core library to generate new Ed25519 keypair
-        /*
-        // This would be done during initialization
+        // This is done during initialization
         // The peer ID is derived from the public key
         return try await client?.localPeerId() ?? ""
-        */
-
-        // Temporary mock
-        let peerId = "12D3KooW" + UUID().uuidString.prefix(40)
-        self.localPeerId = peerId
-        return peerId
     }
 
     /// Import existing identity from backup
@@ -79,94 +64,57 @@ class MePassaCore: ObservableObject {
 
     /// Start listening on default multiaddrs
     func startListening() async throws {
-        // TODO: Call client.listenOn()
-        /*
-        try await client?.listenOn("/ip4/0.0.0.0/tcp/0")
-        try await client?.listenOn("/ip6/::/tcp/0")
-        */
-
+        try await client?.listenOn(multiaddr: "/ip4/0.0.0.0/tcp/0")
+        try await client?.listenOn(multiaddr: "/ip6/::/tcp/0")
         print("📡 Started listening on P2P network")
     }
 
     /// Connect to bootstrap nodes
     func bootstrap() async throws {
-        // TODO: Call client.bootstrap()
-        /*
         try await client?.bootstrap()
-        */
-
         print("🌐 Connected to bootstrap nodes")
     }
 
     /// Connect to a specific peer
     func connectToPeer(peerId: String, multiaddr: String) async throws {
-        // TODO: Call client.connectToPeer()
-        /*
         try await client?.connectToPeer(peerId: peerId, multiaddr: multiaddr)
-        */
-
         print("🔗 Connecting to peer: \(peerId)")
     }
 
     /// Get count of connected peers
     func connectedPeersCount() async throws -> Int {
-        // TODO: Call client.connectedPeersCount()
-        /*
-        return try await client?.connectedPeersCount() ?? 0
-        */
-
-        return 0 // Mock
+        return try await Int(client?.connectedPeersCount() ?? 0)
     }
 
     // MARK: - Messaging
 
     /// Send text message to peer
     func sendMessage(to peerId: String, content: String) async throws -> String {
-        // TODO: Call client.sendTextMessage()
-        /*
-        return try await client?.sendTextMessage(toPeerId: peerId, content: content) ?? ""
-        */
-
-        // Mock implementation
-        let messageId = UUID().uuidString
+        let messageId = try await client?.sendTextMessage(toPeerId: peerId, content: content) ?? ""
         print("📨 Sent message to \(peerId): \(content)")
         return messageId
     }
 
     /// Get messages for a conversation
     func getMessages(for peerId: String, limit: Int? = nil) async throws -> [FfiMessageWrapper] {
-        // TODO: Call client.getConversationMessages()
-        /*
-        let messages = try client?.getConversationMessages(
+        let messages = try await client?.getConversationMessages(
             peerId: peerId,
             limit: limit.map { UInt32($0) },
             offset: nil
         ) ?? []
 
         return messages.map { FfiMessageWrapper(ffi: $0) }
-        */
-
-        return [] // Mock
     }
 
     /// Get all conversations
     func listConversations() async throws -> [FfiConversationWrapper] {
-        // TODO: Call client.listConversations()
-        /*
-        let conversations = try client?.listConversations() ?? []
+        let conversations = try await client?.listConversations() ?? []
         return conversations.map { FfiConversationWrapper(ffi: $0) }
-        */
-
-        return [] // Mock
     }
 
     /// Mark conversation as read
     func markAsRead(peerId: String) async throws {
-        // TODO: Call client.markConversationRead()
-        /*
-        try client?.markConversationRead(peerId: peerId)
-        */
-
+        try await client?.markConversationRead(peerId: peerId)
         print("✅ Marked conversation as read: \(peerId)")
     }
 
@@ -174,64 +122,38 @@ class MePassaCore: ObservableObject {
 
     /// Start voice call
     func startCall(to peerId: String) async throws -> String {
-        // TODO: Call client.startCall()
-        /*
-        return try await client?.startCall(toPeerId: peerId) ?? ""
-        */
-
-        // Mock
-        let callId = UUID().uuidString
+        let callId = try await client?.startCall(toPeerId: peerId) ?? ""
         print("📞 Starting call to: \(peerId)")
         return callId
     }
 
     /// Accept incoming call
     func acceptCall(callId: String) async throws {
-        // TODO: Call client.acceptCall()
-        /*
         try await client?.acceptCall(callId: callId)
-        */
-
         print("✅ Accepted call: \(callId)")
     }
 
     /// Reject incoming call
     func rejectCall(callId: String, reason: String? = nil) async throws {
-        // TODO: Call client.rejectCall()
-        /*
         try await client?.rejectCall(callId: callId, reason: reason)
-        */
-
         print("❌ Rejected call: \(callId)")
     }
 
     /// Hang up active call
     func hangupCall(callId: String) async throws {
-        // TODO: Call client.hangupCall()
-        /*
         try await client?.hangupCall(callId: callId)
-        */
-
         print("📴 Hung up call: \(callId)")
     }
 
     /// Toggle mute status
     func toggleMute(callId: String) async throws {
-        // TODO: Call client.toggleMute()
-        /*
         try await client?.toggleMute(callId: callId)
-        */
-
         print("🔇 Toggled mute for call: \(callId)")
     }
 
     /// Toggle speakerphone
     func toggleSpeaker(callId: String) async throws {
-        // TODO: Call client.toggleSpeakerphone()
-        /*
         try await client?.toggleSpeakerphone(callId: callId)
-        */
-
         print("🔊 Toggled speaker for call: \(callId)")
     }
 
@@ -239,76 +161,39 @@ class MePassaCore: ObservableObject {
 
     /// Create a new group
     func createGroup(name: String, description: String?) async throws -> FfiGroupWrapper {
-        // TODO: Call client.createGroup()
-        /*
         let group = try await client?.createGroup(name: name, description: description)
-        return FfiGroupWrapper(ffi: group!)
-        */
-
-        // Mock implementation
-        let group = FfiGroupWrapper(
-            id: UUID().uuidString,
-            name: name,
-            description: description,
-            avatarHash: nil,
-            creatorPeerId: localPeerId ?? "",
-            memberCount: 1,
-            isAdmin: true,
-            createdAt: Date()
-        )
         print("👥 Created group: \(name)")
-        return group
+        return FfiGroupWrapper(ffi: group!)
     }
 
     /// Join an existing group
     func joinGroup(groupId: String, groupName: String) async throws {
-        // TODO: Call client.joinGroup()
-        /*
         try await client?.joinGroup(groupId: groupId, groupName: groupName)
-        */
-
         print("✅ Joined group: \(groupName)")
     }
 
     /// Leave a group
     func leaveGroup(groupId: String) async throws {
-        // TODO: Call client.leaveGroup()
-        /*
         try await client?.leaveGroup(groupId: groupId)
-        */
-
         print("👋 Left group: \(groupId)")
     }
 
     /// Add member to group (admin only)
     func addGroupMember(groupId: String, peerId: String) async throws {
-        // TODO: Call client.addGroupMember()
-        /*
         try await client?.addGroupMember(groupId: groupId, peerId: peerId)
-        */
-
         print("➕ Added member to group \(groupId): \(peerId)")
     }
 
     /// Remove member from group (admin only)
     func removeGroupMember(groupId: String, peerId: String) async throws {
-        // TODO: Call client.removeGroupMember()
-        /*
         try await client?.removeGroupMember(groupId: groupId, peerId: peerId)
-        */
-
         print("➖ Removed member from group \(groupId): \(peerId)")
     }
 
     /// Get all groups
     func getGroups() async throws -> [FfiGroupWrapper] {
-        // TODO: Call client.getGroups()
-        /*
         let groups = try await client?.getGroups() ?? []
         return groups.map { FfiGroupWrapper(ffi: $0) }
-        */
-
-        return [] // Mock
     }
 
     /// Get group messages
@@ -362,8 +247,6 @@ struct FfiMessageWrapper: Identifiable {
         self.status = status
     }
 
-    // TODO: Uncomment after UniFFI bindings are generated
-    /*
     init(ffi: FfiMessage) {
         self.id = ffi.messageId
         self.conversationId = ffi.conversationId
@@ -373,7 +256,6 @@ struct FfiMessageWrapper: Identifiable {
         self.createdAt = Date(timeIntervalSince1970: TimeInterval(ffi.createdAt) / 1000.0)
         self.status = ffi.status
     }
-    */
 }
 
 /// Swift wrapper for FfiConversation (from UniFFI)
@@ -394,8 +276,6 @@ struct FfiConversationWrapper: Identifiable {
         self.unreadCount = unreadCount
     }
 
-    // TODO: Uncomment after UniFFI bindings are generated
-    /*
     init(ffi: FfiConversation) {
         self.id = ffi.id
         self.peerId = ffi.peerId
@@ -404,7 +284,6 @@ struct FfiConversationWrapper: Identifiable {
         self.lastMessageAt = ffi.lastMessageAt.map { Date(timeIntervalSince1970: TimeInterval($0) / 1000.0) }
         self.unreadCount = Int(ffi.unreadCount)
     }
-    */
 }
 
 /// Swift wrapper for FfiGroup (from UniFFI)
@@ -429,8 +308,6 @@ struct FfiGroupWrapper: Identifiable {
         self.createdAt = createdAt
     }
 
-    // TODO: Uncomment after UniFFI bindings are generated
-    /*
     init(ffi: FfiGroup) {
         self.id = ffi.id
         self.name = ffi.name
@@ -441,7 +318,6 @@ struct FfiGroupWrapper: Identifiable {
         self.isAdmin = ffi.isAdmin
         self.createdAt = Date(timeIntervalSince1970: TimeInterval(ffi.createdAt))
     }
-    */
 }
 
 // MARK: - Errors
