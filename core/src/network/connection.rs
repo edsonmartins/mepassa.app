@@ -142,8 +142,9 @@ impl ConnectionStrategy {
             }
             _ => {
                 // Start fresh with direct connection
+                // attempt starts at 1 since we're recording the first failure
                 self.state = ConnectionState::AttemptingDirect {
-                    attempt: 0,
+                    attempt: 1,
                     started: Instant::now(),
                 };
             }
