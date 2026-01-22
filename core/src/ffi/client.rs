@@ -809,6 +809,86 @@ impl MePassaClient {
         })?
     }
 
+    // ========== VoIP Method Stubs (when feature is disabled) ==========
+
+    #[cfg(not(feature = "voip"))]
+    /// Start a voice call (stub - VoIP feature disabled)
+    pub async fn start_call(&self, _to_peer_id: String) -> Result<String, MePassaFfiError> {
+        Err(MePassaFfiError::Other {
+            message: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
+        })
+    }
+
+    #[cfg(not(feature = "voip"))]
+    /// Accept an incoming call (stub - VoIP feature disabled)
+    pub async fn accept_call(&self, _call_id: String) -> Result<(), MePassaFfiError> {
+        Err(MePassaFfiError::Other {
+            message: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
+        })
+    }
+
+    #[cfg(not(feature = "voip"))]
+    /// Reject an incoming call (stub - VoIP feature disabled)
+    pub async fn reject_call(&self, _call_id: String, _reason: Option<String>) -> Result<(), MePassaFfiError> {
+        Err(MePassaFfiError::Other {
+            message: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
+        })
+    }
+
+    #[cfg(not(feature = "voip"))]
+    /// Hang up an active call (stub - VoIP feature disabled)
+    pub async fn hangup_call(&self, _call_id: String) -> Result<(), MePassaFfiError> {
+        Err(MePassaFfiError::Other {
+            message: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
+        })
+    }
+
+    #[cfg(not(feature = "voip"))]
+    /// Toggle audio mute (stub - VoIP feature disabled)
+    pub async fn toggle_mute(&self, _call_id: String) -> Result<(), MePassaFfiError> {
+        Err(MePassaFfiError::Other {
+            message: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
+        })
+    }
+
+    #[cfg(not(feature = "voip"))]
+    /// Toggle speakerphone (stub - VoIP feature disabled)
+    pub async fn toggle_speakerphone(&self, _call_id: String) -> Result<(), MePassaFfiError> {
+        Err(MePassaFfiError::Other {
+            message: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
+        })
+    }
+
+    #[cfg(not(feature = "voip"))]
+    /// Enable video (stub - VoIP feature disabled)
+    pub async fn enable_video(&self, _call_id: String, _codec: types::FfiVideoCodec) -> Result<(), MePassaFfiError> {
+        Err(MePassaFfiError::Other {
+            message: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
+        })
+    }
+
+    #[cfg(not(feature = "voip"))]
+    /// Disable video (stub - VoIP feature disabled)
+    pub async fn disable_video(&self, _call_id: String) -> Result<(), MePassaFfiError> {
+        Err(MePassaFfiError::Other {
+            message: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
+        })
+    }
+
+    #[cfg(not(feature = "voip"))]
+    /// Send video frame (stub - VoIP feature disabled)
+    pub async fn send_video_frame(
+        &self,
+        _call_id: String,
+        _frame_data: Vec<u8>,
+        _width: u32,
+        _height: u32,
+    ) -> Result<(), MePassaFfiError> {
+        Err(MePassaFfiError::Other {
+            message: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
+        })
+    }
+
     // ========== Group Methods (FASE 15) ==========
 
     /// Create a new group

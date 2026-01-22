@@ -167,6 +167,18 @@ pub enum FfiCallState {
     Ended,
 }
 
+/// FFI-safe call state enum (stub when voip feature is disabled)
+#[cfg(not(feature = "voip"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FfiCallState {
+    Initiating,
+    Ringing,
+    Connecting,
+    Active,
+    Ending,
+    Ended,
+}
+
 #[cfg(feature = "voip")]
 impl From<InternalCallState> for FfiCallState {
     fn from(state: InternalCallState) -> Self {
@@ -183,6 +195,14 @@ impl From<InternalCallState> for FfiCallState {
 
 /// FFI-safe call direction enum
 #[cfg(feature = "voip")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FfiCallDirection {
+    Outgoing,
+    Incoming,
+}
+
+/// FFI-safe call direction enum (stub when voip feature is disabled)
+#[cfg(not(feature = "voip"))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FfiCallDirection {
     Outgoing,
@@ -212,6 +232,19 @@ pub enum FfiCallEndReason {
     NetworkError,
 }
 
+/// FFI-safe call end reason enum (stub when voip feature is disabled)
+#[cfg(not(feature = "voip"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FfiCallEndReason {
+    Hangup,
+    Rejected,
+    LocalHangup,
+    RemoteHangup,
+    ConnectionFailed,
+    Timeout,
+    NetworkError,
+}
+
 #[cfg(feature = "voip")]
 impl From<InternalCallEndReason> for FfiCallEndReason {
     fn from(reason: InternalCallEndReason) -> Self {
@@ -229,6 +262,23 @@ impl From<InternalCallEndReason> for FfiCallEndReason {
 
 /// FFI-safe call record
 #[cfg(feature = "voip")]
+#[derive(Debug, Clone)]
+pub struct FfiCall {
+    pub id: String,
+    pub remote_peer_id: String,
+    pub direction: FfiCallDirection,
+    pub state: FfiCallState,
+    pub started_at: i64,
+    pub connected_at: Option<i64>,
+    pub ended_at: Option<i64>,
+    pub audio_muted: bool,
+    pub speakerphone: bool,
+    pub video_enabled: bool,
+    pub video_codec: Option<FfiVideoCodec>,
+}
+
+/// FFI-safe call record (stub when voip feature is disabled)
+#[cfg(not(feature = "voip"))]
 #[derive(Debug, Clone)]
 pub struct FfiCall {
     pub id: String,
@@ -275,6 +325,18 @@ pub struct FfiCallStats {
     pub audio_bitrate_kbps: u32,
 }
 
+/// FFI-safe call statistics (stub when voip feature is disabled)
+#[cfg(not(feature = "voip"))]
+#[derive(Debug, Clone)]
+pub struct FfiCallStats {
+    pub avg_rtt_ms: u32,
+    pub packets_sent: u64,
+    pub packets_received: u64,
+    pub packets_lost: u64,
+    pub jitter_ms: u32,
+    pub audio_bitrate_kbps: u32,
+}
+
 #[cfg(feature = "voip")]
 impl From<CallStats> for FfiCallStats {
     fn from(stats: CallStats) -> Self {
@@ -296,6 +358,15 @@ use crate::voip::VideoCodec as InternalVideoCodec;
 
 /// FFI-safe video codec enum
 #[cfg(feature = "voip")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FfiVideoCodec {
+    H264,
+    VP8,
+    VP9,
+}
+
+/// FFI-safe video codec enum (stub when voip feature is disabled)
+#[cfg(not(feature = "voip"))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FfiVideoCodec {
     H264,
@@ -333,6 +404,14 @@ pub struct FfiVideoResolution {
     pub height: u32,
 }
 
+/// FFI-safe video resolution (stub when voip feature is disabled)
+#[cfg(not(feature = "voip"))]
+#[derive(Debug, Clone, Copy)]
+pub struct FfiVideoResolution {
+    pub width: u32,
+    pub height: u32,
+}
+
 /// FFI-safe camera position enum
 #[cfg(feature = "voip")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -342,8 +421,29 @@ pub enum FfiCameraPosition {
     External,
 }
 
+/// FFI-safe camera position enum (stub when voip feature is disabled)
+#[cfg(not(feature = "voip"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FfiCameraPosition {
+    Front,
+    Back,
+    External,
+}
+
 /// FFI-safe video statistics
 #[cfg(feature = "voip")]
+#[derive(Debug, Clone)]
+pub struct FfiVideoStats {
+    pub resolution: FfiVideoResolution,
+    pub fps: u32,
+    pub bitrate_kbps: u32,
+    pub frames_sent: u64,
+    pub frames_received: u64,
+    pub frames_dropped: u64,
+}
+
+/// FFI-safe video statistics (stub when voip feature is disabled)
+#[cfg(not(feature = "voip"))]
 #[derive(Debug, Clone)]
 pub struct FfiVideoStats {
     pub resolution: FfiVideoResolution,
