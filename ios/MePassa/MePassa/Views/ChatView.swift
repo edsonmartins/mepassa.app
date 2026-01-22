@@ -14,6 +14,10 @@ struct ChatView: View {
     @State private var messageText = ""
     @State private var messages: [Message] = []
 
+    // Image picker state
+    @StateObject private var mediaPickerVM = MediaPickerViewModel()
+    @State private var showingImagePicker = false
+
     var body: some View {
         VStack(spacing: 0) {
             // Messages list
@@ -46,13 +50,26 @@ struct ChatView: View {
 
             Divider()
 
+            // Selected images preview
+            if !mediaPickerVM.selectedImages.isEmpty {
+                SelectedImagesPreview(
+                    selectedImages: mediaPickerVM.selectedImages,
+                    onRemoveImage: { index in
+                        mediaPickerVM.removeImage(at: index)
+                    },
+                    onSendImages: {
+                        mediaPickerVM.uploadImages(to: conversation.id)
+                    }
+                )
+            }
+
             // Message input
             HStack(spacing: 12) {
-                // Attachment button
+                // Image picker button
                 Button(action: {
-                    // TODO: Show media picker
+                    showingImagePicker = true
                 }) {
-                    Image(systemName: "plus.circle.fill")
+                    Image(systemName: "photo.on.rectangle")
                         .font(.title2)
                         .foregroundColor(.blue)
                 }
@@ -84,6 +101,9 @@ struct ChatView: View {
             }
             .padding(.horizontal)
             .padding(.vertical, 8)
+        }
+        .sheet(isPresented: $showingImagePicker) {
+            ImagePicker(selectedImages: $mediaPickerVM.selectedImages, maxSelection: 10)
         }
         .navigationTitle(conversation.displayName)
         .navigationBarTitleDisplayMode(.inline)
