@@ -514,6 +514,42 @@ fun MessageInputBar(
                 enabled = !isSending
             )
 
+            // Video picker button
+            com.mepassa.ui.components.VideoPickerButton(
+                onVideoPicked = { videoInfo ->
+                    scope.launch {
+                        try {
+                            // Read video file data
+                            val inputStream = context.contentResolver.openInputStream(videoInfo.uri)
+                            if (inputStream != null) {
+                                val videoBytes = inputStream.use { it.readBytes() }
+
+                                // Send via FFI
+                                MePassaClientWrapper.client?.sendVideoMessage(
+                                    toPeerId = peerId,
+                                    videoData = videoBytes.toUByteArray().toList(),
+                                    fileName = videoInfo.fileName,
+                                    width = videoInfo.width,
+                                    height = videoInfo.height,
+                                    durationSeconds = videoInfo.durationSeconds,
+                                    thumbnailData = videoInfo.thumbnailData?.toUByteArray()?.toList()
+                                )
+
+                                // Reload messages
+                                messages = MePassaClientWrapper.getConversationMessages(peerId)
+                                if (messages.isNotEmpty()) {
+                                    listState.animateScrollToItem(messages.lastIndex)
+                                }
+                            }
+                        } catch (e: Exception) {
+                            println("Error sending video: ${e.message}")
+                        }
+                    }
+                },
+                enabled = !isSending,
+                context = context
+            )
+
             OutlinedTextField(
                 value = messageInput,
                 onValueChange = onMessageInputChange,
