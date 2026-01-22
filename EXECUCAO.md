@@ -49,7 +49,7 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 | **FASE 11: Server - Message Store** | Rust | 100% | `DONE` | 7/10 | ~900/1.500 | 2026-01-20 |
 | **FASE 12: VOIP - Chamadas** 🔥 | Multi | 95% | `READY_FOR_TEST` | 21/24 | ~4.600/2.500 | 2026-01-20 |
 | **FASE 13: iOS App** | Swift | 100% | `DONE` | 30/30 | ~3.920/4.000 | 2026-01-21 |
-| **FASE 14: Videochamadas** | Multi | 68% | `IN_PROGRESS` | 13/19 | 1.720/2.200 | 2026-01-21 |
+| **FASE 14: Videochamadas** | Multi | 84% | `IN_PROGRESS` | 16/19 | 2.445/2.200 | 2026-01-21 |
 | **FASE 15: Grupos** | Multi | 0% | `TODO` | 0/15 | 0/2.000 | - |
 | **FASE 16: Mídia & Polimento** | Multi | 0% | `TODO` | 0/20 | 0/2.500 | - |
 | **FASE 17: Multi-Device Sync** | Rust | 0% | `TODO` | 0/10 | 0/1.500 | - |
@@ -1873,7 +1873,16 @@ Videochamadas 1:1 (extensão do VoIP).
 - UI: Fullscreen remote + PiP local preview, controles video/mute/camera/hangup
 - Total: 675 linhas adicionadas
 
-**🚧 PRÓXIMO: TRACK 4 - iOS AVFoundation integration**
+**✅ TRACK 4: iOS - AVFoundation + VideoCallScreen (COMPLETO)**
+- Arquivos criados: `CameraManager.swift` (247 LoC), `VideoCallScreen.swift` (304 LoC), `RemoteVideoView.swift` (174 LoC)
+- Info.plist: NSCameraUsageDescription já existia
+- AVFoundation: AVCaptureSession VGA 640x480, YUV420, front/back switch
+- UI: SwiftUI fullscreen remote + PiP local preview, controles video/mute/camera/hangup
+- LocalVideoPreview: UIViewRepresentable wrapper para AVCaptureVideoPreviewLayer
+- RemoteVideoDisplayView: AVSampleBufferDisplayLayer para rendering
+- Total: 725 linhas adicionadas
+
+**🚧 PRÓXIMO: TRACK 5 - Integration Testing (Android ↔ iOS video calls)**
 
 ### Tarefas
 
@@ -1896,10 +1905,10 @@ Videochamadas 1:1 (extensão do VoIP).
 | 14.3.4 | Criar VideoCallScreen.kt (UI) | `DONE` | Claude | 2026-01-21 | 2026-01-21 | 2026-01-21 | 14.3.3 |
 | 14.3.5 | Criar RemoteVideoView.kt (rendering) | `DONE` | Claude | 2026-01-21 | 2026-01-21 | 2026-01-21 | 14.3.4 |
 | **14.4 - iOS (TRACK 4)** ||||||||
-| 14.4.1 | Adicionar NSCameraUsageDescription (Info.plist) | `TODO` | - | - | - | - | 14.2.3 |
-| 14.4.2 | Criar CameraManager.swift (AVFoundation) | `TODO` | - | - | - | - | 14.4.1 |
-| 14.4.3 | Criar VideoCallScreen.swift (UI) | `TODO` | - | - | - | - | 14.4.2 |
-| 14.4.4 | Criar RemoteVideoView.swift (AVSampleBufferDisplayLayer) | `TODO` | - | - | - | - | 14.4.3 |
+| 14.4.1 | Adicionar NSCameraUsageDescription (Info.plist) | `DONE` | Claude | 2026-01-21 | 2026-01-21 | 2026-01-21 | 14.2.3 |
+| 14.4.2 | Criar CameraManager.swift (AVFoundation) | `DONE` | Claude | 2026-01-21 | 2026-01-21 | 2026-01-21 | 14.4.1 |
+| 14.4.3 | Criar VideoCallScreen.swift (UI) | `DONE` | Claude | 2026-01-21 | 2026-01-21 | 2026-01-21 | 14.4.2 |
+| 14.4.4 | Criar RemoteVideoView.swift (AVSampleBufferDisplayLayer) | `DONE` | Claude | 2026-01-21 | 2026-01-21 | 2026-01-21 | 14.4.3 |
 | **14.5 - Testing (TRACK 5)** ||||||||
 | 14.5.1 | Testar Android ↔ iOS video call | `TODO` | - | - | - | - | 14.3.5, 14.4.4 |
 | 14.5.2 | Testar video toggle mid-call | `TODO` | - | - | - | - | 14.5.1 |
@@ -1918,13 +1927,18 @@ Videochamadas 1:1 (extensão do VoIP).
 - ✅ Modificado: `core/src/voip/manager.rs` - enable_video(), disable_video(), eventos VideoEnabled/VideoDisabled
 - ✅ Modificado: `core/src/voip/mod.rs` - re-exports
 
-**Arquivos Pendentes (TRACK 2-4):**
-- FFI: `core/src/ffi/types.rs`, `core/src/ffi/client.rs`
-- Android: `CameraManager.kt`, `VideoCallScreen.kt`, `RemoteVideoView.kt`
-- iOS: `CameraManager.swift`, `VideoCallScreen.swift`, `RemoteVideoView.swift`
+**Arquivos Criados (TRACK 4 - iOS):**
+- ✅ `ios/MePassa/MePassa/VoIP/CameraManager.swift` (247 linhas) - AVFoundation camera capture
+- ✅ `ios/MePassa/MePassa/Views/VideoCallScreen.swift` (304 linhas) - SwiftUI video call UI
+- ✅ `ios/MePassa/MePassa/Views/RemoteVideoView.swift` (174 linhas) - Remote video rendering
+
+**Arquivos Pendentes (TRACK 5 - Testing):**
+- Integration tests: Android ↔ iOS video call
+- Video toggle mid-call testing
+- Camera switch testing
 
 **LoC Total Estimado:** ~2.200
-**LoC Completado:** 786 (36%)
+**LoC Completado:** 2.445 (111% - excedeu estimativa)
 
 ---
 
