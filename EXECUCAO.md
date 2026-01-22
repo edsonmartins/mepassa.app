@@ -49,7 +49,7 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 | **FASE 11: Server - Message Store** | Rust | 100% | `DONE` | 7/10 | ~900/1.500 | 2026-01-20 |
 | **FASE 12: VOIP - Chamadas** 🔥 | Multi | 95% | `READY_FOR_TEST` | 21/24 | ~4.600/2.500 | 2026-01-20 |
 | **FASE 13: iOS App** | Swift | 100% | `DONE` | 30/30 | ~3.920/4.000 | 2026-01-21 |
-| **FASE 14: Videochamadas** | Multi | 84% | `IN_PROGRESS` | 16/19 | 2.445/2.200 | 2026-01-21 |
+| **FASE 14: Videochamadas** | Multi | 95% | `READY_FOR_TEST` | 19/19 | 2.530/2.200 | 2026-01-22 |
 | **FASE 15: Grupos** | Multi | 100% | `DONE` | 13/15 | ~4.300/2.000 | 2026-01-22 |
 | **FASE 16: Mídia & Polimento** | Multi | 0% | `TODO` | 0/20 | 0/2.500 | - |
 | **FASE 17: Multi-Device Sync** | Rust | 0% | `TODO` | 0/10 | 0/1.500 | - |
@@ -81,7 +81,7 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 15. **FASE 15:** 👥 Grupos (100%) ✅ **← FINALIZADA HOJE**
 
 **🚧 EM PROGRESSO:**
-- **FASE 14:** 📹 Videochamadas (25% - TRACK 1 Core completo, iniciando TRACK 2 FFI)
+- **FASE 14:** 📹 Videochamadas (95% - TRACK 1-4 completos, falta apenas TRACK 5 testes)
 
 **✅ PRONTO PARA TESTES:**
 - **FASE 12:** 🔥 VoIP - Chamadas de Voz (95% - MVP COMPLETO, aguardando testes físicos)
