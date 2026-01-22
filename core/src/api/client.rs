@@ -347,6 +347,59 @@ impl Client {
             .map_err(|e| MePassaError::Storage(e.to_string()))
     }
 
+    // ═════════════════════════════════════════════════════════════════════
+    // Message Actions (Delete & Forward)
+    // ═════════════════════════════════════════════════════════════════════
+
+    /// Delete message (soft delete - marks as deleted locally)
+    pub fn delete_message(&self, message_id: &str) -> Result<()> {
+        self.database
+            .delete_message(message_id)
+            .map_err(|e| MePassaError::Storage(e.to_string()))
+    }
+
+    /// Forward message to another peer/group
+    pub async fn forward_message(
+        &self,
+        message_id: &str,
+        to_peer_id: PeerId,
+    ) -> Result<String> {
+        // Get original message
+        let original_msg = self
+            .database
+            .get_message(message_id)
+            .map_err(|e| MePassaError::Storage(e.to_string()))?;
+
+        // Create new message with forwarded content
+        let new_message_id = uuid::Uuid::new_v4().to_string();
+        let conversation_id = self.database.get_or_create_conversation(&to_peer_id.to_string())?;
+
+        let forwarded_content = format!(
+            "Forwarded: {}",
+            original_msg.content_plaintext.unwrap_or_default()
+        );
+
+        let new_msg = crate::storage::NewMessage {
+            message_id: new_message_id.clone(),
+            conversation_id,
+            sender_peer_id: self.local_peer_id().to_string(),
+            recipient_peer_id: Some(to_peer_id.to_string()),
+            message_type: original_msg.message_type.clone(),
+            content_encrypted: None,
+            content_plaintext: Some(forwarded_content),
+            status: crate::storage::MessageStatus::Sent,
+            parent_message_id: Some(original_msg.message_id.clone()),
+        };
+
+        self.database
+            .insert_message(&new_msg)
+            .map_err(|e| MePassaError::Storage(e.to_string()))?;
+
+        // TODO: Send forwarded message via network
+
+        Ok(new_message_id)
+    }
+
     /// List all conversations
     pub fn list_conversations(&self) -> Result<Vec<crate::storage::Conversation>> {
         self.database

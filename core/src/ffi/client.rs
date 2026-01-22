@@ -184,6 +184,16 @@ enum ClientCommand {
         limit: Option<u32>,
         response: oneshot::Sender<Result<Vec<types::FfiMedia>, MePassaFfiError>>,
     },
+    // Message action commands (FASE 16 - Forward & Delete)
+    DeleteMessage {
+        message_id: String,
+        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+    },
+    ForwardMessage {
+        message_id: String,
+        to_peer_id: String,
+        response: oneshot::Sender<Result<String, MePassaFfiError>>,
+    },
 }
 
 /// Run the client task (processes commands)
@@ -476,6 +486,37 @@ async fn run_client_task(mut receiver: mpsc::UnboundedReceiver<ClientCommand>, c
                     .map(|media_vec| {
                         media_vec.into_iter().map(|m| m.into()).collect()
                     })
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            // Message action handlers (FASE 16 - Forward & Delete)
+            ClientCommand::DeleteMessage {
+                message_id,
+                response,
+            } => {
+                let result = client
+                    .delete_message(&message_id)
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            ClientCommand::ForwardMessage {
+                message_id,
+                to_peer_id,
+                response,
+            } => {
+                let to: libp2p::PeerId = match to_peer_id.parse() {
+                    Ok(peer_id) => peer_id,
+                    Err(_) => {
+                        let _ = response.send(Err(MePassaFfiError::Network {
+                            message: "Invalid peer ID".to_string(),
+                        }));
+                        continue;
+                    }
+                };
+
+                let result = client
+                    .forward_message(&message_id, to)
+                    .await
                     .map_err(|e| e.into());
                 let _ = response.send(result);
             }
@@ -1257,6 +1298,51 @@ impl MePassaClient {
             })?;
 
         rx.blocking_recv().map_err(|_| MePassaFfiError::Other {
+            message: "Failed to receive response".to_string(),
+        })?
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    // Message Actions (FASE 16 - Forward & Delete)
+    // ═════════════════════════════════════════════════════════════════════
+
+    /// Delete message (soft delete - marks as deleted locally)
+    pub fn delete_message(&self, message_id: String) -> Result<(), MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::DeleteMessage {
+                message_id,
+                response: tx,
+            })
+            .map_err(|_| MePassaFfiError::Other {
+                message: "Failed to send command".to_string(),
+            })?;
+
+        rx.blocking_recv().map_err(|_| MePassaFfiError::Other {
+            message: "Failed to receive response".to_string(),
+        })?
+    }
+
+    /// Forward message to another peer/group
+    pub async fn forward_message(
+        &self,
+        message_id: String,
+        to_peer_id: String,
+    ) -> Result<String, MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::ForwardMessage {
+                message_id,
+                to_peer_id,
+                response: tx,
+            })
+            .map_err(|_| MePassaFfiError::Other {
+                message: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| MePassaFfiError::Other {
             message: "Failed to receive response".to_string(),
         })?
     }

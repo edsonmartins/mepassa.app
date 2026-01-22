@@ -265,4 +265,11 @@ interface MePassaClient {
 
     [Throws=MePassaFfiError]
     sequence<FfiMedia> get_conversation_media(string conversation_id, FfiMediaType? media_type, u32? limit);
+
+    // Message actions (FASE 16 - Forward & Delete)
+    [Throws=MePassaFfiError]
+    void delete_message(string message_id);
+
+    [Throws=MePassaFfiError, Async]
+    string forward_message(string message_id, string to_peer_id);
 };
