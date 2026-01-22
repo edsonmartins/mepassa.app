@@ -400,6 +400,58 @@ impl Client {
         Ok(new_message_id)
     }
 
+    // ═════════════════════════════════════════════════════════════════════
+    // Message Reactions (FASE 16 - TRACK 8)
+    // ═════════════════════════════════════════════════════════════════════
+
+    /// Add a reaction to a message
+    pub fn add_reaction(&self, message_id: &str, emoji: &str) -> Result<()> {
+        let reaction_id = uuid::Uuid::new_v4().to_string();
+        let peer_id = self.local_peer_id().to_string();
+
+        let new_reaction = crate::storage::NewReaction {
+            reaction_id,
+            message_id: message_id.to_string(),
+            peer_id,
+            emoji: emoji.to_string(),
+        };
+
+        self.database
+            .add_reaction(&new_reaction)
+            .map_err(|e| MePassaError::Storage(e.to_string()))?;
+
+        // TODO: Broadcast reaction to other peers via P2P
+
+        Ok(())
+    }
+
+    /// Remove a reaction from a message
+    pub fn remove_reaction(&self, message_id: &str, emoji: &str) -> Result<()> {
+        let peer_id = self.local_peer_id().to_string();
+
+        self.database
+            .remove_reaction(message_id, &peer_id, emoji)
+            .map_err(|e| MePassaError::Storage(e.to_string()))?;
+
+        // TODO: Broadcast reaction removal to other peers via P2P
+
+        Ok(())
+    }
+
+    /// Get all reactions for a message
+    pub fn get_message_reactions(&self, message_id: &str) -> Result<Vec<crate::storage::Reaction>> {
+        self.database
+            .get_message_reactions(message_id)
+            .map_err(|e| MePassaError::Storage(e.to_string()))
+    }
+
+    /// Get aggregated reaction counts for a message
+    pub fn get_message_reaction_counts(&self, message_id: &str) -> Result<Vec<(String, u32)>> {
+        self.database
+            .get_message_reaction_counts(message_id)
+            .map_err(|e| MePassaError::Storage(e.to_string()))
+    }
+
     /// List all conversations
     pub fn list_conversations(&self) -> Result<Vec<crate::storage::Conversation>> {
         self.database

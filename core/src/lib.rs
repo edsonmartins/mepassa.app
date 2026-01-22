@@ -28,7 +28,7 @@ pub use identity::{Identity, Keypair, PublicKey};
 
 // Re-export FFI types (required by UniFFI scaffolding)
 pub use ffi::{
-    FfiConversation, FfiGroup, FfiMedia, FfiMediaType, FfiMessage, MePassaClient,
+    FfiConversation, FfiGroup, FfiMedia, FfiMediaType, FfiMessage, FfiReaction, MePassaClient,
     MePassaFfiError, MessageStatus,
 };
 

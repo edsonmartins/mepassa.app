@@ -5,7 +5,7 @@
 use super::{Database, Result};
 
 /// Current schema version
-pub const SCHEMA_VERSION: i32 = 2;
+pub const SCHEMA_VERSION: i32 = 3;
 
 /// Initialize database schema (version 1)
 pub fn init_schema(db: &Database) -> Result<()> {
@@ -162,6 +162,22 @@ pub fn init_schema(db: &Database) -> Result<()> {
         CREATE INDEX IF NOT EXISTS idx_call_history_peer ON call_history(peer_id, started_at DESC);
         CREATE INDEX IF NOT EXISTS idx_call_history_started ON call_history(started_at DESC);
         CREATE INDEX IF NOT EXISTS idx_call_history_status ON call_history(status);
+
+        -- Message reactions table: emoji reactions on messages (FASE 16)
+        CREATE TABLE IF NOT EXISTS message_reactions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            reaction_id TEXT NOT NULL UNIQUE,
+            message_id TEXT NOT NULL,
+            peer_id TEXT NOT NULL,
+            emoji TEXT NOT NULL,
+            created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+            UNIQUE(message_id, peer_id, emoji),
+            FOREIGN KEY (message_id) REFERENCES messages(message_id),
+            FOREIGN KEY (peer_id) REFERENCES contacts(peer_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_reactions_message ON message_reactions(message_id);
+        CREATE INDEX IF NOT EXISTS idx_reactions_peer ON message_reactions(peer_id);
         "#,
     )?;
 

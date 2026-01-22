@@ -167,6 +167,15 @@ dictionary FfiMedia {
     i64 created_at;
 };
 
+// Message reaction (FASE 16 - TRACK 8)
+dictionary FfiReaction {
+    string reaction_id;
+    string message_id;
+    string peer_id;
+    string emoji;
+    i64 created_at;
+};
+
 // Client interface (implemented in Rust)
 interface MePassaClient {
     [Throws=MePassaFfiError]
@@ -272,4 +281,14 @@ interface MePassaClient {
 
     [Throws=MePassaFfiError, Async]
     string forward_message(string message_id, string to_peer_id);
+
+    // Message reactions (FASE 16 - TRACK 8: Reactions)
+    [Throws=MePassaFfiError]
+    void add_reaction(string message_id, string emoji);
+
+    [Throws=MePassaFfiError]
+    void remove_reaction(string message_id, string emoji);
+
+    [Throws=MePassaFfiError]
+    sequence<FfiReaction> get_message_reactions(string message_id);
 };

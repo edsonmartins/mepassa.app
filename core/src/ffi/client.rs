@@ -8,7 +8,9 @@ use std::path::PathBuf;
 use std::sync::OnceLock;
 use tokio::sync::{mpsc, oneshot};
 
-use super::types::{self as types, FfiConversation, FfiGroup, FfiMessage, MePassaFfiError};
+use super::types::{
+    self as types, FfiConversation, FfiGroup, FfiMessage, FfiReaction, MePassaFfiError,
+};
 use crate::api::{Client, ClientBuilder};
 
 use std::thread;
@@ -193,6 +195,21 @@ enum ClientCommand {
         message_id: String,
         to_peer_id: String,
         response: oneshot::Sender<Result<String, MePassaFfiError>>,
+    },
+    // Reaction commands (FASE 16 - TRACK 8)
+    AddReaction {
+        message_id: String,
+        emoji: String,
+        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+    },
+    RemoveReaction {
+        message_id: String,
+        emoji: String,
+        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+    },
+    GetMessageReactions {
+        message_id: String,
+        response: oneshot::Sender<Result<Vec<FfiReaction>, MePassaFfiError>>,
     },
 }
 
@@ -517,6 +534,39 @@ async fn run_client_task(mut receiver: mpsc::UnboundedReceiver<ClientCommand>, c
                 let result = client
                     .forward_message(&message_id, to)
                     .await
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            // Reaction handlers (FASE 16 - TRACK 8)
+            ClientCommand::AddReaction {
+                message_id,
+                emoji,
+                response,
+            } => {
+                let result = client
+                    .add_reaction(&message_id, &emoji)
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            ClientCommand::RemoveReaction {
+                message_id,
+                emoji,
+                response,
+            } => {
+                let result = client
+                    .remove_reaction(&message_id, &emoji)
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            ClientCommand::GetMessageReactions {
+                message_id,
+                response,
+            } => {
+                let result = client
+                    .get_message_reactions(&message_id)
+                    .map(|reactions| {
+                        reactions.into_iter().map(|r| r.into()).collect()
+                    })
                     .map_err(|e| e.into());
                 let _ = response.send(result);
             }
@@ -1343,6 +1393,77 @@ impl MePassaClient {
             })?;
 
         rx.await.map_err(|_| MePassaFfiError::Other {
+            message: "Failed to receive response".to_string(),
+        })?
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    // Message Reactions (FASE 16 - TRACK 8)
+    // ═════════════════════════════════════════════════════════════════════
+
+    /// Add a reaction to a message
+    pub fn add_reaction(
+        &self,
+        message_id: String,
+        emoji: String,
+    ) -> Result<(), MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::AddReaction {
+                message_id,
+                emoji,
+                response: tx,
+            })
+            .map_err(|_| MePassaFfiError::Other {
+                message: "Failed to send command".to_string(),
+            })?;
+
+        rx.blocking_recv().map_err(|_| MePassaFfiError::Other {
+            message: "Failed to receive response".to_string(),
+        })?
+    }
+
+    /// Remove a reaction from a message
+    pub fn remove_reaction(
+        &self,
+        message_id: String,
+        emoji: String,
+    ) -> Result<(), MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::RemoveReaction {
+                message_id,
+                emoji,
+                response: tx,
+            })
+            .map_err(|_| MePassaFfiError::Other {
+                message: "Failed to send command".to_string(),
+            })?;
+
+        rx.blocking_recv().map_err(|_| MePassaFfiError::Other {
+            message: "Failed to receive response".to_string(),
+        })?
+    }
+
+    /// Get all reactions for a message
+    pub fn get_message_reactions(
+        &self,
+        message_id: String,
+    ) -> Result<Vec<FfiReaction>, MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::GetMessageReactions {
+                message_id,
+                response: tx,
+            })
+            .map_err(|_| MePassaFfiError::Other {
+                message: "Failed to send command".to_string(),
+            })?;
+
+        rx.blocking_recv().map_err(|_| MePassaFfiError::Other {
             message: "Failed to receive response".to_string(),
         })?
     }

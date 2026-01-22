@@ -619,3 +619,29 @@ impl From<InternalMedia> for FfiMedia {
         }
     }
 }
+
+// ═════════════════════════════════════════════════════════════════════
+// Message Reactions (FASE 16 - TRACK 8)
+// ═════════════════════════════════════════════════════════════════════
+
+/// FFI-safe reaction record
+#[derive(Debug, Clone)]
+pub struct FfiReaction {
+    pub reaction_id: String,
+    pub message_id: String,
+    pub peer_id: String,
+    pub emoji: String,
+    pub created_at: i64,
+}
+
+impl From<crate::storage::Reaction> for FfiReaction {
+    fn from(reaction: crate::storage::Reaction) -> Self {
+        Self {
+            reaction_id: reaction.reaction_id,
+            message_id: reaction.message_id,
+            peer_id: reaction.peer_id,
+            emoji: reaction.emoji,
+            created_at: reaction.created_at,
+        }
+    }
+}

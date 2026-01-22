@@ -13,11 +13,23 @@ struct Migration {
 }
 
 /// All migrations in order
-const MIGRATIONS: &[Migration] = &[Migration {
-    version: 1,
-    description: "Initial schema with contacts.username support",
-    up: migrate_to_v1,
-}];
+const MIGRATIONS: &[Migration] = &[
+    Migration {
+        version: 1,
+        description: "Initial schema with contacts.username support",
+        up: migrate_to_v1,
+    },
+    Migration {
+        version: 2,
+        description: "Add call_history table for VoIP",
+        up: migrate_to_v2,
+    },
+    Migration {
+        version: 3,
+        description: "Add message_reactions table for emoji reactions",
+        up: migrate_to_v3,
+    },
+];
 
 /// Migrate database to latest version
 pub fn migrate(db: &Database) -> Result<()> {
@@ -80,6 +92,57 @@ fn migrate_to_v1(db: &Database) -> Result<()> {
 
     // Create FTS tables
     init_fts(db)?;
+
+    Ok(())
+}
+
+/// Migration to version 2: Add call_history table
+fn migrate_to_v2(db: &Database) -> Result<()> {
+    db.execute_batch(
+        r#"
+        CREATE TABLE IF NOT EXISTS call_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            call_id TEXT NOT NULL UNIQUE,
+            peer_id TEXT NOT NULL,
+            call_type TEXT NOT NULL DEFAULT 'audio',
+            direction TEXT NOT NULL,
+            status TEXT NOT NULL,
+            started_at INTEGER NOT NULL,
+            ended_at INTEGER,
+            duration_seconds INTEGER,
+            end_reason TEXT,
+            FOREIGN KEY (peer_id) REFERENCES contacts(peer_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_call_history_peer ON call_history(peer_id, started_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_call_history_started ON call_history(started_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_call_history_status ON call_history(status);
+        "#,
+    )?;
+
+    Ok(())
+}
+
+/// Migration to version 3: Add message_reactions table
+fn migrate_to_v3(db: &Database) -> Result<()> {
+    db.execute_batch(
+        r#"
+        CREATE TABLE IF NOT EXISTS message_reactions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            reaction_id TEXT NOT NULL UNIQUE,
+            message_id TEXT NOT NULL,
+            peer_id TEXT NOT NULL,
+            emoji TEXT NOT NULL,
+            created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+            UNIQUE(message_id, peer_id, emoji),
+            FOREIGN KEY (message_id) REFERENCES messages(message_id),
+            FOREIGN KEY (peer_id) REFERENCES contacts(peer_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_reactions_message ON message_reactions(message_id);
+        CREATE INDEX IF NOT EXISTS idx_reactions_peer ON message_reactions(peer_id);
+        "#,
+    )?;
 
     Ok(())
 }
