@@ -28,7 +28,8 @@ pub use identity::{Identity, Keypair, PublicKey};
 
 // Re-export FFI types (required by UniFFI scaffolding)
 pub use ffi::{
-    FfiConversation, FfiGroup, FfiMessage, MePassaClient, MePassaFfiError, MessageStatus,
+    FfiConversation, FfiGroup, FfiMedia, FfiMediaType, FfiMessage, MePassaClient,
+    MePassaFfiError, MessageStatus,
 };
 
 // Re-export VoIP FFI types (always available - stubs when voip feature is disabled)

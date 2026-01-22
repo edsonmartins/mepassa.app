@@ -43,8 +43,8 @@ class MediaPickerViewModel: ObservableObject {
         selectedImages.removeAll()
     }
 
-    /// Upload images to conversation
-    func uploadImages(to conversationId: String) {
+    /// Upload images to peer
+    func uploadImages(to peerId: String, quality: CGFloat = 0.85) {
         guard !selectedImages.isEmpty else { return }
 
         uploadState = .uploading(current: 0, total: selectedImages.count)
@@ -52,7 +52,7 @@ class MediaPickerViewModel: ObservableObject {
         Task {
             do {
                 for (index, image) in selectedImages.enumerated() {
-                    try await uploadSingleImage(image, to: conversationId)
+                    try await uploadSingleImage(image, to: peerId, quality: quality)
 
                     await MainActor.run {
                         uploadState = .uploading(current: index + 1, total: selectedImages.count)
@@ -71,24 +71,28 @@ class MediaPickerViewModel: ObservableObject {
         }
     }
 
-    /// Upload a single image with compression
-    private func uploadSingleImage(_ image: UIImage, to conversationId: String) async throws {
-        // Convert UIImage to JPEG data
-        guard let imageData = image.jpegData(compressionQuality: 0.8) else {
+    /// Upload a single image with compression (via FFI)
+    private func uploadSingleImage(_ image: UIImage, to peerId: String, quality: CGFloat) async throws {
+        // Convert UIImage to JPEG data (pre-compression before FFI)
+        guard let imageData = image.jpegData(compressionQuality: quality) else {
             throw MediaError.compressionFailed
         }
 
-        // TODO: Call FFI method to send media message
-        // For now, just simulate delay
-        try await Task.sleep(nanoseconds: 500_000_000) // 0.5s
+        // Generate unique filename
+        let fileName = "image_\(Int(Date().timeIntervalSince1970)).jpg"
 
-        // In the future:
-        // try await mePassaCore.sendMediaMessage(
-        //     conversationId: conversationId,
-        //     mediaType: "image",
-        //     data: [UInt8](imageData),
-        //     fileName: "image_\(Date().timeIntervalSince1970).jpg"
-        // )
+        // Convert quality to 0-100 scale for FFI
+        let qualityPercent = UInt32(quality * 100)
+
+        // Call FFI method to send image with additional compression in Rust
+        let messageId = try await mePassaCore.sendImageMessage(
+            to: peerId,
+            imageData: imageData,
+            fileName: fileName,
+            quality: qualityPercent
+        )
+
+        print("✅ Image sent successfully: \(messageId)")
     }
 
     /// Reset upload state

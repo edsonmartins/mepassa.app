@@ -142,6 +142,31 @@ dictionary FfiGroup {
     i64 created_at;
 };
 
+// Media types (FASE 16)
+enum FfiMediaType {
+    "Image",
+    "Video",
+    "Audio",
+    "Document",
+    "VoiceMessage",
+};
+
+dictionary FfiMedia {
+    i64 id;
+    string media_hash;
+    string message_id;
+    FfiMediaType media_type;
+    string? file_name;
+    i64? file_size;
+    string? mime_type;
+    string? local_path;
+    string? thumbnail_path;
+    i32? width;
+    i32? height;
+    i32? duration_seconds;
+    i64 created_at;
+};
+
 // Client interface (implemented in Rust)
 interface MePassaClient {
     [Throws=MePassaFfiError]
@@ -227,4 +252,17 @@ interface MePassaClient {
 
     [Throws=MePassaFfiError, Async]
     sequence<FfiGroup> get_groups();
+
+    // Media methods (FASE 16 - Mídia & Polimento)
+    [Throws=MePassaFfiError, Async]
+    string send_image_message(string to_peer_id, sequence<u8> image_data, string file_name, u32 quality);
+
+    [Throws=MePassaFfiError, Async]
+    string send_voice_message(string to_peer_id, sequence<u8> audio_data, string file_name, i32 duration_seconds);
+
+    [Throws=MePassaFfiError, Async]
+    sequence<u8> download_media(string media_hash);
+
+    [Throws=MePassaFfiError]
+    sequence<FfiMedia> get_conversation_media(string conversation_id, FfiMediaType? media_type, u32? limit);
 };

@@ -11,8 +11,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import uniffi.mepassa.MePassaClient
-import java.io.File
-import java.io.FileOutputStream
 
 /**
  * ViewModel for managing media (images) selection and upload
@@ -60,9 +58,9 @@ class MediaPickerViewModel(
     }
 
     /**
-     * Upload selected images to a conversation
+     * Upload selected images to a peer
      */
-    fun uploadImages(conversationId: String) {
+    fun uploadImages(toPeerId: String, quality: UInt = 85u) {
         if (_selectedImages.value.isEmpty()) return
 
         viewModelScope.launch {
@@ -70,7 +68,7 @@ class MediaPickerViewModel(
 
             try {
                 _selectedImages.value.forEachIndexed { index, mediaItem ->
-                    uploadSingleImage(conversationId, mediaItem)
+                    uploadSingleImage(toPeerId, mediaItem, quality)
 
                     _uploadState.value = UploadState.Uploading(
                         current = index + 1,
@@ -87,9 +85,13 @@ class MediaPickerViewModel(
     }
 
     /**
-     * Upload a single image (with compression)
+     * Upload a single image (with compression via FFI)
      */
-    private suspend fun uploadSingleImage(conversationId: String, mediaItem: MediaItem) {
+    private suspend fun uploadSingleImage(
+        toPeerId: String,
+        mediaItem: MediaItem,
+        quality: UInt
+    ) {
         withContext(Dispatchers.IO) {
             // Read image bytes from URI
             val inputStream = context.contentResolver.openInputStream(mediaItem.uri)
@@ -97,20 +99,17 @@ class MediaPickerViewModel(
 
             val imageBytes = inputStream.use { it.readBytes() }
 
-            // TODO: Call FFI method to upload image with compression
-            // For now, just save to temp file
-            val tempFile = File(context.cacheDir, "upload_${System.currentTimeMillis()}.jpg")
-            FileOutputStream(tempFile).use { output ->
-                output.write(imageBytes)
-            }
+            // Call FFI method to send image with compression
+            // The compression happens in the Rust core via compress_image()
+            val messageId = client.sendImageMessage(
+                toPeerId = toPeerId,
+                imageData = imageBytes.toUByteArray().toList(),
+                fileName = mediaItem.fileName ?: "image_${System.currentTimeMillis()}.jpg",
+                quality = quality
+            )
 
-            // In the future:
-            // client.sendMediaMessage(
-            //     conversationId = conversationId,
-            //     mediaType = "image",
-            //     data = imageBytes,
-            //     fileName = mediaItem.fileName
-            // )
+            // Message sent successfully, messageId returned
+            // UI will be updated via message events from the core
         }
     }
 

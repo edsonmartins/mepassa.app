@@ -95,6 +95,32 @@ class MePassaCore: ObservableObject {
         return messageId
     }
 
+    /// Send image message to peer (with compression in Rust core)
+    func sendImageMessage(to peerId: String, imageData: Data, fileName: String, quality: UInt32 = 85) async throws -> String {
+        let imageBytes = [UInt8](imageData)
+        let messageId = try await client?.sendImageMessage(
+            toPeerId: peerId,
+            imageData: imageBytes,
+            fileName: fileName,
+            quality: quality
+        ) ?? ""
+        print("📷 Sent image to \(peerId): \(fileName)")
+        return messageId
+    }
+
+    /// Send voice message to peer
+    func sendVoiceMessage(to peerId: String, audioData: Data, fileName: String, durationSeconds: Int32) async throws -> String {
+        let audioBytes = [UInt8](audioData)
+        let messageId = try await client?.sendVoiceMessage(
+            toPeerId: peerId,
+            audioData: audioBytes,
+            fileName: fileName,
+            durationSeconds: durationSeconds
+        ) ?? ""
+        print("🎤 Sent voice message to \(peerId): \(fileName) (\(durationSeconds)s)")
+        return messageId
+    }
+
     /// Get messages for a conversation
     func getMessages(for peerId: String, limit: Int? = nil) async throws -> [FfiMessageWrapper] {
         let messages = try await client?.getConversationMessages(

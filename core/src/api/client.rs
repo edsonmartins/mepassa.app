@@ -179,6 +179,161 @@ impl Client {
         Ok(message_id)
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Media Methods (FASE 16 - Mídia & Polimento)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// Send an image message with compression
+    pub async fn send_image_message(
+        &self,
+        to: PeerId,
+        image_data: &[u8],
+        file_name: String,
+        quality: u8,
+    ) -> Result<String> {
+        use crate::media::image::compress_image;
+        use sha2::{Digest, Sha256};
+
+        // Compress image
+        let compressed_data = compress_image(image_data, quality)
+            .map_err(|e| MePassaError::Other(format!("Image compression failed: {}", e)))?;
+
+        // Calculate media hash for deduplication
+        let mut hasher = Sha256::new();
+        hasher.update(&compressed_data);
+        let media_hash = format!("{:x}", hasher.finalize());
+
+        // Check if media already exists (deduplication)
+        if let Ok(Some(_existing)) = self.database.get_media_by_hash(&media_hash) {
+            // Media already uploaded, just create message reference
+            // TODO: Create message with existing media reference
+        }
+
+        // Generate message ID
+        let message_id = uuid::Uuid::new_v4().to_string();
+        let timestamp = chrono::Utc::now().timestamp_millis();
+
+        // TODO: Create protocol message with media payload
+        // For now, create placeholder text message
+        // In production, should use MediaMessage payload type
+
+        // Store in database
+        let conversation_id = self.database.get_or_create_conversation(&to.to_string())?;
+        let new_msg = crate::storage::NewMessage {
+            message_id: message_id.clone(),
+            conversation_id: conversation_id.clone(),
+            sender_peer_id: self.local_peer_id().to_string(),
+            recipient_peer_id: Some(to.to_string()),
+            message_type: "image".to_string(),
+            content_encrypted: None,
+            content_plaintext: Some(format!("[Image: {}]", file_name)),
+            status: MessageStatus::Sent,
+            parent_message_id: None,
+        };
+        self.database.insert_message(&new_msg)?;
+
+        // Store media record
+        let new_media = crate::storage::NewMedia {
+            media_hash: media_hash.clone(),
+            message_id: message_id.clone(),
+            media_type: crate::storage::MediaType::Image,
+            file_name: Some(file_name),
+            file_size: Some(compressed_data.len() as i64),
+            mime_type: Some("image/jpeg".to_string()),
+            local_path: None, // TODO: Save to disk
+            thumbnail_path: None,
+            width: None,
+            height: None,
+            duration_seconds: None,
+        };
+        self.database.insert_media(&new_media)?;
+
+        Ok(message_id)
+    }
+
+    /// Send a voice message
+    pub async fn send_voice_message(
+        &self,
+        to: PeerId,
+        audio_data: &[u8],
+        file_name: String,
+        duration_seconds: i32,
+    ) -> Result<String> {
+        use sha2::{Digest, Sha256};
+
+        // Calculate media hash
+        let mut hasher = Sha256::new();
+        hasher.update(audio_data);
+        let media_hash = format!("{:x}", hasher.finalize());
+
+        // Generate message ID
+        let message_id = uuid::Uuid::new_v4().to_string();
+
+        // Store in database
+        let conversation_id = self.database.get_or_create_conversation(&to.to_string())?;
+        let new_msg = crate::storage::NewMessage {
+            message_id: message_id.clone(),
+            conversation_id: conversation_id.clone(),
+            sender_peer_id: self.local_peer_id().to_string(),
+            recipient_peer_id: Some(to.to_string()),
+            message_type: "voice".to_string(),
+            content_encrypted: None,
+            content_plaintext: Some(format!("[Voice: {}s]", duration_seconds)),
+            status: MessageStatus::Sent,
+            parent_message_id: None,
+        };
+        self.database.insert_message(&new_msg)?;
+
+        // Store media record
+        let new_media = crate::storage::NewMedia {
+            media_hash: media_hash.clone(),
+            message_id: message_id.clone(),
+            media_type: crate::storage::MediaType::VoiceMessage,
+            file_name: Some(file_name),
+            file_size: Some(audio_data.len() as i64),
+            mime_type: Some("audio/aac".to_string()),
+            local_path: None, // TODO: Save to disk
+            thumbnail_path: None,
+            width: None,
+            height: None,
+            duration_seconds: Some(duration_seconds),
+        };
+        self.database.insert_media(&new_media)?;
+
+        // TODO: Send via network
+
+        Ok(message_id)
+    }
+
+    /// Download media by hash
+    pub async fn download_media(&self, media_hash: &str) -> Result<Vec<u8>> {
+        // TODO: Implement actual download from peer
+        // For now, read from local storage if available
+        if let Ok(Some(media)) = self.database.get_media_by_hash(media_hash) {
+            if let Some(local_path) = media.local_path {
+                let data = std::fs::read(&local_path)?;
+                return Ok(data);
+            }
+        }
+
+        Err(MePassaError::NotFound(format!(
+            "Media not found: {}",
+            media_hash
+        )))
+    }
+
+    /// Get media for a conversation
+    pub fn get_conversation_media(
+        &self,
+        conversation_id: &str,
+        media_type: Option<crate::storage::MediaType>,
+        limit: Option<usize>,
+    ) -> Result<Vec<crate::storage::Media>> {
+        self.database
+            .get_conversation_media(conversation_id, media_type, limit)
+            .map_err(|e| MePassaError::Storage(e.to_string()))
+    }
+
     /// Get messages for a conversation
     pub fn get_conversation_messages(
         &self,

@@ -541,3 +541,81 @@ impl From<FfiGroupRole> for InternalGroupRole {
         }
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Media types (FASE 16 - Mídia & Polimento)
+// ═══════════════════════════════════════════════════════════════════════════
+
+use crate::storage::{Media as InternalMedia, MediaType as InternalMediaType};
+
+/// FFI-safe media type enum
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FfiMediaType {
+    Image,
+    Video,
+    Audio,
+    Document,
+    VoiceMessage,
+}
+
+impl From<InternalMediaType> for FfiMediaType {
+    fn from(media_type: InternalMediaType) -> Self {
+        match media_type {
+            InternalMediaType::Image => FfiMediaType::Image,
+            InternalMediaType::Video => FfiMediaType::Video,
+            InternalMediaType::Audio => FfiMediaType::Audio,
+            InternalMediaType::Document => FfiMediaType::Document,
+            InternalMediaType::VoiceMessage => FfiMediaType::VoiceMessage,
+        }
+    }
+}
+
+impl From<FfiMediaType> for InternalMediaType {
+    fn from(media_type: FfiMediaType) -> Self {
+        match media_type {
+            FfiMediaType::Image => InternalMediaType::Image,
+            FfiMediaType::Video => InternalMediaType::Video,
+            FfiMediaType::Audio => InternalMediaType::Audio,
+            FfiMediaType::Document => InternalMediaType::Document,
+            FfiMediaType::VoiceMessage => InternalMediaType::VoiceMessage,
+        }
+    }
+}
+
+/// FFI-safe media record
+#[derive(Debug, Clone)]
+pub struct FfiMedia {
+    pub id: i64,
+    pub media_hash: String,
+    pub message_id: String,
+    pub media_type: FfiMediaType,
+    pub file_name: Option<String>,
+    pub file_size: Option<i64>,
+    pub mime_type: Option<String>,
+    pub local_path: Option<String>,
+    pub thumbnail_path: Option<String>,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+    pub duration_seconds: Option<i32>,
+    pub created_at: i64,
+}
+
+impl From<InternalMedia> for FfiMedia {
+    fn from(media: InternalMedia) -> Self {
+        Self {
+            id: media.id,
+            media_hash: media.media_hash,
+            message_id: media.message_id,
+            media_type: media.media_type.into(),
+            file_name: media.file_name,
+            file_size: media.file_size,
+            mime_type: media.mime_type,
+            local_path: media.local_path,
+            thumbnail_path: media.thumbnail_path,
+            width: media.width,
+            height: media.height,
+            duration_seconds: media.duration_seconds,
+            created_at: media.created_at,
+        }
+    }
+}

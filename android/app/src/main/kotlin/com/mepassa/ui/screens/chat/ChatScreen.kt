@@ -143,10 +143,37 @@ fun ChatScreen(
                             selectedImages = selectedImages.filterNot { it == uri }
                         },
                         onSendImages = {
-                            // TODO: Implement image sending
                             scope.launch {
-                                // For now, just clear selection
-                                selectedImages = emptyList()
+                                try {
+                                    // Send each selected image via FFI
+                                    selectedImages.forEach { uri ->
+                                        val inputStream = context.contentResolver.openInputStream(uri)
+                                        if (inputStream != null) {
+                                            val imageBytes = inputStream.use { it.readBytes() }
+                                            val fileName = uri.lastPathSegment ?: "image_${System.currentTimeMillis()}.jpg"
+
+                                            // Call FFI to send image with compression
+                                            MePassaClientWrapper.client?.sendImageMessage(
+                                                toPeerId = peerId,
+                                                imageData = imageBytes.toUByteArray().toList(),
+                                                fileName = fileName,
+                                                quality = 85u
+                                            )
+                                        }
+                                    }
+
+                                    // Clear selection after sending
+                                    selectedImages = emptyList()
+
+                                    // Reload messages to show sent images
+                                    messages = MePassaClientWrapper.getConversationMessages(peerId)
+                                    if (messages.isNotEmpty()) {
+                                        listState.animateScrollToItem(messages.lastIndex)
+                                    }
+                                } catch (e: Exception) {
+                                    // TODO: Show error to user
+                                    println("Error sending images: ${e.message}")
+                                }
                             }
                         }
                     )
@@ -180,10 +207,29 @@ fun ChatScreen(
                         selectedImages = selectedImages + uris
                     },
                     onVoiceMessageRecorded = { audioFile ->
-                        // TODO: Send voice message via FFI
                         scope.launch {
-                            // For now, just show a placeholder
-                            println("Voice message recorded: ${audioFile.absolutePath}")
+                            try {
+                                // Read audio file bytes
+                                val audioBytes = audioFile.readBytes()
+                                val durationSeconds = (audioFile.length() / 16000).toInt() // Rough estimate
+
+                                // Call FFI to send voice message
+                                MePassaClientWrapper.client?.sendVoiceMessage(
+                                    toPeerId = peerId,
+                                    audioData = audioBytes.toUByteArray().toList(),
+                                    fileName = audioFile.name,
+                                    durationSeconds = durationSeconds
+                                )
+
+                                // Reload messages to show sent voice message
+                                messages = MePassaClientWrapper.getConversationMessages(peerId)
+                                if (messages.isNotEmpty()) {
+                                    listState.animateScrollToItem(messages.lastIndex)
+                                }
+                            } catch (e: Exception) {
+                                // TODO: Show error to user
+                                println("Error sending voice message: ${e.message}")
+                            }
                         }
                     },
                     voiceRecorderViewModel = voiceRecorderViewModel,

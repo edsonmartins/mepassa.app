@@ -61,7 +61,8 @@ struct ChatView: View {
                         mediaPickerVM.removeImage(at: index)
                     },
                     onSendImages: {
-                        mediaPickerVM.uploadImages(to: conversation.id)
+                        // Send images via FFI with compression
+                        mediaPickerVM.uploadImages(to: conversation.peerId, quality: 0.85)
                     }
                 )
             }
@@ -90,8 +91,31 @@ struct ChatView: View {
                     VoiceRecordButton(
                         viewModel: voiceRecorderVM,
                         onVoiceMessageRecorded: { audioURL in
-                            // TODO: Send voice message via FFI
-                            print("Voice message recorded: \(audioURL)")
+                            Task {
+                                do {
+                                    // Read audio file data
+                                    let audioData = try Data(contentsOf: audioURL)
+
+                                    // Get file name and estimate duration
+                                    let fileName = audioURL.lastPathComponent
+                                    let durationSeconds = Int32(voiceRecorderVM.recordingDuration)
+
+                                    // Send via FFI
+                                    let messageId = try await MePassaCore.shared.sendVoiceMessage(
+                                        to: conversation.peerId,
+                                        audioData: audioData,
+                                        fileName: fileName,
+                                        durationSeconds: durationSeconds
+                                    )
+
+                                    print("✅ Voice message sent: \(messageId)")
+
+                                    // Reload messages
+                                    loadMessages()
+                                } catch {
+                                    print("❌ Error sending voice message: \(error)")
+                                }
+                            }
                         }
                     )
                 } else {

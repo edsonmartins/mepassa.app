@@ -159,6 +159,31 @@ enum ClientCommand {
     GetGroups {
         response: oneshot::Sender<Result<Vec<FfiGroup>, MePassaFfiError>>,
     },
+    // Media commands (FASE 16 - Mídia & Polimento)
+    SendImageMessage {
+        to_peer_id: String,
+        image_data: Vec<u8>,
+        file_name: String,
+        quality: u8,
+        response: oneshot::Sender<Result<String, MePassaFfiError>>,
+    },
+    SendVoiceMessage {
+        to_peer_id: String,
+        audio_data: Vec<u8>,
+        file_name: String,
+        duration_seconds: i32,
+        response: oneshot::Sender<Result<String, MePassaFfiError>>,
+    },
+    DownloadMedia {
+        media_hash: String,
+        response: oneshot::Sender<Result<Vec<u8>, MePassaFfiError>>,
+    },
+    GetConversationMedia {
+        conversation_id: String,
+        media_type: Option<types::FfiMediaType>,
+        limit: Option<u32>,
+        response: oneshot::Sender<Result<Vec<types::FfiMedia>, MePassaFfiError>>,
+    },
 }
 
 /// Run the client task (processes commands)
@@ -375,6 +400,82 @@ async fn run_client_task(mut receiver: mpsc::UnboundedReceiver<ClientCommand>, c
                 let result = client
                     .get_groups()
                     .await
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            // Media command handlers (FASE 16)
+            ClientCommand::SendImageMessage {
+                to_peer_id,
+                image_data,
+                file_name,
+                quality,
+                response,
+            } => {
+                let to: libp2p::PeerId = match to_peer_id.parse() {
+                    Ok(peer_id) => peer_id,
+                    Err(_) => {
+                        let _ = response.send(Err(MePassaFfiError::Network {
+                            message: "Invalid peer ID".to_string(),
+                        }));
+                        continue;
+                    }
+                };
+
+                let result = client
+                    .send_image_message(to, &image_data, file_name, quality)
+                    .await
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            ClientCommand::SendVoiceMessage {
+                to_peer_id,
+                audio_data,
+                file_name,
+                duration_seconds,
+                response,
+            } => {
+                let to: libp2p::PeerId = match to_peer_id.parse() {
+                    Ok(peer_id) => peer_id,
+                    Err(_) => {
+                        let _ = response.send(Err(MePassaFfiError::Network {
+                            message: "Invalid peer ID".to_string(),
+                        }));
+                        continue;
+                    }
+                };
+
+                let result = client
+                    .send_voice_message(to, &audio_data, file_name, duration_seconds)
+                    .await
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            ClientCommand::DownloadMedia {
+                media_hash,
+                response,
+            } => {
+                let result = client
+                    .download_media(&media_hash)
+                    .await
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            ClientCommand::GetConversationMedia {
+                conversation_id,
+                media_type,
+                limit,
+                response,
+            } => {
+                let internal_media_type = media_type.map(|mt| mt.into());
+                let result = client
+                    .get_conversation_media(
+                        &conversation_id,
+                        internal_media_type,
+                        limit.map(|l| l as usize),
+                    )
+                    .map(|media_vec| {
+                        media_vec.into_iter().map(|m| m.into()).collect()
+                    })
                     .map_err(|e| e.into());
                 let _ = response.send(result);
             }
@@ -1055,6 +1156,107 @@ impl MePassaClient {
             })?;
 
         rx.await.map_err(|_| MePassaFfiError::Other {
+            message: "Failed to receive response".to_string(),
+        })?
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    // Media Methods (FASE 16 - Mídia & Polimento)
+    // ═════════════════════════════════════════════════════════════════════
+
+    /// Send an image message with compression
+    pub async fn send_image_message(
+        &self,
+        to_peer_id: String,
+        image_data: Vec<u8>,
+        file_name: String,
+        quality: u32,
+    ) -> Result<String, MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::SendImageMessage {
+                to_peer_id,
+                image_data,
+                file_name,
+                quality: quality as u8,
+                response: tx,
+            })
+            .map_err(|_| MePassaFfiError::Other {
+                message: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| MePassaFfiError::Other {
+            message: "Failed to receive response".to_string(),
+        })?
+    }
+
+    /// Send a voice message
+    pub async fn send_voice_message(
+        &self,
+        to_peer_id: String,
+        audio_data: Vec<u8>,
+        file_name: String,
+        duration_seconds: i32,
+    ) -> Result<String, MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::SendVoiceMessage {
+                to_peer_id,
+                audio_data,
+                file_name,
+                duration_seconds,
+                response: tx,
+            })
+            .map_err(|_| MePassaFfiError::Other {
+                message: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| MePassaFfiError::Other {
+            message: "Failed to receive response".to_string(),
+        })?
+    }
+
+    /// Download media by hash
+    pub async fn download_media(&self, media_hash: String) -> Result<Vec<u8>, MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::DownloadMedia {
+                media_hash,
+                response: tx,
+            })
+            .map_err(|_| MePassaFfiError::Other {
+                message: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| MePassaFfiError::Other {
+            message: "Failed to receive response".to_string(),
+        })?
+    }
+
+    /// Get media for a conversation
+    pub fn get_conversation_media(
+        &self,
+        conversation_id: String,
+        media_type: Option<types::FfiMediaType>,
+        limit: Option<u32>,
+    ) -> Result<Vec<types::FfiMedia>, MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::GetConversationMedia {
+                conversation_id,
+                media_type,
+                limit,
+                response: tx,
+            })
+            .map_err(|_| MePassaFfiError::Other {
+                message: "Failed to send command".to_string(),
+            })?;
+
+        rx.blocking_recv().map_err(|_| MePassaFfiError::Other {
             message: "Failed to receive response".to_string(),
         })?
     }
