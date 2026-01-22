@@ -35,6 +35,7 @@ pub use ffi::{
 pub mod api;
 pub mod crypto;
 pub mod ffi;
+pub mod group;
 pub mod identity;
 pub mod identity_client;
 pub mod network;

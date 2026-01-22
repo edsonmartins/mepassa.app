@@ -43,6 +43,15 @@ impl From<crate::utils::error::MePassaError> for MePassaFfiError {
             crate::utils::error::MePassaError::Protocol(s) => {
                 MePassaFfiError::Protocol { message: s }
             }
+            crate::utils::error::MePassaError::NotFound(s) => {
+                MePassaFfiError::Other { message: format!("Not found: {}", s) }
+            }
+            crate::utils::error::MePassaError::Permission(s) => {
+                MePassaFfiError::Other { message: format!("Permission denied: {}", s) }
+            }
+            crate::utils::error::MePassaError::AlreadyExists(s) => {
+                MePassaFfiError::Other { message: format!("Already exists: {}", s) }
+            }
             crate::utils::error::MePassaError::Io(e) => MePassaFfiError::Io {
                 message: e.to_string(),
             },

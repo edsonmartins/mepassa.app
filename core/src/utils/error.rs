@@ -24,6 +24,15 @@ pub enum MePassaError {
     #[error("Protocol error: {0}")]
     Protocol(String),
 
+    #[error("Not found: {0}")]
+    NotFound(String),
+
+    #[error("Permission denied: {0}")]
+    Permission(String),
+
+    #[error("Already exists: {0}")]
+    AlreadyExists(String),
+
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
@@ -33,6 +42,12 @@ pub enum MePassaError {
 
 impl From<StorageError> for MePassaError {
     fn from(err: StorageError) -> Self {
+        MePassaError::Storage(err.to_string())
+    }
+}
+
+impl From<rusqlite::Error> for MePassaError {
+    fn from(err: rusqlite::Error) -> Self {
         MePassaError::Storage(err.to_string())
     }
 }
