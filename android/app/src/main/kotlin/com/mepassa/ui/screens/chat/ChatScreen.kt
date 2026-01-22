@@ -471,6 +471,49 @@ fun MessageInputBar(
                 enabled = !isSending
             )
 
+            // File picker button
+            com.mepassa.ui.components.FilePickerButton(
+                onFilePicked = { uri ->
+                    scope.launch {
+                        try {
+                            // Read file data
+                            val inputStream = context.contentResolver.openInputStream(uri)
+                            if (inputStream != null) {
+                                val fileBytes = inputStream.use { it.readBytes() }
+
+                                // Get file info
+                                val cursor = context.contentResolver.query(uri, null, null, null, null)
+                                val fileName = cursor?.use {
+                                    if (it.moveToFirst()) {
+                                        val nameIndex = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                                        if (nameIndex >= 0) it.getString(nameIndex) else "file"
+                                    } else "file"
+                                } ?: "file"
+
+                                val mimeType = context.contentResolver.getType(uri) ?: "application/octet-stream"
+
+                                // Send via FFI
+                                MePassaClientWrapper.client?.sendDocumentMessage(
+                                    toPeerId = peerId,
+                                    fileData = fileBytes.toUByteArray().toList(),
+                                    fileName = fileName,
+                                    mimeType = mimeType
+                                )
+
+                                // Reload messages
+                                messages = MePassaClientWrapper.getConversationMessages(peerId)
+                                if (messages.isNotEmpty()) {
+                                    listState.animateScrollToItem(messages.lastIndex)
+                                }
+                            }
+                        } catch (e: Exception) {
+                            println("Error sending file: ${e.message}")
+                        }
+                    }
+                },
+                enabled = !isSending
+            )
+
             OutlinedTextField(
                 value = messageInput,
                 onValueChange = onMessageInputChange,
