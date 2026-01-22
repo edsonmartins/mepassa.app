@@ -45,7 +45,8 @@
       "Bash(./build-native.sh:*)",
       "Bash(git reset:*)",
       "Bash(test:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(killall cargo)"
     ]
   }
 }

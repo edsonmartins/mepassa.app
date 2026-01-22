@@ -63,6 +63,12 @@ pub fn migrate(db: &Database) -> Result<()> {
         }
     }
 
+    // Ensure version is set to SCHEMA_VERSION even if no migrations ran
+    if db.get_version()? < SCHEMA_VERSION {
+        db.set_version(SCHEMA_VERSION)?;
+        tracing::info!("Set database version to {}", SCHEMA_VERSION);
+    }
+
     tracing::info!("All migrations completed successfully");
     Ok(())
 }
