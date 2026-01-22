@@ -304,8 +304,33 @@ struct ChatView: View {
     }
 
     private func loadMessages() {
-        // TODO: Load messages from storage via UniFFI
-        // For now, show empty state
+        Task {
+            do {
+                let ffiMessages = try await MePassaCore.shared.getConversationMessages(
+                    peerId: conversation.peerId,
+                    limit: 100,
+                    offset: 0
+                )
+
+                let localPeerId = try MePassaCore.shared.localPeerId()
+
+                await MainActor.run {
+                    messages = ffiMessages.map { ffiMsg in
+                        Message(
+                            id: ffiMsg.messageId,
+                            content: ffiMsg.contentPlaintext ?? "",
+                            senderId: ffiMsg.senderPeerId,
+                            timestamp: Date(timeIntervalSince1970: TimeInterval(ffiMsg.createdAt)),
+                            isOutgoing: ffiMsg.senderPeerId == localPeerId,
+                            status: ffiMsg.status,
+                            ffiMessage: ffiMsg
+                        )
+                    }
+                }
+            } catch {
+                print("❌ Error loading messages: \(error)")
+            }
+        }
     }
 
     private func startVoiceCall() {
@@ -423,17 +448,10 @@ struct MessageBubble: View {
                     .foregroundColor(message.isOutgoing ? .white : .primary)
                     .cornerRadius(16)
 
-                HStack(spacing: 4) {
-                    Text(message.timestamp.formatted(date: .omitted, time: .shortened))
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-
-                    if message.isOutgoing {
-                        Image(systemName: message.status.iconName)
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                }
+                MessageStatusIndicator(
+                    message: message.ffiMessage,
+                    isOwnMessage: message.isOutgoing
+                )
             }
 
             if !message.isOutgoing {
@@ -452,6 +470,7 @@ struct Message: Identifiable {
     let timestamp: Date
     let isOutgoing: Bool
     let status: MessageStatus
+    let ffiMessage: FfiMessage  // Keep reference to original FfiMessage
 }
 
 // MessageStatus enum is provided by the Rust FFI bindings (mepassa.swift)

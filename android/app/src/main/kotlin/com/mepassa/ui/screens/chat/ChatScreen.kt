@@ -26,6 +26,7 @@ import com.mepassa.R
 import com.mepassa.core.MePassaClientWrapper
 import com.mepassa.core.VoiceRecorderViewModel
 import com.mepassa.ui.components.ImagePickerButton
+import com.mepassa.ui.components.MessageStatusIndicator
 import com.mepassa.ui.components.SelectedImagesPreview
 import com.mepassa.ui.components.VoiceRecordButton
 import kotlinx.coroutines.launch
@@ -660,10 +661,9 @@ fun MessageBubble(
 
                     Spacer(modifier = Modifier.height(4.dp))
 
-                    Text(
-                        text = formatMessageTime(message.createdAt),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    MessageStatusIndicator(
+                        message = message,
+                        isOwnMessage = isOwnMessage
                     )
                 }
             }
