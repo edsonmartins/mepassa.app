@@ -456,6 +456,56 @@ impl CallManager {
         Ok(())
     }
 
+    /// Toggle mute for an active call
+    pub async fn toggle_mute(&self, call_id: String) -> Result<()> {
+        let mut calls = self.calls.write().await;
+        let call = calls
+            .get_mut(&call_id)
+            .ok_or_else(|| VoipError::InvalidState("Call not found".to_string()))?;
+
+        // Toggle mute state
+        call.toggle_mute();
+        let is_muted = call.audio_muted;
+
+        tracing::info!(
+            "🔇 Audio {} for call: {}",
+            if is_muted { "muted" } else { "unmuted" },
+            call_id
+        );
+
+        // TODO: Actually mute/unmute audio track in WebRTCPeer
+        // For now, this just updates the call state
+        // Real implementation would call peer.mute_audio_track(is_muted)
+
+        Ok(())
+    }
+
+    /// Toggle speakerphone for an active call
+    pub async fn toggle_speakerphone(&self, call_id: String) -> Result<()> {
+        let mut calls = self.calls.write().await;
+        let call = calls
+            .get_mut(&call_id)
+            .ok_or_else(|| VoipError::InvalidState("Call not found".to_string()))?;
+
+        // Toggle speakerphone state
+        call.toggle_speakerphone();
+        let is_speaker = call.speakerphone;
+
+        tracing::info!(
+            "🔊 Speakerphone {} for call: {}",
+            if is_speaker { "enabled" } else { "disabled" },
+            call_id
+        );
+
+        // TODO: Actually switch audio output device
+        // For now, this just updates the call state
+        // Real implementation would:
+        // - On mobile: switch between earpiece and loudspeaker
+        // - On desktop: switch audio output device
+
+        Ok(())
+    }
+
     /// Get current active calls
     pub async fn get_active_calls(&self) -> Vec<String> {
         let calls = self.calls.read().await;

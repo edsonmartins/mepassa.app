@@ -270,17 +270,29 @@ impl Client {
     #[cfg(feature = "voip")]
     /// Toggle audio mute for a call
     pub async fn toggle_mute(&self, call_id: String) -> Result<()> {
-        // TODO: Implement mute toggle in CallManager
-        tracing::info!("Toggle mute for call: {}", call_id);
-        Ok(())
+        let call_manager = self
+            .call_manager
+            .as_ref()
+            .ok_or_else(|| MePassaError::InvalidState("CallManager not initialized".to_string()))?;
+
+        call_manager
+            .toggle_mute(call_id)
+            .await
+            .map_err(|e| MePassaError::Other(format!("VoIP error: {}", e)))
     }
 
     #[cfg(feature = "voip")]
     /// Toggle speakerphone for a call
     pub async fn toggle_speakerphone(&self, call_id: String) -> Result<()> {
-        // TODO: Implement speakerphone toggle in CallManager
-        tracing::info!("Toggle speakerphone for call: {}", call_id);
-        Ok(())
+        let call_manager = self
+            .call_manager
+            .as_ref()
+            .ok_or_else(|| MePassaError::InvalidState("CallManager not initialized".to_string()))?;
+
+        call_manager
+            .toggle_speakerphone(call_id)
+            .await
+            .map_err(|e| MePassaError::Other(format!("VoIP error: {}", e)))
     }
 
     // ========== Video Methods (FASE 14) ==========

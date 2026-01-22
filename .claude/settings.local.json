@@ -38,7 +38,14 @@
       "Bash(pip install:*)",
       "Bash(uniffi-bindgen:*)",
       "Bash(xcodegen generate:*)",
-      "Bash(xcodebuild:*)"
+      "Bash(xcodebuild:*)",
+      "Bash(./ios/generate-bindings.sh:*)",
+      "Bash(./android/generate-bindings.sh:*)",
+      "Bash(./generate-bindings.sh:*)",
+      "Bash(./build-native.sh:*)",
+      "Bash(git reset:*)",
+      "Bash(test:*)",
+      "Bash(git log:*)"
     ]
   }
 }
