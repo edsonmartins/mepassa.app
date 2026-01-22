@@ -6,6 +6,7 @@
 //! For MVP, actual encoding/decoding happens in platform layer (Android MediaCodec,
 //! iOS VideoToolbox) for optimal hardware acceleration.
 
+use super::rtp_video::{RtpDepacketizer, RtpPacket, RtpPacketizer};
 use super::video::*;
 use super::Result;
 use tokio::sync::mpsc;
@@ -18,6 +19,7 @@ pub struct VideoEncoderPipeline {
     config: VideoConfig,
     frame_rx: mpsc::Receiver<VideoFrame>,
     rtp_tx: mpsc::Sender<Vec<u8>>,
+    packetizer: RtpPacketizer,
     running: bool,
 }
 
@@ -28,10 +30,15 @@ impl VideoEncoderPipeline {
         frame_rx: mpsc::Receiver<VideoFrame>,
         rtp_tx: mpsc::Sender<Vec<u8>>,
     ) -> Self {
+        // Generate random SSRC for this stream
+        let ssrc = rand::random();
+        let packetizer = RtpPacketizer::new(ssrc, config.codec);
+
         Self {
             config,
             frame_rx,
             rtp_tx,
+            packetizer,
             running: false,
         }
     }
@@ -51,6 +58,7 @@ impl VideoEncoderPipeline {
         );
 
         let mut frame_count = 0u64;
+        let mut packet_count = 0u64;
 
         while let Some(frame) = self.frame_rx.recv().await {
             if !self.running {
@@ -60,17 +68,37 @@ impl VideoEncoderPipeline {
             // For MVP: assume frame.data is already encoded (H.264 NALUs or VP8 frames)
             // Platform layer (Android MediaCodec / iOS VideoToolbox) does encoding
 
-            // TODO: Add RTP packetization here for large frames
-            // For now, send frame data directly
-            if let Err(e) = self.rtp_tx.send(frame.data).await {
-                tracing::warn!("Failed to send encoded frame to RTP: {}", e);
-                break;
+            // Convert timestamp from microseconds to RTP timestamp (90kHz clock)
+            let rtp_timestamp = ((frame.timestamp_us * 90) / 1000) as u32;
+
+            // Packetize frame into RTP packets
+            let rtp_packets = self.packetizer.packetize(&frame.data, rtp_timestamp);
+
+            tracing::debug!(
+                "📦 Frame {} ({} bytes) packetized into {} RTP packets",
+                frame_count,
+                frame.data.len(),
+                rtp_packets.len()
+            );
+
+            // Send all RTP packets for this frame
+            for packet in rtp_packets {
+                let packet_bytes = packet.to_bytes();
+                if let Err(e) = self.rtp_tx.send(packet_bytes).await {
+                    tracing::warn!("Failed to send RTP packet: {}", e);
+                    break;
+                }
+                packet_count += 1;
             }
 
             frame_count += 1;
 
             if frame_count % 100 == 0 {
-                tracing::debug!("📤 Sent {} video frames", frame_count);
+                tracing::debug!(
+                    "📤 Sent {} video frames ({} RTP packets)",
+                    frame_count,
+                    packet_count
+                );
             }
         }
 
@@ -108,6 +136,7 @@ pub struct VideoDecoderPipeline {
     config: VideoConfig,
     rtp_rx: mpsc::Receiver<Vec<u8>>,
     frame_tx: mpsc::Sender<VideoFrame>,
+    depacketizer: RtpDepacketizer,
     running: bool,
 }
 
@@ -118,10 +147,13 @@ impl VideoDecoderPipeline {
         rtp_rx: mpsc::Receiver<Vec<u8>>,
         frame_tx: mpsc::Sender<VideoFrame>,
     ) -> Self {
+        let depacketizer = RtpDepacketizer::new(config.codec);
+
         Self {
             config,
             rtp_rx,
             frame_tx,
+            depacketizer,
             running: false,
         }
     }
@@ -140,37 +172,67 @@ impl VideoDecoderPipeline {
         );
 
         let mut packet_count = 0u64;
+        let mut frame_count = 0u64;
 
-        while let Some(rtp_packet) = self.rtp_rx.recv().await {
+        while let Some(rtp_packet_bytes) = self.rtp_rx.recv().await {
             if !self.running {
-                break;
-            }
-
-            // For MVP: pass RTP data to platform layer for decoding
-            // Platform will decode (H.264/VP8) and render directly
-
-            // TODO: Add RTP depacketization here
-            // TODO: Handle frame assembly from multiple RTP packets
-            // TODO: Handle packet loss and FEC
-
-            // For now, create VideoFrame with raw data
-            let frame = VideoFrame {
-                data: rtp_packet,
-                width: self.config.resolution.width,
-                height: self.config.resolution.height,
-                timestamp_us: 0, // TODO: extract from RTP timestamp
-                format: PixelFormat::YUV420, // Assume YUV420 for H.264
-            };
-
-            if let Err(e) = self.frame_tx.send(frame).await {
-                tracing::warn!("Failed to send decoded frame: {}", e);
                 break;
             }
 
             packet_count += 1;
 
+            // Parse RTP packet from bytes
+            let rtp_packet = match RtpPacket::from_bytes(&rtp_packet_bytes) {
+                Ok(packet) => packet,
+                Err(e) => {
+                    tracing::warn!("Failed to parse RTP packet: {}", e);
+                    continue;
+                }
+            };
+
+            // Depacketize - may return None if frame is not yet complete
+            match self.depacketizer.depacketize(&rtp_packet) {
+                Ok(Some(frame_data)) => {
+                    // Complete frame assembled!
+                    frame_count += 1;
+
+                    // Convert RTP timestamp (90kHz) back to microseconds
+                    let timestamp_us = (rtp_packet.header.timestamp as i64 * 1000) / 90;
+
+                    let frame = VideoFrame {
+                        data: frame_data,
+                        width: self.config.resolution.width,
+                        height: self.config.resolution.height,
+                        timestamp_us,
+                        format: PixelFormat::YUV420, // Assume YUV420 for H.264
+                    };
+
+                    tracing::debug!(
+                        "📦 Frame {} reassembled ({} bytes) from RTP packets",
+                        frame_count,
+                        frame.data.len()
+                    );
+
+                    if let Err(e) = self.frame_tx.send(frame).await {
+                        tracing::warn!("Failed to send decoded frame: {}", e);
+                        break;
+                    }
+                }
+                Ok(None) => {
+                    // Frame not yet complete, waiting for more packets
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to depacketize RTP packet: {}", e);
+                    // Continue processing next packet
+                }
+            }
+
             if packet_count % 100 == 0 {
-                tracing::debug!("📥 Received {} video packets", packet_count);
+                tracing::debug!(
+                    "📥 Received {} RTP packets ({} complete frames)",
+                    packet_count,
+                    frame_count
+                );
             }
         }
 
