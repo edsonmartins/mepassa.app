@@ -248,7 +248,7 @@ interface MePassaClient {
     [Throws=MePassaFfiError, Async]
     void switch_camera(string call_id);
 
-    [Throws=MePassaFfiError, Async]
+    [Throws=MePassaFfiError]
     void register_video_frame_callback(FfiVideoFrameCallback callback);
 
     // Group methods (FASE 15)
