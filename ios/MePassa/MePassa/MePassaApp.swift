@@ -41,8 +41,16 @@ struct MePassaApp: App {
     }
     
     private func initializeMePassaCore() {
-        // TODO: Initialize UniFFI bindings and MePassa core library
         print("📱 Initializing MePassa Core...")
+
+        Task {
+            do {
+                try await MePassaCore.shared.initialize()
+                print("✅ MePassa Core initialized successfully")
+            } catch {
+                print("❌ Failed to initialize MePassa Core: \(error)")
+            }
+        }
     }
     
     private func setupCallKit() {
