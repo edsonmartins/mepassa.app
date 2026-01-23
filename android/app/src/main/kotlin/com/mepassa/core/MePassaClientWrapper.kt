@@ -482,6 +482,22 @@ object MePassaClientWrapper {
     }
 
     /**
+     * Register callback for receiving remote video frames (FASE 14)
+     *
+     * @param callback Implementation of FfiVideoFrameCallback that will
+     *                 receive decoded video frames for rendering
+     */
+    suspend fun registerVideoFrameCallback(callback: uniffi.mepassa.FfiVideoFrameCallback) = withContext(Dispatchers.IO) {
+        try {
+            getClient().registerVideoFrameCallback(callback)
+            Log.i(TAG, "✅ Video frame callback registered")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to register video frame callback", e)
+            throw e
+        }
+    }
+
+    /**
      * Shutdown do client (chame no onDestroy da Application)
      */
     fun shutdown() {

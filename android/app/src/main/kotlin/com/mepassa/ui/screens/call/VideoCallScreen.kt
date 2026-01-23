@@ -366,23 +366,63 @@ private fun formatDuration(seconds: Int): String {
 }
 
 /**
- * RemoteVideoView - Placeholder for remote video rendering
- * TODO: Implement actual video rendering using SurfaceView or TextureView
+ * RemoteVideoView - Renders remote video using SurfaceView + MediaCodec
  */
 @Composable
 fun RemoteVideoView(
     callId: String,
     modifier: Modifier = Modifier
 ) {
-    Box(
-        modifier = modifier.background(Color.Black),
-        contentAlignment = Alignment.Center
-    ) {
-        // Placeholder - will be replaced with actual video surface
-        Text(
-            text = "Remote Video\n(To be implemented)",
-            color = Color.White.copy(alpha = 0.5f),
-            fontSize = 14.sp
-        )
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    // Video frame handler (implements FfiVideoFrameCallback)
+    val videoHandler = remember(callId) {
+        com.mepassa.voip.VideoFrameHandler(callId)
     }
+
+    DisposableEffect(callId) {
+        // Register callback when view appears
+        scope.launch {
+            try {
+                MePassaClientWrapper.registerVideoFrameCallback(videoHandler)
+                Log.d("RemoteVideoView", "✅ Video frame callback registered for call: $callId")
+            } catch (e: Exception) {
+                Log.e("RemoteVideoView", "❌ Failed to register video callback", e)
+            }
+        }
+
+        onDispose {
+            // Cleanup
+            videoHandler.release()
+        }
+    }
+
+    // SurfaceView for rendering decoded frames
+    AndroidView(
+        factory = { ctx ->
+            android.view.SurfaceView(ctx).apply {
+                holder.addCallback(object : android.view.SurfaceHolder.Callback {
+                    override fun surfaceCreated(holder: android.view.SurfaceHolder) {
+                        Log.d("RemoteVideoView", "📹 Surface created for call: $callId")
+                        videoHandler.setSurface(holder.surface)
+                    }
+
+                    override fun surfaceChanged(
+                        holder: android.view.SurfaceHolder,
+                        format: Int,
+                        width: Int,
+                        height: Int
+                    ) {
+                        Log.d("RemoteVideoView", "🔄 Surface changed: ${width}x${height}")
+                    }
+
+                    override fun surfaceDestroyed(holder: android.view.SurfaceHolder) {
+                        Log.d("RemoteVideoView", "🗑️ Surface destroyed")
+                    }
+                })
+            }
+        },
+        modifier = modifier.background(Color.Black)
+    )
 }

@@ -271,6 +271,67 @@ struct LocalVideoPreview: UIViewRepresentable {
     }
 }
 
+// MARK: - Remote Video Rendering
+
+struct RemoteVideoView: UIViewRepresentable {
+    let callId: String
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(callId: callId)
+    }
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        view.backgroundColor = .black
+
+        // Create display layer
+        let displayLayer = AVSampleBufferDisplayLayer()
+        displayLayer.videoGravity = .resizeAspect
+        displayLayer.frame = view.bounds
+        view.layer.addSublayer(displayLayer)
+
+        // Store in coordinator
+        context.coordinator.displayLayer = displayLayer
+        context.coordinator.videoHandler.setDisplayLayer(displayLayer)
+
+        // Register callback
+        Task {
+            do {
+                try await MePassaCore.shared.registerVideoFrameCallback(context.coordinator.videoHandler)
+                print("✅ Video frame callback registered for call: \(callId)")
+            } catch {
+                print("❌ Failed to register video callback: \(error)")
+            }
+        }
+
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        // Update layer frame on size change
+        if let displayLayer = context.coordinator.displayLayer {
+            DispatchQueue.main.async {
+                displayLayer.frame = uiView.bounds
+            }
+        }
+    }
+
+    static func dismantleUIView(_ uiView: UIView, coordinator: Coordinator) {
+        coordinator.videoHandler.release()
+    }
+
+    class Coordinator {
+        let callId: String
+        let videoHandler: VideoFrameHandler
+        var displayLayer: AVSampleBufferDisplayLayer?
+
+        init(callId: String) {
+            self.callId = callId
+            self.videoHandler = VideoFrameHandler(callId: callId)
+        }
+    }
+}
+
 // MARK: - Preview
 
 #Preview {

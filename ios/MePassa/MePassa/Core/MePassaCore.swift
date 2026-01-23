@@ -308,6 +308,21 @@ class MePassaCore: ObservableObject {
         try await client.switchCamera(callId: callId)
         print("📷 Camera switched for call: \(callId)")
     }
+
+    /// Register callback for receiving remote video frames (FASE 14)
+    ///
+    /// The callback will be invoked on a background thread whenever a remote
+    /// video frame is received during an active video call.
+    ///
+    /// - Parameter callback: Implementation of FfiVideoFrameCallback protocol
+    func registerVideoFrameCallback(_ callback: FfiVideoFrameCallback) async throws {
+        guard let client = client else {
+            throw MePassaCoreError.notInitialized
+        }
+
+        try await client.registerVideoFrameCallback(callback: callback)
+        print("✅ Video frame callback registered")
+    }
 }
 
 // MARK: - Wrapper Types
