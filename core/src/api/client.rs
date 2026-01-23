@@ -720,6 +720,21 @@ impl Client {
             .map_err(|e| MePassaError::Other(format!("Failed to switch camera: {}", e)))
     }
 
+    #[cfg(feature = "voip")]
+    /// Register callback for receiving remote video frames (FASE 14)
+    ///
+    /// The callback will be invoked on a background thread whenever a remote
+    /// video frame is received during an active video call.
+    ///
+    /// # Parameters
+    /// - `callback`: Implementation of FfiVideoFrameCallback trait
+    pub async fn register_video_frame_callback(
+        &self,
+        callback: Box<dyn crate::FfiVideoFrameCallback>,
+    ) {
+        self.voip_integration.register_video_frame_callback(callback).await;
+    }
+
     // ========== Group Methods (FASE 15) ==========
 
     /// Create a new group

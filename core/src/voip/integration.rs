@@ -31,6 +31,10 @@ pub struct VoIPIntegration {
 
     // Call events from CallManager
     call_event_rx: mpsc::UnboundedReceiver<CallEvent>,
+
+    // Video frame callback (FASE 14)
+    #[cfg(feature = "voip")]
+    video_frame_callback: Arc<RwLock<Option<Box<dyn crate::FfiVideoFrameCallback>>>>,
 }
 
 impl VoIPIntegration {
@@ -50,12 +54,28 @@ impl VoIPIntegration {
             signaling_rx,
             signaling_tx,
             call_event_rx,
+            #[cfg(feature = "voip")]
+            video_frame_callback: Arc::new(RwLock::new(None)),
         }
     }
 
     /// Get a sender for signaling messages (for NetworkManager to use)
     pub fn signaling_sender(&self) -> mpsc::UnboundedSender<(PeerId, SignalingMessage)> {
         self.signaling_tx.clone()
+    }
+
+    /// Register callback for receiving remote video frames (FASE 14)
+    ///
+    /// The callback will be invoked whenever a VideoFrameReceived event is
+    /// received from the CallManager.
+    #[cfg(feature = "voip")]
+    pub async fn register_video_frame_callback(
+        &self,
+        callback: Box<dyn crate::FfiVideoFrameCallback>,
+    ) {
+        let mut cb = self.video_frame_callback.write().await;
+        *cb = Some(callback);
+        tracing::info!("📹 Video frame callback registered");
     }
 
     /// Run the integration event loop
@@ -261,8 +281,19 @@ impl VoIPIntegration {
                 // Already handled via network signals
             }
 
-            CallEvent::AudioReceived { .. } | CallEvent::VideoFrameReceived { .. } => {
-                // Audio/video data handled separately by audio/video pipelines
+            CallEvent::AudioReceived { .. } => {
+                // Audio data handled separately by audio pipeline
+            }
+
+            CallEvent::VideoFrameReceived { call_id, frame_data, width, height } => {
+                // Invoke the registered video frame callback (FASE 14)
+                #[cfg(feature = "voip")]
+                {
+                    let cb = self.video_frame_callback.read().await;
+                    if let Some(callback) = cb.as_ref() {
+                        callback.on_video_frame(call_id, frame_data, width, height);
+                    }
+                }
             }
 
             CallEvent::VideoEnabled { call_id, codec } => {

@@ -239,19 +239,7 @@ enum ClientCommand {
 async fn run_client_task(
     mut receiver: mpsc::UnboundedReceiver<ClientCommand>,
     client: Client,
-    #[cfg(feature = "voip")]
-    video_frame_callback: std::sync::Arc<tokio::sync::RwLock<Option<Box<dyn types::FfiVideoFrameCallback>>>>,
 ) {
-    // Store callback globally for VoIPIntegration to access
-    #[cfg(feature = "voip")]
-    {
-        use std::sync::atomic::{AtomicPtr, Ordering};
-        use std::sync::Arc;
-
-        // TODO: Properly integrate callback with VoIPIntegration
-        // For now, we store it but it needs to be wired to the event system
-    }
-
     while let Some(cmd) = receiver.recv().await {
         match cmd {
             ClientCommand::LocalPeerId { response } => {
@@ -410,8 +398,8 @@ async fn run_client_task(
             }
             #[cfg(feature = "voip")]
             ClientCommand::RegisterVideoFrameCallback { callback, response } => {
-                // Store the callback in the video_frame_callback field
-                *video_frame_callback.write().await = Some(callback);
+                // Register the callback with VoIPIntegration via Client
+                client.register_video_frame_callback(callback).await;
                 let _ = response.send(Ok(()));
             }
             // Group command handlers (FASE 15)
@@ -700,16 +688,7 @@ impl MePassaClient {
                         .await
                         .expect("Failed to build client");
 
-                    // Create storage for video frame callback (FASE 14)
-                    #[cfg(feature = "voip")]
-                    let video_frame_callback = std::sync::Arc::new(tokio::sync::RwLock::new(None));
-
-                    run_client_task(
-                        receiver,
-                        client,
-                        #[cfg(feature = "voip")]
-                        video_frame_callback,
-                    ).await;
+                    run_client_task(receiver, client).await;
                 });
             });
 
