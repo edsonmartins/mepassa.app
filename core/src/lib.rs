@@ -20,6 +20,19 @@
 //! - `api`: Public Client API
 //! - `ffi`: UniFFI bindings for Kotlin/Swift
 
+// Feature flag helper: video features available with either 'voip' or 'video'
+#[cfg(any(feature = "voip", feature = "video"))]
+macro_rules! cfg_video {
+    ($($item:item)*) => {
+        $($item)*
+    }
+}
+
+#[cfg(not(any(feature = "voip", feature = "video")))]
+macro_rules! cfg_video {
+    ($($item:item)*) => {}
+}
+
 // Re-export public API
 // TODO: Uncomment when modules are implemented
 // pub use api::{Client, ClientBuilder, Event};
@@ -50,7 +63,7 @@ pub mod network;
 pub mod protocol;
 pub mod storage;
 pub mod sync;
-#[cfg(feature = "voip")]
+#[cfg(any(feature = "voip", feature = "video"))]
 pub mod voip;
 pub mod utils;
 

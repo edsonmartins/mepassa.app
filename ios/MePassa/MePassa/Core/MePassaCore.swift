@@ -9,7 +9,8 @@
 //  This provides a cleaner API for SwiftUI views
 
 import Foundation
-import mepassa
+// Note: No need to import mepassa - the generated Swift code (mepassa.swift)
+// is part of the same target. The bridging header already imports mepassaFFI.h
 
 /// Swift wrapper for MePassa Core FFI
 class MePassaCore: ObservableObject {
@@ -139,6 +140,35 @@ class MePassaCore: ObservableObject {
         return messages.map { FfiMessageWrapper(ffi: $0) }
     }
 
+    /// Get conversation messages (alias for getMessages)
+    func getConversationMessages(peerId: String, limit: UInt32?, offset: UInt32?) async throws -> [FfiMessageWrapper] {
+        let messages = try await client?.getConversationMessages(
+            peerId: peerId,
+            limit: limit,
+            offset: offset
+        ) ?? []
+
+        return messages.map { FfiMessageWrapper(ffi: $0) }
+    }
+
+    /// Delete message
+    func deleteMessage(messageId: String) async throws {
+        guard let client = client else {
+            throw MePassaCoreError.notInitialized
+        }
+
+        try await client.deleteMessage(messageId: messageId)
+    }
+
+    /// Forward message
+    func forwardMessage(messageId: String, toPeerId: String) async throws -> String {
+        guard let client = client else {
+            throw MePassaCoreError.notInitialized
+        }
+
+        return try await client.forwardMessage(messageId: messageId, toPeerId: toPeerId)
+    }
+
     /// Get all conversations
     func listConversations() async throws -> [FfiConversationWrapper] {
         let conversations = try await client?.listConversations() ?? []
@@ -149,6 +179,67 @@ class MePassaCore: ObservableObject {
     func markAsRead(peerId: String) async throws {
         try await client?.markConversationRead(peerId: peerId)
         print("✅ Marked conversation as read: \(peerId)")
+    }
+
+    /// Get media for a conversation
+    func getConversationMedia(conversationId: String, mediaType: FfiMediaType?, limit: UInt32?) async throws -> [FfiMedia] {
+        guard let client = client else {
+            throw MePassaCoreError.notInitialized
+        }
+
+        return try await client.getConversationMedia(conversationId: conversationId, mediaType: mediaType, limit: limit)
+    }
+
+    /// Download media by hash
+    func downloadMedia(mediaHash: String) async throws -> Data {
+        guard let client = client else {
+            throw MePassaCoreError.notInitialized
+        }
+
+        let bytes = try await client.downloadMedia(mediaHash: mediaHash)
+        return Data(bytes)
+    }
+
+    /// Search messages
+    func searchMessages(query: String, limit: UInt32?) async throws -> [FfiMessageWrapper] {
+        guard let client = client else {
+            throw MePassaCoreError.notInitialized
+        }
+
+        let messages = try await client.searchMessages(query: query, limit: limit)
+        return messages.map { FfiMessageWrapper(ffi: $0) }
+    }
+
+    /// Get message reactions (stub for now)
+    func getMessageReactions(messageId: String) async throws -> [FfiReaction] {
+        // TODO: Implement when reaction support is added to FFI
+        return []
+    }
+
+    /// Add reaction (stub for now)
+    func addReaction(messageId: String, emoji: String) async throws {
+        // TODO: Implement when reaction support is added to FFI
+        print("⚠️ addReaction not yet implemented")
+    }
+
+    /// Remove reaction (stub for now)
+    func removeReaction(messageId: String, emoji: String) async throws {
+        // TODO: Implement when reaction support is added to FFI
+        print("⚠️ removeReaction not yet implemented")
+    }
+
+    /// Send document message (stub for now)
+    func sendDocumentMessage(to peerId: String, fileData: Data, fileName: String, mimeType: String) async throws -> String {
+        // TODO: Implement when document support is added to FFI
+        print("⚠️ sendDocumentMessage not yet implemented")
+        return UUID().uuidString
+    }
+
+    /// Send video message (stub for now)
+    func sendVideoMessage(toPeerId peerId: String, videoData: Data, fileName: String, width: Int32, height: Int32, durationSeconds: Int32, thumbnailData: Data?) async throws -> String {
+        // TODO: Implement when video message support is added to FFI
+        print("⚠️ sendVideoMessage not yet implemented")
+        return UUID().uuidString
     }
 
     // MARK: - VoIP Calls

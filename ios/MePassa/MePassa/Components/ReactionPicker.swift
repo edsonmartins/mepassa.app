@@ -25,33 +25,62 @@ struct ReactionPicker: View {
     let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 6)
 
     var body: some View {
-        NavigationView {
-            VStack(spacing: 16) {
-                // Emoji grid
-                LazyVGrid(columns: columns, spacing: 8) {
-                    ForEach(COMMON_REACTIONS, id: \.self) { emoji in
-                        EmojiButton(emoji: emoji) {
-                            onReactionSelected(emoji)
-                            dismiss()
-        }
+        if #available(iOS 16.0, *) {
+            NavigationView {
+                VStack(spacing: 16) {
+                    // Emoji grid
+                    LazyVGrid(columns: columns, spacing: 8) {
+                        ForEach(COMMON_REACTIONS, id: \.self) { emoji in
+                            EmojiButton(emoji: emoji) {
+                                onReactionSelected(emoji)
+                                dismiss()
+            }
+                        }
                     }
-                }
-                .padding(.horizontal)
+                    .padding(.horizontal)
 
-                Spacer()
+                    Spacer()
+                }
+                .padding(.top, 16)
+                .navigationTitle("Reagir à mensagem")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Fechar") {
+                            dismiss()
+                        }
+                    }
+                }
             }
-            .padding(.top, 16)
-            .navigationTitle("Reagir à mensagem")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Fechar") {
-                        dismiss()
+            .presentationDetents([.medium])
+        } else {
+            NavigationView {
+                VStack(spacing: 16) {
+                    // Emoji grid
+                    LazyVGrid(columns: columns, spacing: 8) {
+                        ForEach(COMMON_REACTIONS, id: \.self) { emoji in
+                            EmojiButton(emoji: emoji) {
+                                onReactionSelected(emoji)
+                                dismiss()
+            }
+                        }
+                    }
+                    .padding(.horizontal)
+
+                    Spacer()
+                }
+                .padding(.top, 16)
+                .navigationTitle("Reagir à mensagem")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Fechar") {
+                            dismiss()
+                        }
                     }
                 }
             }
         }
-        .presentationDetents([.medium])
     }
 }
 

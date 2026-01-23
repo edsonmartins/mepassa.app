@@ -162,13 +162,7 @@ struct ProfileView: View {
     }
 
     private func loadPeerId() {
-        Task {
-            do {
-                localPeerId = try MePassaCore.shared.localPeerId()
-            } catch {
-                print("❌ Error loading peer ID: \(error)")
-            }
-        }
+        localPeerId = MePassaCore.shared.localPeerId ?? ""
     }
 }
 

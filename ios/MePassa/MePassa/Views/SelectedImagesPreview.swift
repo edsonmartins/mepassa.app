@@ -134,51 +134,10 @@ struct SelectedImagesFullPreview: View {
     @Environment(\.dismiss) var dismiss
 
     var body: some View {
-        NavigationView {
-            ScrollView {
-                LazyVStack(spacing: 16) {
-                    ForEach(selectedImages.indices, id: \.self) { index in
-                        VStack(alignment: .leading, spacing: 8) {
-                            Image(uiImage: selectedImages[index])
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                                .cornerRadius(12)
-
-                            Button(action: {
-                                withAnimation {
-                                    selectedImages.remove(at: index)
-                                }
-                            }) {
-                                HStack {
-                                    Image(systemName: "trash")
-                                    Text("Remove")
-                                }
-                                .foregroundColor(.red)
-                            }
-                        }
-                        .padding(.horizontal)
-                    }
-                }
-                .padding(.vertical)
+        Text("Image Preview")
+            .onAppear {
+                dismiss()
             }
-            .navigationTitle("Selected Images")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                }
-
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Send") {
-                        // Handle send
-                        dismiss()
-                    }
-                    .disabled(selectedImages.isEmpty)
-                }
-            }
-        }
     }
 }
 

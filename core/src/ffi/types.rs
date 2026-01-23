@@ -353,11 +353,11 @@ impl From<CallStats> for FfiCallStats {
 
 // ========== Video Types (FASE 14) ==========
 
-#[cfg(feature = "voip")]
+#[cfg(any(feature = "voip", feature = "video"))]
 use crate::voip::VideoCodec as InternalVideoCodec;
 
 /// FFI-safe video codec enum
-#[cfg(feature = "voip")]
+#[cfg(any(feature = "voip", feature = "video"))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FfiVideoCodec {
     H264,
@@ -365,8 +365,8 @@ pub enum FfiVideoCodec {
     VP9,
 }
 
-/// FFI-safe video codec enum (stub when voip feature is disabled)
-#[cfg(not(feature = "voip"))]
+/// FFI-safe video codec enum (stub when voip/video features are disabled)
+#[cfg(not(any(feature = "voip", feature = "video")))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FfiVideoCodec {
     H264,
@@ -374,7 +374,7 @@ pub enum FfiVideoCodec {
     VP9,
 }
 
-#[cfg(feature = "voip")]
+#[cfg(any(feature = "voip", feature = "video"))]
 impl From<InternalVideoCodec> for FfiVideoCodec {
     fn from(codec: InternalVideoCodec) -> Self {
         match codec {
@@ -385,7 +385,7 @@ impl From<InternalVideoCodec> for FfiVideoCodec {
     }
 }
 
-#[cfg(feature = "voip")]
+#[cfg(any(feature = "voip", feature = "video"))]
 impl From<FfiVideoCodec> for InternalVideoCodec {
     fn from(codec: FfiVideoCodec) -> Self {
         match codec {
@@ -397,15 +397,15 @@ impl From<FfiVideoCodec> for InternalVideoCodec {
 }
 
 /// FFI-safe video resolution
-#[cfg(feature = "voip")]
+#[cfg(any(feature = "voip", feature = "video"))]
 #[derive(Debug, Clone, Copy)]
 pub struct FfiVideoResolution {
     pub width: u32,
     pub height: u32,
 }
 
-/// FFI-safe video resolution (stub when voip feature is disabled)
-#[cfg(not(feature = "voip"))]
+/// FFI-safe video resolution (stub when voip/video features are disabled)
+#[cfg(not(any(feature = "voip", feature = "video")))]
 #[derive(Debug, Clone, Copy)]
 pub struct FfiVideoResolution {
     pub width: u32,
@@ -413,7 +413,7 @@ pub struct FfiVideoResolution {
 }
 
 /// FFI-safe camera position enum
-#[cfg(feature = "voip")]
+#[cfg(any(feature = "voip", feature = "video"))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FfiCameraPosition {
     Front,
@@ -421,8 +421,8 @@ pub enum FfiCameraPosition {
     External,
 }
 
-/// FFI-safe camera position enum (stub when voip feature is disabled)
-#[cfg(not(feature = "voip"))]
+/// FFI-safe camera position enum (stub when voip/video features are disabled)
+#[cfg(not(any(feature = "voip", feature = "video")))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FfiCameraPosition {
     Front,
@@ -431,7 +431,7 @@ pub enum FfiCameraPosition {
 }
 
 /// FFI-safe video statistics
-#[cfg(feature = "voip")]
+#[cfg(any(feature = "voip", feature = "video"))]
 #[derive(Debug, Clone)]
 pub struct FfiVideoStats {
     pub resolution: FfiVideoResolution,
@@ -442,8 +442,8 @@ pub struct FfiVideoStats {
     pub frames_dropped: u64,
 }
 
-/// FFI-safe video statistics (stub when voip feature is disabled)
-#[cfg(not(feature = "voip"))]
+/// FFI-safe video statistics (stub when voip/video features are disabled)
+#[cfg(not(any(feature = "voip", feature = "video")))]
 #[derive(Debug, Clone)]
 pub struct FfiVideoStats {
     pub resolution: FfiVideoResolution,
@@ -461,7 +461,7 @@ pub struct FfiVideoStats {
 /// Platform code should implement this trait to receive and render remote video frames.
 /// This callback is called on a background thread, so implementations should handle
 /// thread safety appropriately.
-#[cfg(feature = "voip")]
+#[cfg(any(feature = "voip", feature = "video"))]
 pub trait FfiVideoFrameCallback: Send + Sync {
     /// Called when a remote video frame is received
     ///
@@ -473,8 +473,8 @@ pub trait FfiVideoFrameCallback: Send + Sync {
     fn on_video_frame(&self, call_id: String, frame_data: Vec<u8>, width: u32, height: u32);
 }
 
-/// Callback interface for receiving remote video frames (stub when voip feature is disabled)
-#[cfg(not(feature = "voip"))]
+/// Callback interface for receiving remote video frames (stub when voip/video features are disabled)
+#[cfg(not(any(feature = "voip", feature = "video")))]
 pub trait FfiVideoFrameCallback: Send + Sync {
     /// Called when a remote video frame is received (stub)
     fn on_video_frame(&self, call_id: String, frame_data: Vec<u8>, width: u32, height: u32);

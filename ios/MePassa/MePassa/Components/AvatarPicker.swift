@@ -16,8 +16,6 @@ struct AvatarPickerSheet: View {
 
     @State private var showImagePicker = false
     @State private var showCamera = false
-    @State private var selectedItem: PhotosPickerItem?
-    @State private var selectedImage: UIImage?
 
     var body: some View {
         NavigationView {
@@ -45,26 +43,22 @@ struct AvatarPickerSheet: View {
             }
         }
         .sheet(isPresented: $showCamera) {
-            ImagePicker(sourceType: .camera) { image in
+            CameraImagePicker(sourceType: .camera) { image in
                 onImageSelected(image)
                 dismiss()
             }
         }
-        .photosPicker(isPresented: $showImagePicker, selection: $selectedItem)
-        .onChange(of: selectedItem) { newItem in
-            Task {
-                if let data = try? await newItem?.loadTransferable(type: Data.self),
-                   let image = UIImage(data: data) {
-                    onImageSelected(image)
-                    dismiss()
-                }
+        .sheet(isPresented: $showImagePicker) {
+            CameraImagePicker(sourceType: .photoLibrary) { image in
+                onImageSelected(image)
+                dismiss()
             }
         }
     }
 }
 
-/// ImagePicker - UIImagePickerController wrapper
-struct ImagePicker: UIViewControllerRepresentable {
+/// CameraImagePicker - UIImagePickerController wrapper for camera/photos
+struct CameraImagePicker: UIViewControllerRepresentable {
     let sourceType: UIImagePickerController.SourceType
     let onImagePicked: (UIImage) -> Void
 
@@ -82,9 +76,9 @@ struct ImagePicker: UIViewControllerRepresentable {
     }
 
     class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
-        let parent: ImagePicker
+        let parent: CameraImagePicker
 
-        init(_ parent: ImagePicker) {
+        init(_ parent: CameraImagePicker) {
             self.parent = parent
         }
 

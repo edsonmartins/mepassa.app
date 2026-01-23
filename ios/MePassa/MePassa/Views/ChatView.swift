@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ChatView: View {
     let conversation: Conversation
@@ -37,75 +38,150 @@ struct ChatView: View {
     // Search state
     @State private var showSearch = false
 
-    var body: some View {
-        VStack(spacing: 0) {
-            // Messages list
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        if messages.isEmpty {
-                            // Empty state
-                            VStack(spacing: 12) {
-                                Image(systemName: "lock.fill")
-                                    .font(.system(size: 50))
-                                    .foregroundColor(.secondary)
-
-                                Text("Conversa criptografada de ponta a ponta")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                                    .multilineTextAlignment(.center)
-                            }
-                            .padding(.top, 100)
-                        } else {
-                            ForEach(messages) { message in
-                                VStack(alignment: message.isOutgoing ? .trailing : .leading, spacing: 4) {
-                                    MessageBubble(message: message)
-                                        .transition(.asymmetric(
-                                            insertion: .move(edge: .bottom).combined(with: .opacity),
-                                            removal: .opacity
-                                        ))
-                                        .animation(.easeOut(duration: 0.3), value: messages.count)
-                                        .contextMenu {
-                                            Button(action: {
-                                                selectedMessage = message
-                                                showForwardAlert = true
-                                            }) {
-                                                Label("Encaminhar", systemImage: "arrowshape.turn.up.forward")
-                                            }
-
-                                            Button(role: .destructive, action: {
-                                                selectedMessage = message
-                                                showDeleteAlert = true
-                                            }) {
-                                                Label("Excluir", systemImage: "trash")
-                                            }
-                                        }
-
-                                    // Reaction bar
-                                    if let reactions = messageReactions[message.id], !reactions.isEmpty {
-                                        ReactionBar(
-                                            reactions: reactions,
-                                            onReactionTap: { emoji in
-                                                handleReactionTap(messageId: message.id, emoji: emoji)
-                                            },
-                                            onAddReactionTap: {
-                                                reactionPickerMessageId = message.id
-                                                showReactionPicker = true
-                                            }
-                                        )
-                                    }
-                                }
-                                .id(message.id)
-                            }
+    private var messagesList: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 12) {
+                    if messages.isEmpty {
+                        emptyState
+                    } else {
+                        ForEach(messages) { message in
+                            messageRow(message)
                         }
                     }
-                    .padding()
+                }
+                .padding()
+            }
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "lock.fill")
+                .font(.system(size: 50))
+                .foregroundColor(.secondary)
+
+            Text("Conversa criptografada de ponta a ponta")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(.top, 100)
+    }
+
+    private func messageRow(_ message: Message) -> some View {
+        VStack(alignment: message.isOutgoing ? .trailing : .leading, spacing: 4) {
+            MessageBubble(message: message)
+                .transition(.asymmetric(
+                    insertion: .move(edge: .bottom).combined(with: .opacity),
+                    removal: .opacity
+                ))
+                .animation(.easeOut(duration: 0.3), value: messages.count)
+                .contextMenu {
+                    Button(action: {
+                        selectedMessage = message
+                        showForwardAlert = true
+                    }) {
+                        Label("Encaminhar", systemImage: "arrowshape.turn.up.forward")
+                    }
+
+                    Button(role: .destructive, action: {
+                        selectedMessage = message
+                        showDeleteAlert = true
+                    }) {
+                        Label("Excluir", systemImage: "trash")
+                    }
+                }
+
+            if let reactions = messageReactions[message.id], !reactions.isEmpty {
+                ReactionBar(
+                    reactions: reactions,
+                    onReactionTap: { emoji in
+                        handleReactionTap(messageId: message.id, emoji: emoji)
+                    },
+                    onAddReactionTap: {
+                        reactionPickerMessageId = message.id
+                        showReactionPicker = true
+                    }
+                )
+            }
+        }
+        .id(message.id)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            messagesList
+            Divider()
+            imagePreviewSection
+            messageInputBar
+        }
+        .sheet(isPresented: $showingImagePicker) {
+            ImagePicker(selectedImages: $mediaPickerVM.selectedImages)
+        }
+        .sheet(isPresented: $showMediaGallery) {
+            MediaGalleryView(conversationId: conversation.id, peerName: conversation.displayName)
+        }
+        .sheet(isPresented: $showSearch) {
+            MessageSearchView(
+                conversationId: conversation.id,
+                peerName: conversation.displayName,
+                onMessageTap: { message in
+                    // Message tap handled - search view will dismiss
+                }
+            )
+        }
+        .sheet(isPresented: $showReactionPicker) {
+            if let messageId = reactionPickerMessageId {
+                ReactionPicker { emoji in
+                    addReaction(messageId: messageId, emoji: emoji)
                 }
             }
+        }
+        .alert("Excluir Mensagem", isPresented: $showDeleteAlert) {
+            Button("Cancelar", role: .cancel) {}
+            Button("Excluir", role: .destructive) {
+                if let message = selectedMessage {
+                    deleteMessage(message)
+                }
+            }
+        } message: {
+            Text("Tem certeza que deseja excluir esta mensagem?")
+        }
+        .alert("Encaminhar Mensagem", isPresented: $showForwardAlert) {
+            Button("Cancelar", role: .cancel) {}
+            Button("OK") {
+                // Forward functionality will be implemented when peer selection UI is added
+            }
+        } message: {
+            Text("Selecione o destinatário")
+        }
+        .navigationTitle(conversation.displayName)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItemGroup(placement: .navigationBarTrailing) {
+                Button(action: { showMediaGallery = true }) {
+                    Image(systemName: "photo.on.rectangle")
+                }
+                Button(action: { showSearch = true }) {
+                    Image(systemName: "magnifyingglass")
+                }
+                Button(action: startVoiceCall) {
+                    Image(systemName: "phone")
+                }
+                Button(action: startVideoCall) {
+                    Image(systemName: "video")
+                }
+            }
+        }
+        .onAppear {
+            loadMessages()
+            loadReactions()
+        }
+    }
 
-            Divider()
-
-            // Selected images preview
+    private var imagePreviewSection: some View {
+        Group {
             if !mediaPickerVM.selectedImages.isEmpty {
                 SelectedImagesPreview(
                     selectedImages: mediaPickerVM.selectedImages,
@@ -113,14 +189,15 @@ struct ChatView: View {
                         mediaPickerVM.removeImage(at: index)
                     },
                     onSendImages: {
-                        // Send images via FFI with compression
                         mediaPickerVM.uploadImages(to: conversation.peerId, quality: 0.85)
                     }
                 )
             }
+        }
+    }
 
-            // Message input
-            HStack(spacing: 12) {
+    private var messageInputBar: some View {
+        HStack(spacing: 12) {
                 // Image picker button
                 Button(action: {
                     showingImagePicker = true
@@ -239,93 +316,28 @@ struct ChatView: View {
             }
             .padding(.horizontal)
             .padding(.vertical, 8)
-        }
-        .sheet(isPresented: $showingImagePicker) {
-            ImagePicker(selectedImages: $mediaPickerVM.selectedImages, maxSelection: 10)
-        }
-        .navigationTitle(conversation.displayName)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                HStack(spacing: 16) {
-                    Button(action: { showSearch = true }) {
-                        Image(systemName: "magnifyingglass")
-                    }
-
-                    Button(action: { showMediaGallery = true }) {
-                        Image(systemName: "photo.on.rectangle")
-                    }
-
-                    Button(action: startVoiceCall) {
-                        Image(systemName: "phone.fill")
-                    }
-
-                    Button(action: startVideoCall) {
-                        Image(systemName: "video.fill")
-                    }
-                }
-            }
-        }
-        .sheet(isPresented: $showMediaGallery) {
-            MediaGalleryView(
-                conversationId: conversation.id,
-                peerName: conversation.displayName ?? "Desconhecido"
-            )
-        }
-        .sheet(isPresented: $showSearch) {
-            MessageSearchView(
-                conversationId: conversation.id,
-                peerName: conversation.displayName,
-                onMessageTap: { message in
-                    // Navigate to message
-                    // TODO: Scroll to message in conversation
-                    print("Navigate to message: \(message.messageId)")
-                }
-            )
-        }
-        .onAppear {
-            loadMessages()
-        }
-        .alert("Excluir mensagem", isPresented: $showDeleteAlert, presenting: selectedMessage) { message in
-            Button("Cancelar", role: .cancel) { }
-            Button("Excluir", role: .destructive) {
-                deleteMessage(message)
-            }
-        } message: { _ in
-            Text("Tem certeza que deseja excluir esta mensagem?")
-        }
-        .alert("Encaminhar mensagem", isPresented: $showForwardAlert, presenting: selectedMessage) { message in
-            Button("OK", role: .cancel) { }
-        } message: { _ in
-            Text("Funcionalidade de encaminhamento será implementada em breve.\n\nTODO: Adicionar seletor de conversas.")
-        }
-        .sheet(isPresented: $showReactionPicker) {
-            if let messageId = reactionPickerMessageId {
-                ReactionPicker { emoji in
-                    handleReactionTap(messageId: messageId, emoji: emoji)
-                }
-            }
-        }
-        .onChange(of: messages) { _ in
-            loadReactions()
-        }
     }
 
     private func sendMessage() {
         guard !messageText.isEmpty else { return }
 
-        // TODO: Send message via UniFFI
-        let message = Message(
-            id: UUID().uuidString,
-            content: messageText,
-            senderId: appState.currentUser?.peerId ?? "",
-            timestamp: Date(),
-            isOutgoing: true,
-            status: .sent
-        )
+        Task {
+            do {
+                let messageId = try await MePassaCore.shared.sendMessage(
+                    to: conversation.peerId,
+                    content: messageText
+                )
+                print("✅ Message sent: \(messageId)")
 
-        messages.append(message)
-        messageText = ""
+                // Clear input and reload
+                await MainActor.run {
+                    messageText = ""
+                }
+                loadMessages()
+            } catch {
+                print("❌ Error sending message: \(error)")
+            }
+        }
     }
 
     private func loadMessages() {
@@ -337,15 +349,15 @@ struct ChatView: View {
                     offset: 0
                 )
 
-                let localPeerId = try MePassaCore.shared.localPeerId()
+                let localPeerId = MePassaCore.shared.localPeerId ?? ""
 
                 await MainActor.run {
                     messages = ffiMessages.map { ffiMsg in
                         Message(
-                            id: ffiMsg.messageId,
-                            content: ffiMsg.contentPlaintext ?? "",
+                            id: ffiMsg.id,
+                            content: ffiMsg.content ?? "",
                             senderId: ffiMsg.senderPeerId,
-                            timestamp: Date(timeIntervalSince1970: TimeInterval(ffiMsg.createdAt)),
+                            timestamp: ffiMsg.createdAt,
                             isOutgoing: ffiMsg.senderPeerId == localPeerId,
                             status: ffiMsg.status,
                             ffiMessage: ffiMsg
@@ -369,13 +381,15 @@ struct ChatView: View {
     }
 
     private func deleteMessage(_ message: Message) {
-        do {
-            try MePassaCore.shared.deleteMessage(messageId: message.id)
-            print("✅ Message deleted: \(message.id)")
-            // Reload messages
-            loadMessages()
-        } catch {
-            print("❌ Error deleting message: \(error)")
+        Task {
+            do {
+                try await MePassaCore.shared.deleteMessage(messageId: message.id)
+                print("✅ Message deleted: \(message.id)")
+                // Reload messages
+                loadMessages()
+            } catch {
+                print("❌ Error deleting message: \(error)")
+            }
         }
     }
 
@@ -401,7 +415,7 @@ struct ChatView: View {
 
             for message in messages {
                 do {
-                    let reactions = try MePassaCore.shared.getMessageReactions(messageId: message.id)
+                    let reactions = try await MePassaCore.shared.getMessageReactions(messageId: message.id)
 
                     // Aggregate by emoji
                     let grouped = Dictionary(grouping: reactions, by: { $0.emoji })
@@ -431,15 +445,15 @@ struct ChatView: View {
 
                 if hasReacted {
                     // Remove reaction
-                    try MePassaCore.shared.removeReaction(messageId: messageId, emoji: emoji)
+                    try await MePassaCore.shared.removeReaction(messageId: messageId, emoji: emoji)
                 } else {
                     // Add reaction
-                    try MePassaCore.shared.addReaction(messageId: messageId, emoji: emoji)
+                    try await MePassaCore.shared.addReaction(messageId: messageId, emoji: emoji)
                     HapticFeedback.medium()  // Haptic feedback on reaction
                 }
 
                 // Reload reactions for this message
-                let reactions = try MePassaCore.shared.getMessageReactions(messageId: messageId)
+                let reactions = try await MePassaCore.shared.getMessageReactions(messageId: messageId)
                 let grouped = Dictionary(grouping: reactions, by: { $0.emoji })
                 let reactionCounts = grouped.map { emoji, reactionList in
                     ReactionCount(
@@ -452,6 +466,32 @@ struct ChatView: View {
                 messageReactions[messageId] = reactionCounts
             } catch {
                 print("❌ Error toggling reaction: \(error)")
+            }
+        }
+    }
+
+    private func addReaction(messageId: String, emoji: String) {
+        Task {
+            do {
+                try await MePassaCore.shared.addReaction(messageId: messageId, emoji: emoji)
+                HapticFeedback.medium()
+
+                // Reload reactions for this message
+                let reactions = try await MePassaCore.shared.getMessageReactions(messageId: messageId)
+                let grouped = Dictionary(grouping: reactions, by: { $0.emoji })
+                let reactionCounts = grouped.map { emoji, reactionList in
+                    ReactionCount(
+                        emoji: emoji,
+                        count: reactionList.count,
+                        hasReacted: reactionList.contains { $0.peerId == appState.currentUser?.peerId }
+                    )
+                }.sorted { $0.count > $1.count }
+
+                await MainActor.run {
+                    messageReactions[messageId] = reactionCounts
+                }
+            } catch {
+                print("❌ Error adding reaction: \(error)")
             }
         }
     }
@@ -496,7 +536,17 @@ struct Message: Identifiable {
     let timestamp: Date
     let isOutgoing: Bool
     let status: MessageStatus
-    let ffiMessage: FfiMessage  // Keep reference to original FfiMessage
+    let ffiMessage: FfiMessageWrapper?  // Keep reference to original FfiMessage
+
+    init(id: String, content: String, senderId: String, timestamp: Date, isOutgoing: Bool, status: MessageStatus, ffiMessage: FfiMessageWrapper? = nil) {
+        self.id = id
+        self.content = content
+        self.senderId = senderId
+        self.timestamp = timestamp
+        self.isOutgoing = isOutgoing
+        self.status = status
+        self.ffiMessage = ffiMessage
+    }
 }
 
 // MessageStatus enum is provided by the Rust FFI bindings (mepassa.swift)

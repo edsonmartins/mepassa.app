@@ -172,8 +172,7 @@ struct VideoCallScreen: View {
     }
     
     private func startVideo() {
-        cameraManager.startCapture { [weak self] sampleBuffer in
-            guard let self = self else { return }
+        cameraManager.startCapture { sampleBuffer in
 
             // Extract pixel buffer from sample buffer
             guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {

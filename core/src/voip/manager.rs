@@ -175,7 +175,8 @@ impl CallManager {
             });
         }).await?;
 
-        // Add audio track
+        // Add audio track (only with voip feature - video-only calls don't need audio)
+        #[cfg(feature = "voip")]
         peer.add_audio_track().await?;
 
         // Create offer

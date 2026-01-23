@@ -65,7 +65,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: app.mepassa.ios
         INFOPLIST_FILE: MePassa/Info.plist
         CODE_SIGN_STYLE: Automatic
-        DEVELOPMENT_TEAM: ""
+        DEVELOPMENT_TEAM: "T8N7A2P3TQ"
         TARGETED_DEVICE_FAMILY: "1,2"
         SWIFT_VERSION: "5.0"
         ENABLE_BITCODE: false
@@ -78,21 +78,53 @@ targets:
           - $(inherited)
           - $(PROJECT_DIR)/Libraries
 
-        # Linker flags for Rust core library
+        # Linker flags for Rust core library (will be overridden per SDK)
         OTHER_LDFLAGS:
           - $(inherited)
           - -L$(PROJECT_DIR)/Libraries
-          - -lmepassa_core_sim
           - "-Wl,-search_paths_first"
           - "-Wl,-headerpad_max_install_names"
 
         # Swift import paths for Generated module
         SWIFT_INCLUDE_PATHS:
+          - $(inherited)
           - $(PROJECT_DIR)/MePassa/Generated
 
         # Header search paths
         HEADER_SEARCH_PATHS:
+          - $(inherited)
           - $(PROJECT_DIR)/MePassa/Generated
+
+        # Import paths (needed for module import)
+        SWIFT_OBJC_INTERFACE_HEADER_NAME: ""
+
+      configs:
+        Debug:
+          OTHER_LDFLAGS[sdk=iphoneos*]:
+            - $(inherited)
+            - -L$(PROJECT_DIR)/Libraries
+            - -lmepassa_core_ios
+            - "-Wl,-search_paths_first"
+            - "-Wl,-headerpad_max_install_names"
+          OTHER_LDFLAGS[sdk=iphonesimulator*]:
+            - $(inherited)
+            - -L$(PROJECT_DIR)/Libraries
+            - -lmepassa_core_sim
+            - "-Wl,-search_paths_first"
+            - "-Wl,-headerpad_max_install_names"
+        Release:
+          OTHER_LDFLAGS[sdk=iphoneos*]:
+            - $(inherited)
+            - -L$(PROJECT_DIR)/Libraries
+            - -lmepassa_core_ios
+            - "-Wl,-search_paths_first"
+            - "-Wl,-headerpad_max_install_names"
+          OTHER_LDFLAGS[sdk=iphonesimulator*]:
+            - $(inherited)
+            - -L$(PROJECT_DIR)/Libraries
+            - -lmepassa_core_sim
+            - "-Wl,-search_paths_first"
+            - "-Wl,-headerpad_max_install_names"
 
     dependencies:
       # System frameworks

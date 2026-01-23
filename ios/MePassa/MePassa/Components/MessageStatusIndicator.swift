@@ -10,27 +10,52 @@ import SwiftUI
 
 /// MessageStatusIndicator - Shows message status and timestamp
 struct MessageStatusIndicator: View {
-    let message: FfiMessage
+    let message: FfiMessageWrapper?
     let isOwnMessage: Bool
 
     var body: some View {
         HStack(spacing: 4) {
             // Timestamp
-            Text(message.formattedTime)
-                .font(.caption2)
-                .foregroundColor(.secondary.opacity(0.8))
-
-            // Status indicator (only for own messages)
-            if isOwnMessage {
-                Text(message.statusIcon)
+            if let message = message {
+                Text(formatTime(message.createdAt))
                     .font(.caption2)
-                    .foregroundColor(statusColor)
+                    .foregroundColor(.secondary.opacity(0.8))
+
+                // Status indicator (only for own messages)
+                if isOwnMessage {
+                    Text(statusIcon(message.status))
+                        .font(.caption2)
+                        .foregroundColor(statusColor(message.status))
+                }
             }
         }
     }
 
-    private var statusColor: Color {
-        switch message.status {
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) {
+            formatter.dateFormat = "HH:mm"
+        } else if calendar.isDateInYesterday(date) {
+            return "Ontem"
+        } else {
+            formatter.dateFormat = "dd/MM/yy"
+        }
+        return formatter.string(from: date)
+    }
+
+    private func statusIcon(_ status: MessageStatus) -> String {
+        switch status {
+        case .pending: return "○"
+        case .sent: return "✓"
+        case .delivered: return "✓✓"
+        case .read: return "✓✓"
+        case .failed: return "!"
+        }
+    }
+
+    private func statusColor(_ status: MessageStatus) -> Color {
+        switch status {
         case .read:
             return Color(red: 0.01, green: 0.53, blue: 0.82) // Blue
         case .failed:
@@ -72,37 +97,27 @@ struct MessageStatusFull: View {
 #Preview {
     VStack(spacing: 16) {
         MessageStatusIndicator(
-            message: FfiMessage(
-                messageId: "1",
+            message: FfiMessageWrapper(
+                id: "1",
                 conversationId: "conv1",
                 senderPeerId: "peer1",
                 recipientPeerId: "peer2",
-                messageType: "text",
-                contentPlaintext: "Hello",
-                createdAt: Int64(Date().timeIntervalSince1970),
-                sentAt: nil,
-                receivedAt: nil,
-                readAt: nil,
-                status: .sent,
-                isDeleted: false
+                content: "Hello",
+                createdAt: Date(),
+                status: .sent
             ),
             isOwnMessage: true
         )
 
         MessageStatusIndicator(
-            message: FfiMessage(
-                messageId: "2",
+            message: FfiMessageWrapper(
+                id: "2",
                 conversationId: "conv1",
                 senderPeerId: "peer1",
                 recipientPeerId: "peer2",
-                messageType: "text",
-                contentPlaintext: "Hello",
-                createdAt: Int64(Date().timeIntervalSince1970),
-                sentAt: nil,
-                receivedAt: nil,
-                readAt: Int64(Date().timeIntervalSince1970),
-                status: .read,
-                isDeleted: false
+                content: "Hello",
+                createdAt: Date(),
+                status: .read
             ),
             isOwnMessage: true
         )

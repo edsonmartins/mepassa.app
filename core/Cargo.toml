@@ -70,6 +70,7 @@ camino = "1.1"
 [features]
 default = []
 voip = ["webrtc", "interceptor", "opus", "cpal"]
+video = ["webrtc", "interceptor"]  # Video-only (no audio deps)
 integration-tests = []
 
 [build-dependencies]

@@ -2,11 +2,14 @@
 //!
 //! WebRTC voice/video calls (P2P + TURN relay).
 
+#[cfg(feature = "voip")]
 pub mod audio;
 pub mod call;
+#[cfg(feature = "voip")]
 pub mod codec;
 pub mod integration;
 pub mod manager;
+#[cfg(feature = "voip")]
 pub mod pipeline;
 pub mod rtp_video;
 pub mod signaling;
@@ -41,11 +44,14 @@ pub enum VoipError {
 pub type Result<T> = std::result::Result<T, VoipError>;
 
 // Re-exports for convenience
+#[cfg(feature = "voip")]
 pub use audio::{AudioCapture, AudioConfig, AudioPlayback, Sample};
 pub use call::{Call, CallDirection, CallEndReason, CallState, CallStats};
+#[cfg(feature = "voip")]
 pub use codec::{OpusCodec, OpusConfig, OpusDecoder, OpusEncoder};
 pub use integration::VoIPIntegration;
 pub use manager::{CallEvent, CallManager, TurnCredentials};
+#[cfg(feature = "voip")]
 pub use pipeline::AudioPipeline;
 pub use signaling::{SignalingCodec, SignalingMessage};
 pub use turn::TurnCredentialsClient;

@@ -399,6 +399,22 @@ fileprivate class UniffiHandleMap<T> {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterUInt8: FfiConverterPrimitive {
+    typealias FfiType = UInt8
+    typealias SwiftType = UInt8
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UInt8 {
+        return try lift(readInt(&buf))
+    }
+
+    public static func write(_ value: UInt8, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterUInt32: FfiConverterPrimitive {
     typealias FfiType = UInt32
     typealias SwiftType = UInt32
@@ -424,6 +440,22 @@ fileprivate struct FfiConverterInt32: FfiConverterPrimitive {
     }
 
     public static func write(_ value: Int32, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterUInt64: FfiConverterPrimitive {
+    typealias FfiType = UInt64
+    typealias SwiftType = UInt64
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UInt64 {
+        return try lift(readInt(&buf))
+    }
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
         writeInt(&buf, lower(value))
     }
 }
@@ -514,7 +546,11 @@ fileprivate struct FfiConverterString: FfiConverter {
 
 public protocol MePassaClientProtocol : AnyObject {
     
+    func acceptCall(callId: String) async throws 
+    
     func addGroupMember(groupId: String, peerId: String) async throws 
+    
+    func addReaction(messageId: String, emoji: String) throws 
     
     func bootstrap() async throws 
     
@@ -524,9 +560,25 @@ public protocol MePassaClientProtocol : AnyObject {
     
     func createGroup(name: String, description: String?) async throws  -> FfiGroup
     
+    func deleteMessage(messageId: String) throws 
+    
+    func disableVideo(callId: String) async throws 
+    
+    func downloadMedia(mediaHash: String) async throws  -> [UInt8]
+    
+    func enableVideo(callId: String, codec: FfiVideoCodec) async throws 
+    
+    func forwardMessage(messageId: String, toPeerId: String) async throws  -> String
+    
+    func getConversationMedia(conversationId: String, mediaType: FfiMediaType?, limit: UInt32?) throws  -> [FfiMedia]
+    
     func getConversationMessages(peerId: String, limit: UInt32?, offset: UInt32?) throws  -> [FfiMessage]
     
     func getGroups() async throws  -> [FfiGroup]
+    
+    func getMessageReactions(messageId: String) throws  -> [FfiReaction]
+    
+    func hangupCall(callId: String) async throws 
     
     func joinGroup(groupId: String, groupName: String) async throws 
     
@@ -540,11 +592,35 @@ public protocol MePassaClientProtocol : AnyObject {
     
     func markConversationRead(peerId: String) throws 
     
+    func registerVideoFrameCallback(callback: FfiVideoFrameCallback) async throws 
+    
+    func rejectCall(callId: String, reason: String?) async throws 
+    
     func removeGroupMember(groupId: String, peerId: String) async throws 
+    
+    func removeReaction(messageId: String, emoji: String) throws 
     
     func searchMessages(query: String, limit: UInt32?) throws  -> [FfiMessage]
     
+    func sendDocumentMessage(toPeerId: String, fileData: [UInt8], fileName: String, mimeType: String) async throws  -> String
+    
+    func sendImageMessage(toPeerId: String, imageData: [UInt8], fileName: String, quality: UInt32) async throws  -> String
+    
     func sendTextMessage(toPeerId: String, content: String) async throws  -> String
+    
+    func sendVideoFrame(callId: String, frameData: [UInt8], width: UInt32, height: UInt32) async throws 
+    
+    func sendVideoMessage(toPeerId: String, videoData: [UInt8], fileName: String, width: Int32?, height: Int32?, durationSeconds: Int32, thumbnailData: [UInt8]?) async throws  -> String
+    
+    func sendVoiceMessage(toPeerId: String, audioData: [UInt8], fileName: String, durationSeconds: Int32) async throws  -> String
+    
+    func startCall(toPeerId: String) async throws  -> String
+    
+    func switchCamera(callId: String) async throws 
+    
+    func toggleMute(callId: String) async throws 
+    
+    func toggleSpeakerphone(callId: String) async throws 
     
 }
 
@@ -606,6 +682,23 @@ public convenience init(dataDir: String)throws  {
     
 
     
+open func acceptCall(callId: String)async throws  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_mepassa_core_fn_method_mepassaclient_accept_call(
+                    self.uniffiClonePointer(),
+                    FfiConverterString.lower(callId)
+                )
+            },
+            pollFunc: ffi_mepassa_core_rust_future_poll_void,
+            completeFunc: ffi_mepassa_core_rust_future_complete_void,
+            freeFunc: ffi_mepassa_core_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeMePassaFfiError.lift
+        )
+}
+    
 open func addGroupMember(groupId: String, peerId: String)async throws  {
     return
         try  await uniffiRustCallAsync(
@@ -621,6 +714,14 @@ open func addGroupMember(groupId: String, peerId: String)async throws  {
             liftFunc: { $0 },
             errorHandler: FfiConverterTypeMePassaFfiError.lift
         )
+}
+    
+open func addReaction(messageId: String, emoji: String)throws  {try rustCallWithError(FfiConverterTypeMePassaFfiError.lift) {
+    uniffi_mepassa_core_fn_method_mepassaclient_add_reaction(self.uniffiClonePointer(),
+        FfiConverterString.lower(messageId),
+        FfiConverterString.lower(emoji),$0
+    )
+}
 }
     
 open func bootstrap()async throws  {
@@ -691,6 +792,91 @@ open func createGroup(name: String, description: String?)async throws  -> FfiGro
         )
 }
     
+open func deleteMessage(messageId: String)throws  {try rustCallWithError(FfiConverterTypeMePassaFfiError.lift) {
+    uniffi_mepassa_core_fn_method_mepassaclient_delete_message(self.uniffiClonePointer(),
+        FfiConverterString.lower(messageId),$0
+    )
+}
+}
+    
+open func disableVideo(callId: String)async throws  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_mepassa_core_fn_method_mepassaclient_disable_video(
+                    self.uniffiClonePointer(),
+                    FfiConverterString.lower(callId)
+                )
+            },
+            pollFunc: ffi_mepassa_core_rust_future_poll_void,
+            completeFunc: ffi_mepassa_core_rust_future_complete_void,
+            freeFunc: ffi_mepassa_core_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeMePassaFfiError.lift
+        )
+}
+    
+open func downloadMedia(mediaHash: String)async throws  -> [UInt8] {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_mepassa_core_fn_method_mepassaclient_download_media(
+                    self.uniffiClonePointer(),
+                    FfiConverterString.lower(mediaHash)
+                )
+            },
+            pollFunc: ffi_mepassa_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_mepassa_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_mepassa_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterSequenceUInt8.lift,
+            errorHandler: FfiConverterTypeMePassaFfiError.lift
+        )
+}
+    
+open func enableVideo(callId: String, codec: FfiVideoCodec)async throws  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_mepassa_core_fn_method_mepassaclient_enable_video(
+                    self.uniffiClonePointer(),
+                    FfiConverterString.lower(callId),FfiConverterTypeFfiVideoCodec.lower(codec)
+                )
+            },
+            pollFunc: ffi_mepassa_core_rust_future_poll_void,
+            completeFunc: ffi_mepassa_core_rust_future_complete_void,
+            freeFunc: ffi_mepassa_core_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeMePassaFfiError.lift
+        )
+}
+    
+open func forwardMessage(messageId: String, toPeerId: String)async throws  -> String {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_mepassa_core_fn_method_mepassaclient_forward_message(
+                    self.uniffiClonePointer(),
+                    FfiConverterString.lower(messageId),FfiConverterString.lower(toPeerId)
+                )
+            },
+            pollFunc: ffi_mepassa_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_mepassa_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_mepassa_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterString.lift,
+            errorHandler: FfiConverterTypeMePassaFfiError.lift
+        )
+}
+    
+open func getConversationMedia(conversationId: String, mediaType: FfiMediaType?, limit: UInt32?)throws  -> [FfiMedia] {
+    return try  FfiConverterSequenceTypeFfiMedia.lift(try rustCallWithError(FfiConverterTypeMePassaFfiError.lift) {
+    uniffi_mepassa_core_fn_method_mepassaclient_get_conversation_media(self.uniffiClonePointer(),
+        FfiConverterString.lower(conversationId),
+        FfiConverterOptionTypeFfiMediaType.lower(mediaType),
+        FfiConverterOptionUInt32.lower(limit),$0
+    )
+})
+}
+    
 open func getConversationMessages(peerId: String, limit: UInt32?, offset: UInt32?)throws  -> [FfiMessage] {
     return try  FfiConverterSequenceTypeFfiMessage.lift(try rustCallWithError(FfiConverterTypeMePassaFfiError.lift) {
     uniffi_mepassa_core_fn_method_mepassaclient_get_conversation_messages(self.uniffiClonePointer(),
@@ -714,6 +900,31 @@ open func getGroups()async throws  -> [FfiGroup] {
             completeFunc: ffi_mepassa_core_rust_future_complete_rust_buffer,
             freeFunc: ffi_mepassa_core_rust_future_free_rust_buffer,
             liftFunc: FfiConverterSequenceTypeFfiGroup.lift,
+            errorHandler: FfiConverterTypeMePassaFfiError.lift
+        )
+}
+    
+open func getMessageReactions(messageId: String)throws  -> [FfiReaction] {
+    return try  FfiConverterSequenceTypeFfiReaction.lift(try rustCallWithError(FfiConverterTypeMePassaFfiError.lift) {
+    uniffi_mepassa_core_fn_method_mepassaclient_get_message_reactions(self.uniffiClonePointer(),
+        FfiConverterString.lower(messageId),$0
+    )
+})
+}
+    
+open func hangupCall(callId: String)async throws  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_mepassa_core_fn_method_mepassaclient_hangup_call(
+                    self.uniffiClonePointer(),
+                    FfiConverterString.lower(callId)
+                )
+            },
+            pollFunc: ffi_mepassa_core_rust_future_poll_void,
+            completeFunc: ffi_mepassa_core_rust_future_complete_void,
+            freeFunc: ffi_mepassa_core_rust_future_free_void,
+            liftFunc: { $0 },
             errorHandler: FfiConverterTypeMePassaFfiError.lift
         )
 }
@@ -790,6 +1001,40 @@ open func markConversationRead(peerId: String)throws  {try rustCallWithError(Ffi
 }
 }
     
+open func registerVideoFrameCallback(callback: FfiVideoFrameCallback)async throws  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_mepassa_core_fn_method_mepassaclient_register_video_frame_callback(
+                    self.uniffiClonePointer(),
+                    FfiConverterCallbackInterfaceFfiVideoFrameCallback.lower(callback)
+                )
+            },
+            pollFunc: ffi_mepassa_core_rust_future_poll_void,
+            completeFunc: ffi_mepassa_core_rust_future_complete_void,
+            freeFunc: ffi_mepassa_core_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeMePassaFfiError.lift
+        )
+}
+    
+open func rejectCall(callId: String, reason: String?)async throws  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_mepassa_core_fn_method_mepassaclient_reject_call(
+                    self.uniffiClonePointer(),
+                    FfiConverterString.lower(callId),FfiConverterOptionString.lower(reason)
+                )
+            },
+            pollFunc: ffi_mepassa_core_rust_future_poll_void,
+            completeFunc: ffi_mepassa_core_rust_future_complete_void,
+            freeFunc: ffi_mepassa_core_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeMePassaFfiError.lift
+        )
+}
+    
 open func removeGroupMember(groupId: String, peerId: String)async throws  {
     return
         try  await uniffiRustCallAsync(
@@ -807,6 +1052,14 @@ open func removeGroupMember(groupId: String, peerId: String)async throws  {
         )
 }
     
+open func removeReaction(messageId: String, emoji: String)throws  {try rustCallWithError(FfiConverterTypeMePassaFfiError.lift) {
+    uniffi_mepassa_core_fn_method_mepassaclient_remove_reaction(self.uniffiClonePointer(),
+        FfiConverterString.lower(messageId),
+        FfiConverterString.lower(emoji),$0
+    )
+}
+}
+    
 open func searchMessages(query: String, limit: UInt32?)throws  -> [FfiMessage] {
     return try  FfiConverterSequenceTypeFfiMessage.lift(try rustCallWithError(FfiConverterTypeMePassaFfiError.lift) {
     uniffi_mepassa_core_fn_method_mepassaclient_search_messages(self.uniffiClonePointer(),
@@ -814,6 +1067,40 @@ open func searchMessages(query: String, limit: UInt32?)throws  -> [FfiMessage] {
         FfiConverterOptionUInt32.lower(limit),$0
     )
 })
+}
+    
+open func sendDocumentMessage(toPeerId: String, fileData: [UInt8], fileName: String, mimeType: String)async throws  -> String {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_mepassa_core_fn_method_mepassaclient_send_document_message(
+                    self.uniffiClonePointer(),
+                    FfiConverterString.lower(toPeerId),FfiConverterSequenceUInt8.lower(fileData),FfiConverterString.lower(fileName),FfiConverterString.lower(mimeType)
+                )
+            },
+            pollFunc: ffi_mepassa_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_mepassa_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_mepassa_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterString.lift,
+            errorHandler: FfiConverterTypeMePassaFfiError.lift
+        )
+}
+    
+open func sendImageMessage(toPeerId: String, imageData: [UInt8], fileName: String, quality: UInt32)async throws  -> String {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_mepassa_core_fn_method_mepassaclient_send_image_message(
+                    self.uniffiClonePointer(),
+                    FfiConverterString.lower(toPeerId),FfiConverterSequenceUInt8.lower(imageData),FfiConverterString.lower(fileName),FfiConverterUInt32.lower(quality)
+                )
+            },
+            pollFunc: ffi_mepassa_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_mepassa_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_mepassa_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterString.lift,
+            errorHandler: FfiConverterTypeMePassaFfiError.lift
+        )
 }
     
 open func sendTextMessage(toPeerId: String, content: String)async throws  -> String {
@@ -829,6 +1116,125 @@ open func sendTextMessage(toPeerId: String, content: String)async throws  -> Str
             completeFunc: ffi_mepassa_core_rust_future_complete_rust_buffer,
             freeFunc: ffi_mepassa_core_rust_future_free_rust_buffer,
             liftFunc: FfiConverterString.lift,
+            errorHandler: FfiConverterTypeMePassaFfiError.lift
+        )
+}
+    
+open func sendVideoFrame(callId: String, frameData: [UInt8], width: UInt32, height: UInt32)async throws  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_mepassa_core_fn_method_mepassaclient_send_video_frame(
+                    self.uniffiClonePointer(),
+                    FfiConverterString.lower(callId),FfiConverterSequenceUInt8.lower(frameData),FfiConverterUInt32.lower(width),FfiConverterUInt32.lower(height)
+                )
+            },
+            pollFunc: ffi_mepassa_core_rust_future_poll_void,
+            completeFunc: ffi_mepassa_core_rust_future_complete_void,
+            freeFunc: ffi_mepassa_core_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeMePassaFfiError.lift
+        )
+}
+    
+open func sendVideoMessage(toPeerId: String, videoData: [UInt8], fileName: String, width: Int32?, height: Int32?, durationSeconds: Int32, thumbnailData: [UInt8]?)async throws  -> String {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_mepassa_core_fn_method_mepassaclient_send_video_message(
+                    self.uniffiClonePointer(),
+                    FfiConverterString.lower(toPeerId),FfiConverterSequenceUInt8.lower(videoData),FfiConverterString.lower(fileName),FfiConverterOptionInt32.lower(width),FfiConverterOptionInt32.lower(height),FfiConverterInt32.lower(durationSeconds),FfiConverterOptionSequenceUInt8.lower(thumbnailData)
+                )
+            },
+            pollFunc: ffi_mepassa_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_mepassa_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_mepassa_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterString.lift,
+            errorHandler: FfiConverterTypeMePassaFfiError.lift
+        )
+}
+    
+open func sendVoiceMessage(toPeerId: String, audioData: [UInt8], fileName: String, durationSeconds: Int32)async throws  -> String {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_mepassa_core_fn_method_mepassaclient_send_voice_message(
+                    self.uniffiClonePointer(),
+                    FfiConverterString.lower(toPeerId),FfiConverterSequenceUInt8.lower(audioData),FfiConverterString.lower(fileName),FfiConverterInt32.lower(durationSeconds)
+                )
+            },
+            pollFunc: ffi_mepassa_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_mepassa_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_mepassa_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterString.lift,
+            errorHandler: FfiConverterTypeMePassaFfiError.lift
+        )
+}
+    
+open func startCall(toPeerId: String)async throws  -> String {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_mepassa_core_fn_method_mepassaclient_start_call(
+                    self.uniffiClonePointer(),
+                    FfiConverterString.lower(toPeerId)
+                )
+            },
+            pollFunc: ffi_mepassa_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_mepassa_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_mepassa_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterString.lift,
+            errorHandler: FfiConverterTypeMePassaFfiError.lift
+        )
+}
+    
+open func switchCamera(callId: String)async throws  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_mepassa_core_fn_method_mepassaclient_switch_camera(
+                    self.uniffiClonePointer(),
+                    FfiConverterString.lower(callId)
+                )
+            },
+            pollFunc: ffi_mepassa_core_rust_future_poll_void,
+            completeFunc: ffi_mepassa_core_rust_future_complete_void,
+            freeFunc: ffi_mepassa_core_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeMePassaFfiError.lift
+        )
+}
+    
+open func toggleMute(callId: String)async throws  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_mepassa_core_fn_method_mepassaclient_toggle_mute(
+                    self.uniffiClonePointer(),
+                    FfiConverterString.lower(callId)
+                )
+            },
+            pollFunc: ffi_mepassa_core_rust_future_poll_void,
+            completeFunc: ffi_mepassa_core_rust_future_complete_void,
+            freeFunc: ffi_mepassa_core_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeMePassaFfiError.lift
+        )
+}
+    
+open func toggleSpeakerphone(callId: String)async throws  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_mepassa_core_fn_method_mepassaclient_toggle_speakerphone(
+                    self.uniffiClonePointer(),
+                    FfiConverterString.lower(callId)
+                )
+            },
+            pollFunc: ffi_mepassa_core_rust_future_poll_void,
+            completeFunc: ffi_mepassa_core_rust_future_complete_void,
+            freeFunc: ffi_mepassa_core_rust_future_free_void,
+            liftFunc: { $0 },
             errorHandler: FfiConverterTypeMePassaFfiError.lift
         )
 }
@@ -885,6 +1291,242 @@ public func FfiConverterTypeMePassaClient_lift(_ pointer: UnsafeMutableRawPointe
 #endif
 public func FfiConverterTypeMePassaClient_lower(_ value: MePassaClient) -> UnsafeMutableRawPointer {
     return FfiConverterTypeMePassaClient.lower(value)
+}
+
+
+public struct FfiCall {
+    public var id: String
+    public var remotePeerId: String
+    public var direction: FfiCallDirection
+    public var state: FfiCallState
+    public var startedAt: Int64
+    public var connectedAt: Int64?
+    public var endedAt: Int64?
+    public var audioMuted: Bool
+    public var speakerphone: Bool
+    public var videoEnabled: Bool
+    public var videoCodec: FfiVideoCodec?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(id: String, remotePeerId: String, direction: FfiCallDirection, state: FfiCallState, startedAt: Int64, connectedAt: Int64?, endedAt: Int64?, audioMuted: Bool, speakerphone: Bool, videoEnabled: Bool, videoCodec: FfiVideoCodec?) {
+        self.id = id
+        self.remotePeerId = remotePeerId
+        self.direction = direction
+        self.state = state
+        self.startedAt = startedAt
+        self.connectedAt = connectedAt
+        self.endedAt = endedAt
+        self.audioMuted = audioMuted
+        self.speakerphone = speakerphone
+        self.videoEnabled = videoEnabled
+        self.videoCodec = videoCodec
+    }
+}
+
+
+
+extension FfiCall: Equatable, Hashable {
+    public static func ==(lhs: FfiCall, rhs: FfiCall) -> Bool {
+        if lhs.id != rhs.id {
+            return false
+        }
+        if lhs.remotePeerId != rhs.remotePeerId {
+            return false
+        }
+        if lhs.direction != rhs.direction {
+            return false
+        }
+        if lhs.state != rhs.state {
+            return false
+        }
+        if lhs.startedAt != rhs.startedAt {
+            return false
+        }
+        if lhs.connectedAt != rhs.connectedAt {
+            return false
+        }
+        if lhs.endedAt != rhs.endedAt {
+            return false
+        }
+        if lhs.audioMuted != rhs.audioMuted {
+            return false
+        }
+        if lhs.speakerphone != rhs.speakerphone {
+            return false
+        }
+        if lhs.videoEnabled != rhs.videoEnabled {
+            return false
+        }
+        if lhs.videoCodec != rhs.videoCodec {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(remotePeerId)
+        hasher.combine(direction)
+        hasher.combine(state)
+        hasher.combine(startedAt)
+        hasher.combine(connectedAt)
+        hasher.combine(endedAt)
+        hasher.combine(audioMuted)
+        hasher.combine(speakerphone)
+        hasher.combine(videoEnabled)
+        hasher.combine(videoCodec)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiCall: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiCall {
+        return
+            try FfiCall(
+                id: FfiConverterString.read(from: &buf), 
+                remotePeerId: FfiConverterString.read(from: &buf), 
+                direction: FfiConverterTypeFfiCallDirection.read(from: &buf), 
+                state: FfiConverterTypeFfiCallState.read(from: &buf), 
+                startedAt: FfiConverterInt64.read(from: &buf), 
+                connectedAt: FfiConverterOptionInt64.read(from: &buf), 
+                endedAt: FfiConverterOptionInt64.read(from: &buf), 
+                audioMuted: FfiConverterBool.read(from: &buf), 
+                speakerphone: FfiConverterBool.read(from: &buf), 
+                videoEnabled: FfiConverterBool.read(from: &buf), 
+                videoCodec: FfiConverterOptionTypeFfiVideoCodec.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: FfiCall, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.id, into: &buf)
+        FfiConverterString.write(value.remotePeerId, into: &buf)
+        FfiConverterTypeFfiCallDirection.write(value.direction, into: &buf)
+        FfiConverterTypeFfiCallState.write(value.state, into: &buf)
+        FfiConverterInt64.write(value.startedAt, into: &buf)
+        FfiConverterOptionInt64.write(value.connectedAt, into: &buf)
+        FfiConverterOptionInt64.write(value.endedAt, into: &buf)
+        FfiConverterBool.write(value.audioMuted, into: &buf)
+        FfiConverterBool.write(value.speakerphone, into: &buf)
+        FfiConverterBool.write(value.videoEnabled, into: &buf)
+        FfiConverterOptionTypeFfiVideoCodec.write(value.videoCodec, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiCall_lift(_ buf: RustBuffer) throws -> FfiCall {
+    return try FfiConverterTypeFfiCall.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiCall_lower(_ value: FfiCall) -> RustBuffer {
+    return FfiConverterTypeFfiCall.lower(value)
+}
+
+
+public struct FfiCallStats {
+    public var avgRttMs: UInt32
+    public var packetsSent: UInt64
+    public var packetsReceived: UInt64
+    public var packetsLost: UInt64
+    public var jitterMs: UInt32
+    public var audioBitrateKbps: UInt32
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(avgRttMs: UInt32, packetsSent: UInt64, packetsReceived: UInt64, packetsLost: UInt64, jitterMs: UInt32, audioBitrateKbps: UInt32) {
+        self.avgRttMs = avgRttMs
+        self.packetsSent = packetsSent
+        self.packetsReceived = packetsReceived
+        self.packetsLost = packetsLost
+        self.jitterMs = jitterMs
+        self.audioBitrateKbps = audioBitrateKbps
+    }
+}
+
+
+
+extension FfiCallStats: Equatable, Hashable {
+    public static func ==(lhs: FfiCallStats, rhs: FfiCallStats) -> Bool {
+        if lhs.avgRttMs != rhs.avgRttMs {
+            return false
+        }
+        if lhs.packetsSent != rhs.packetsSent {
+            return false
+        }
+        if lhs.packetsReceived != rhs.packetsReceived {
+            return false
+        }
+        if lhs.packetsLost != rhs.packetsLost {
+            return false
+        }
+        if lhs.jitterMs != rhs.jitterMs {
+            return false
+        }
+        if lhs.audioBitrateKbps != rhs.audioBitrateKbps {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(avgRttMs)
+        hasher.combine(packetsSent)
+        hasher.combine(packetsReceived)
+        hasher.combine(packetsLost)
+        hasher.combine(jitterMs)
+        hasher.combine(audioBitrateKbps)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiCallStats: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiCallStats {
+        return
+            try FfiCallStats(
+                avgRttMs: FfiConverterUInt32.read(from: &buf), 
+                packetsSent: FfiConverterUInt64.read(from: &buf), 
+                packetsReceived: FfiConverterUInt64.read(from: &buf), 
+                packetsLost: FfiConverterUInt64.read(from: &buf), 
+                jitterMs: FfiConverterUInt32.read(from: &buf), 
+                audioBitrateKbps: FfiConverterUInt32.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: FfiCallStats, into buf: inout [UInt8]) {
+        FfiConverterUInt32.write(value.avgRttMs, into: &buf)
+        FfiConverterUInt64.write(value.packetsSent, into: &buf)
+        FfiConverterUInt64.write(value.packetsReceived, into: &buf)
+        FfiConverterUInt64.write(value.packetsLost, into: &buf)
+        FfiConverterUInt32.write(value.jitterMs, into: &buf)
+        FfiConverterUInt32.write(value.audioBitrateKbps, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiCallStats_lift(_ buf: RustBuffer) throws -> FfiCallStats {
+    return try FfiConverterTypeFfiCallStats.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiCallStats_lower(_ value: FfiCallStats) -> RustBuffer {
+    return FfiConverterTypeFfiCallStats.lower(value)
 }
 
 
@@ -1132,6 +1774,160 @@ public func FfiConverterTypeFfiGroup_lower(_ value: FfiGroup) -> RustBuffer {
 }
 
 
+public struct FfiMedia {
+    public var id: Int64
+    public var mediaHash: String
+    public var messageId: String
+    public var mediaType: FfiMediaType
+    public var fileName: String?
+    public var fileSize: Int64?
+    public var mimeType: String?
+    public var localPath: String?
+    public var thumbnailPath: String?
+    public var width: Int32?
+    public var height: Int32?
+    public var durationSeconds: Int32?
+    public var createdAt: Int64
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(id: Int64, mediaHash: String, messageId: String, mediaType: FfiMediaType, fileName: String?, fileSize: Int64?, mimeType: String?, localPath: String?, thumbnailPath: String?, width: Int32?, height: Int32?, durationSeconds: Int32?, createdAt: Int64) {
+        self.id = id
+        self.mediaHash = mediaHash
+        self.messageId = messageId
+        self.mediaType = mediaType
+        self.fileName = fileName
+        self.fileSize = fileSize
+        self.mimeType = mimeType
+        self.localPath = localPath
+        self.thumbnailPath = thumbnailPath
+        self.width = width
+        self.height = height
+        self.durationSeconds = durationSeconds
+        self.createdAt = createdAt
+    }
+}
+
+
+
+extension FfiMedia: Equatable, Hashable {
+    public static func ==(lhs: FfiMedia, rhs: FfiMedia) -> Bool {
+        if lhs.id != rhs.id {
+            return false
+        }
+        if lhs.mediaHash != rhs.mediaHash {
+            return false
+        }
+        if lhs.messageId != rhs.messageId {
+            return false
+        }
+        if lhs.mediaType != rhs.mediaType {
+            return false
+        }
+        if lhs.fileName != rhs.fileName {
+            return false
+        }
+        if lhs.fileSize != rhs.fileSize {
+            return false
+        }
+        if lhs.mimeType != rhs.mimeType {
+            return false
+        }
+        if lhs.localPath != rhs.localPath {
+            return false
+        }
+        if lhs.thumbnailPath != rhs.thumbnailPath {
+            return false
+        }
+        if lhs.width != rhs.width {
+            return false
+        }
+        if lhs.height != rhs.height {
+            return false
+        }
+        if lhs.durationSeconds != rhs.durationSeconds {
+            return false
+        }
+        if lhs.createdAt != rhs.createdAt {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(mediaHash)
+        hasher.combine(messageId)
+        hasher.combine(mediaType)
+        hasher.combine(fileName)
+        hasher.combine(fileSize)
+        hasher.combine(mimeType)
+        hasher.combine(localPath)
+        hasher.combine(thumbnailPath)
+        hasher.combine(width)
+        hasher.combine(height)
+        hasher.combine(durationSeconds)
+        hasher.combine(createdAt)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiMedia: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiMedia {
+        return
+            try FfiMedia(
+                id: FfiConverterInt64.read(from: &buf), 
+                mediaHash: FfiConverterString.read(from: &buf), 
+                messageId: FfiConverterString.read(from: &buf), 
+                mediaType: FfiConverterTypeFfiMediaType.read(from: &buf), 
+                fileName: FfiConverterOptionString.read(from: &buf), 
+                fileSize: FfiConverterOptionInt64.read(from: &buf), 
+                mimeType: FfiConverterOptionString.read(from: &buf), 
+                localPath: FfiConverterOptionString.read(from: &buf), 
+                thumbnailPath: FfiConverterOptionString.read(from: &buf), 
+                width: FfiConverterOptionInt32.read(from: &buf), 
+                height: FfiConverterOptionInt32.read(from: &buf), 
+                durationSeconds: FfiConverterOptionInt32.read(from: &buf), 
+                createdAt: FfiConverterInt64.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: FfiMedia, into buf: inout [UInt8]) {
+        FfiConverterInt64.write(value.id, into: &buf)
+        FfiConverterString.write(value.mediaHash, into: &buf)
+        FfiConverterString.write(value.messageId, into: &buf)
+        FfiConverterTypeFfiMediaType.write(value.mediaType, into: &buf)
+        FfiConverterOptionString.write(value.fileName, into: &buf)
+        FfiConverterOptionInt64.write(value.fileSize, into: &buf)
+        FfiConverterOptionString.write(value.mimeType, into: &buf)
+        FfiConverterOptionString.write(value.localPath, into: &buf)
+        FfiConverterOptionString.write(value.thumbnailPath, into: &buf)
+        FfiConverterOptionInt32.write(value.width, into: &buf)
+        FfiConverterOptionInt32.write(value.height, into: &buf)
+        FfiConverterOptionInt32.write(value.durationSeconds, into: &buf)
+        FfiConverterInt64.write(value.createdAt, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiMedia_lift(_ buf: RustBuffer) throws -> FfiMedia {
+    return try FfiConverterTypeFfiMedia.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiMedia_lower(_ value: FfiMedia) -> RustBuffer {
+    return FfiConverterTypeFfiMedia.lower(value)
+}
+
+
 public struct FfiMessage {
     public var messageId: String
     public var conversationId: String
@@ -1276,6 +2072,742 @@ public func FfiConverterTypeFfiMessage_lift(_ buf: RustBuffer) throws -> FfiMess
 public func FfiConverterTypeFfiMessage_lower(_ value: FfiMessage) -> RustBuffer {
     return FfiConverterTypeFfiMessage.lower(value)
 }
+
+
+public struct FfiReaction {
+    public var reactionId: String
+    public var messageId: String
+    public var peerId: String
+    public var emoji: String
+    public var createdAt: Int64
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(reactionId: String, messageId: String, peerId: String, emoji: String, createdAt: Int64) {
+        self.reactionId = reactionId
+        self.messageId = messageId
+        self.peerId = peerId
+        self.emoji = emoji
+        self.createdAt = createdAt
+    }
+}
+
+
+
+extension FfiReaction: Equatable, Hashable {
+    public static func ==(lhs: FfiReaction, rhs: FfiReaction) -> Bool {
+        if lhs.reactionId != rhs.reactionId {
+            return false
+        }
+        if lhs.messageId != rhs.messageId {
+            return false
+        }
+        if lhs.peerId != rhs.peerId {
+            return false
+        }
+        if lhs.emoji != rhs.emoji {
+            return false
+        }
+        if lhs.createdAt != rhs.createdAt {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(reactionId)
+        hasher.combine(messageId)
+        hasher.combine(peerId)
+        hasher.combine(emoji)
+        hasher.combine(createdAt)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiReaction: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiReaction {
+        return
+            try FfiReaction(
+                reactionId: FfiConverterString.read(from: &buf), 
+                messageId: FfiConverterString.read(from: &buf), 
+                peerId: FfiConverterString.read(from: &buf), 
+                emoji: FfiConverterString.read(from: &buf), 
+                createdAt: FfiConverterInt64.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: FfiReaction, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.reactionId, into: &buf)
+        FfiConverterString.write(value.messageId, into: &buf)
+        FfiConverterString.write(value.peerId, into: &buf)
+        FfiConverterString.write(value.emoji, into: &buf)
+        FfiConverterInt64.write(value.createdAt, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiReaction_lift(_ buf: RustBuffer) throws -> FfiReaction {
+    return try FfiConverterTypeFfiReaction.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiReaction_lower(_ value: FfiReaction) -> RustBuffer {
+    return FfiConverterTypeFfiReaction.lower(value)
+}
+
+
+public struct FfiVideoResolution {
+    public var width: UInt32
+    public var height: UInt32
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(width: UInt32, height: UInt32) {
+        self.width = width
+        self.height = height
+    }
+}
+
+
+
+extension FfiVideoResolution: Equatable, Hashable {
+    public static func ==(lhs: FfiVideoResolution, rhs: FfiVideoResolution) -> Bool {
+        if lhs.width != rhs.width {
+            return false
+        }
+        if lhs.height != rhs.height {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(width)
+        hasher.combine(height)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiVideoResolution: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiVideoResolution {
+        return
+            try FfiVideoResolution(
+                width: FfiConverterUInt32.read(from: &buf), 
+                height: FfiConverterUInt32.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: FfiVideoResolution, into buf: inout [UInt8]) {
+        FfiConverterUInt32.write(value.width, into: &buf)
+        FfiConverterUInt32.write(value.height, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiVideoResolution_lift(_ buf: RustBuffer) throws -> FfiVideoResolution {
+    return try FfiConverterTypeFfiVideoResolution.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiVideoResolution_lower(_ value: FfiVideoResolution) -> RustBuffer {
+    return FfiConverterTypeFfiVideoResolution.lower(value)
+}
+
+
+public struct FfiVideoStats {
+    public var resolution: FfiVideoResolution
+    public var fps: UInt32
+    public var bitrateKbps: UInt32
+    public var framesSent: UInt64
+    public var framesReceived: UInt64
+    public var framesDropped: UInt64
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(resolution: FfiVideoResolution, fps: UInt32, bitrateKbps: UInt32, framesSent: UInt64, framesReceived: UInt64, framesDropped: UInt64) {
+        self.resolution = resolution
+        self.fps = fps
+        self.bitrateKbps = bitrateKbps
+        self.framesSent = framesSent
+        self.framesReceived = framesReceived
+        self.framesDropped = framesDropped
+    }
+}
+
+
+
+extension FfiVideoStats: Equatable, Hashable {
+    public static func ==(lhs: FfiVideoStats, rhs: FfiVideoStats) -> Bool {
+        if lhs.resolution != rhs.resolution {
+            return false
+        }
+        if lhs.fps != rhs.fps {
+            return false
+        }
+        if lhs.bitrateKbps != rhs.bitrateKbps {
+            return false
+        }
+        if lhs.framesSent != rhs.framesSent {
+            return false
+        }
+        if lhs.framesReceived != rhs.framesReceived {
+            return false
+        }
+        if lhs.framesDropped != rhs.framesDropped {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(resolution)
+        hasher.combine(fps)
+        hasher.combine(bitrateKbps)
+        hasher.combine(framesSent)
+        hasher.combine(framesReceived)
+        hasher.combine(framesDropped)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiVideoStats: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiVideoStats {
+        return
+            try FfiVideoStats(
+                resolution: FfiConverterTypeFfiVideoResolution.read(from: &buf), 
+                fps: FfiConverterUInt32.read(from: &buf), 
+                bitrateKbps: FfiConverterUInt32.read(from: &buf), 
+                framesSent: FfiConverterUInt64.read(from: &buf), 
+                framesReceived: FfiConverterUInt64.read(from: &buf), 
+                framesDropped: FfiConverterUInt64.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: FfiVideoStats, into buf: inout [UInt8]) {
+        FfiConverterTypeFfiVideoResolution.write(value.resolution, into: &buf)
+        FfiConverterUInt32.write(value.fps, into: &buf)
+        FfiConverterUInt32.write(value.bitrateKbps, into: &buf)
+        FfiConverterUInt64.write(value.framesSent, into: &buf)
+        FfiConverterUInt64.write(value.framesReceived, into: &buf)
+        FfiConverterUInt64.write(value.framesDropped, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiVideoStats_lift(_ buf: RustBuffer) throws -> FfiVideoStats {
+    return try FfiConverterTypeFfiVideoStats.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiVideoStats_lower(_ value: FfiVideoStats) -> RustBuffer {
+    return FfiConverterTypeFfiVideoStats.lower(value)
+}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum FfiCallDirection {
+    
+    case outgoing
+    case incoming
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiCallDirection: FfiConverterRustBuffer {
+    typealias SwiftType = FfiCallDirection
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiCallDirection {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .outgoing
+        
+        case 2: return .incoming
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: FfiCallDirection, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .outgoing:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .incoming:
+            writeInt(&buf, Int32(2))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiCallDirection_lift(_ buf: RustBuffer) throws -> FfiCallDirection {
+    return try FfiConverterTypeFfiCallDirection.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiCallDirection_lower(_ value: FfiCallDirection) -> RustBuffer {
+    return FfiConverterTypeFfiCallDirection.lower(value)
+}
+
+
+
+extension FfiCallDirection: Equatable, Hashable {}
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum FfiCallEndReason {
+    
+    case hangup
+    case rejected
+    case localHangup
+    case remoteHangup
+    case connectionFailed
+    case timeout
+    case networkError
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiCallEndReason: FfiConverterRustBuffer {
+    typealias SwiftType = FfiCallEndReason
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiCallEndReason {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .hangup
+        
+        case 2: return .rejected
+        
+        case 3: return .localHangup
+        
+        case 4: return .remoteHangup
+        
+        case 5: return .connectionFailed
+        
+        case 6: return .timeout
+        
+        case 7: return .networkError
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: FfiCallEndReason, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .hangup:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .rejected:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .localHangup:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .remoteHangup:
+            writeInt(&buf, Int32(4))
+        
+        
+        case .connectionFailed:
+            writeInt(&buf, Int32(5))
+        
+        
+        case .timeout:
+            writeInt(&buf, Int32(6))
+        
+        
+        case .networkError:
+            writeInt(&buf, Int32(7))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiCallEndReason_lift(_ buf: RustBuffer) throws -> FfiCallEndReason {
+    return try FfiConverterTypeFfiCallEndReason.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiCallEndReason_lower(_ value: FfiCallEndReason) -> RustBuffer {
+    return FfiConverterTypeFfiCallEndReason.lower(value)
+}
+
+
+
+extension FfiCallEndReason: Equatable, Hashable {}
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum FfiCallState {
+    
+    case initiating
+    case ringing
+    case connecting
+    case active
+    case ending
+    case ended
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiCallState: FfiConverterRustBuffer {
+    typealias SwiftType = FfiCallState
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiCallState {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .initiating
+        
+        case 2: return .ringing
+        
+        case 3: return .connecting
+        
+        case 4: return .active
+        
+        case 5: return .ending
+        
+        case 6: return .ended
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: FfiCallState, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .initiating:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .ringing:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .connecting:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .active:
+            writeInt(&buf, Int32(4))
+        
+        
+        case .ending:
+            writeInt(&buf, Int32(5))
+        
+        
+        case .ended:
+            writeInt(&buf, Int32(6))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiCallState_lift(_ buf: RustBuffer) throws -> FfiCallState {
+    return try FfiConverterTypeFfiCallState.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiCallState_lower(_ value: FfiCallState) -> RustBuffer {
+    return FfiConverterTypeFfiCallState.lower(value)
+}
+
+
+
+extension FfiCallState: Equatable, Hashable {}
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum FfiCameraPosition {
+    
+    case front
+    case back
+    case external
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiCameraPosition: FfiConverterRustBuffer {
+    typealias SwiftType = FfiCameraPosition
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiCameraPosition {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .front
+        
+        case 2: return .back
+        
+        case 3: return .external
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: FfiCameraPosition, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .front:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .back:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .external:
+            writeInt(&buf, Int32(3))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiCameraPosition_lift(_ buf: RustBuffer) throws -> FfiCameraPosition {
+    return try FfiConverterTypeFfiCameraPosition.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiCameraPosition_lower(_ value: FfiCameraPosition) -> RustBuffer {
+    return FfiConverterTypeFfiCameraPosition.lower(value)
+}
+
+
+
+extension FfiCameraPosition: Equatable, Hashable {}
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum FfiMediaType {
+    
+    case image
+    case video
+    case audio
+    case document
+    case voiceMessage
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiMediaType: FfiConverterRustBuffer {
+    typealias SwiftType = FfiMediaType
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiMediaType {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .image
+        
+        case 2: return .video
+        
+        case 3: return .audio
+        
+        case 4: return .document
+        
+        case 5: return .voiceMessage
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: FfiMediaType, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .image:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .video:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .audio:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .document:
+            writeInt(&buf, Int32(4))
+        
+        
+        case .voiceMessage:
+            writeInt(&buf, Int32(5))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiMediaType_lift(_ buf: RustBuffer) throws -> FfiMediaType {
+    return try FfiConverterTypeFfiMediaType.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiMediaType_lower(_ value: FfiMediaType) -> RustBuffer {
+    return FfiConverterTypeFfiMediaType.lower(value)
+}
+
+
+
+extension FfiMediaType: Equatable, Hashable {}
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum FfiVideoCodec {
+    
+    case h264
+    case vp8
+    case vp9
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiVideoCodec: FfiConverterRustBuffer {
+    typealias SwiftType = FfiVideoCodec
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiVideoCodec {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .h264
+        
+        case 2: return .vp8
+        
+        case 3: return .vp9
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: FfiVideoCodec, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .h264:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .vp8:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .vp9:
+            writeInt(&buf, Int32(3))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiVideoCodec_lift(_ buf: RustBuffer) throws -> FfiVideoCodec {
+    return try FfiConverterTypeFfiVideoCodec.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiVideoCodec_lower(_ value: FfiVideoCodec) -> RustBuffer {
+    return FfiConverterTypeFfiVideoCodec.lower(value)
+}
+
+
+
+extension FfiVideoCodec: Equatable, Hashable {}
+
+
 
 
 public enum MePassaFfiError {
@@ -1477,6 +3009,117 @@ extension MessageStatus: Equatable, Hashable {}
 
 
 
+
+
+
+public protocol FfiVideoFrameCallback : AnyObject {
+    
+    func onVideoFrame(callId: String, frameData: [UInt8], width: UInt32, height: UInt32) 
+    
+}
+
+// Magic number for the Rust proxy to call using the same mechanism as every other method,
+// to free the callback once it's dropped by Rust.
+private let IDX_CALLBACK_FREE: Int32 = 0
+// Callback return codes
+private let UNIFFI_CALLBACK_SUCCESS: Int32 = 0
+private let UNIFFI_CALLBACK_ERROR: Int32 = 1
+private let UNIFFI_CALLBACK_UNEXPECTED_ERROR: Int32 = 2
+
+// Put the implementation in a struct so we don't pollute the top-level namespace
+fileprivate struct UniffiCallbackInterfaceFfiVideoFrameCallback {
+
+    // Create the VTable using a series of closures.
+    // Swift automatically converts these into C callback functions.
+    static var vtable: UniffiVTableCallbackInterfaceFfiVideoFrameCallback = UniffiVTableCallbackInterfaceFfiVideoFrameCallback(
+        onVideoFrame: { (
+            uniffiHandle: UInt64,
+            callId: RustBuffer,
+            frameData: RustBuffer,
+            width: UInt32,
+            height: UInt32,
+            uniffiOutReturn: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> () in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceFfiVideoFrameCallback.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.onVideoFrame(
+                     callId: try FfiConverterString.lift(callId),
+                     frameData: try FfiConverterSequenceUInt8.lift(frameData),
+                     width: try FfiConverterUInt32.lift(width),
+                     height: try FfiConverterUInt32.lift(height)
+                )
+            }
+
+            
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        uniffiFree: { (uniffiHandle: UInt64) -> () in
+            let result = try? FfiConverterCallbackInterfaceFfiVideoFrameCallback.handleMap.remove(handle: uniffiHandle)
+            if result == nil {
+                print("Uniffi callback interface FfiVideoFrameCallback: handle missing in uniffiFree")
+            }
+        }
+    )
+}
+
+private func uniffiCallbackInitFfiVideoFrameCallback() {
+    uniffi_mepassa_core_fn_init_callback_vtable_ffivideoframecallback(&UniffiCallbackInterfaceFfiVideoFrameCallback.vtable)
+}
+
+// FfiConverter protocol for callback interfaces
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterCallbackInterfaceFfiVideoFrameCallback {
+    fileprivate static var handleMap = UniffiHandleMap<FfiVideoFrameCallback>()
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+extension FfiConverterCallbackInterfaceFfiVideoFrameCallback : FfiConverter {
+    typealias SwiftType = FfiVideoFrameCallback
+    typealias FfiType = UInt64
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func lift(_ handle: UInt64) throws -> SwiftType {
+        try handleMap.get(handle: handle)
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func lower(_ v: SwiftType) -> UInt64 {
+        return handleMap.insert(obj: v)
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func write(_ v: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(v))
+    }
+}
+
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
@@ -1496,6 +3139,30 @@ fileprivate struct FfiConverterOptionUInt32: FfiConverterRustBuffer {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterUInt32.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionInt32: FfiConverterRustBuffer {
+    typealias SwiftType = Int32?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterInt32.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterInt32.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }
@@ -1552,6 +3219,103 @@ fileprivate struct FfiConverterOptionString: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionTypeFfiMediaType: FfiConverterRustBuffer {
+    typealias SwiftType = FfiMediaType?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeFfiMediaType.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeFfiMediaType.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionTypeFfiVideoCodec: FfiConverterRustBuffer {
+    typealias SwiftType = FfiVideoCodec?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeFfiVideoCodec.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeFfiVideoCodec.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionSequenceUInt8: FfiConverterRustBuffer {
+    typealias SwiftType = [UInt8]?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterSequenceUInt8.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterSequenceUInt8.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceUInt8: FfiConverterRustBuffer {
+    typealias SwiftType = [UInt8]
+
+    public static func write(_ value: [UInt8], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterUInt8.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [UInt8] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [UInt8]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterUInt8.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterSequenceTypeFfiConversation: FfiConverterRustBuffer {
     typealias SwiftType = [FfiConversation]
 
@@ -1602,6 +3366,31 @@ fileprivate struct FfiConverterSequenceTypeFfiGroup: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterSequenceTypeFfiMedia: FfiConverterRustBuffer {
+    typealias SwiftType = [FfiMedia]
+
+    public static func write(_ value: [FfiMedia], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeFfiMedia.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [FfiMedia] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [FfiMedia]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeFfiMedia.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterSequenceTypeFfiMessage: FfiConverterRustBuffer {
     typealias SwiftType = [FfiMessage]
 
@@ -1619,6 +3408,31 @@ fileprivate struct FfiConverterSequenceTypeFfiMessage: FfiConverterRustBuffer {
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
             seq.append(try FfiConverterTypeFfiMessage.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypeFfiReaction: FfiConverterRustBuffer {
+    typealias SwiftType = [FfiReaction]
+
+    public static func write(_ value: [FfiReaction], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeFfiReaction.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [FfiReaction] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [FfiReaction]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeFfiReaction.read(from: &buf))
         }
         return seq
     }
@@ -1685,7 +3499,13 @@ private var initializationResult: InitializationResult = {
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_accept_call() != 36665) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_mepassa_core_checksum_method_mepassaclient_add_group_member() != 27257) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_add_reaction() != 30358) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_mepassa_core_checksum_method_mepassaclient_bootstrap() != 50425) {
@@ -1700,10 +3520,34 @@ private var initializationResult: InitializationResult = {
     if (uniffi_mepassa_core_checksum_method_mepassaclient_create_group() != 32075) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_delete_message() != 36580) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_disable_video() != 22386) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_download_media() != 4122) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_enable_video() != 63294) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_forward_message() != 52303) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_get_conversation_media() != 54874) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_mepassa_core_checksum_method_mepassaclient_get_conversation_messages() != 5424) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_mepassa_core_checksum_method_mepassaclient_get_groups() != 26850) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_get_message_reactions() != 57499) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_hangup_call() != 41033) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_mepassa_core_checksum_method_mepassaclient_join_group() != 24248) {
@@ -1724,19 +3568,59 @@ private var initializationResult: InitializationResult = {
     if (uniffi_mepassa_core_checksum_method_mepassaclient_mark_conversation_read() != 7782) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_register_video_frame_callback() != 57380) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_reject_call() != 59311) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_mepassa_core_checksum_method_mepassaclient_remove_group_member() != 37164) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_remove_reaction() != 38012) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_mepassa_core_checksum_method_mepassaclient_search_messages() != 45022) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_send_document_message() != 14185) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_send_image_message() != 63432) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_mepassa_core_checksum_method_mepassaclient_send_text_message() != 56271) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_send_video_frame() != 52593) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_send_video_message() != 7749) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_send_voice_message() != 15962) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_start_call() != 10921) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_switch_camera() != 59798) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_toggle_mute() != 36733) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_toggle_speakerphone() != 42924) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_mepassa_core_checksum_constructor_mepassaclient_new() != 5686) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_mepassa_core_checksum_method_ffivideoframecallback_on_video_frame() != 35554) {
+        return InitializationResult.apiChecksumMismatch
+    }
 
+    uniffiCallbackInitFfiVideoFrameCallback()
     return InitializationResult.ok
 }()
 

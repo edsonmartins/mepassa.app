@@ -40,7 +40,7 @@ fi
 if [ ! -f "$LIB_FILE" ]; then
     echo -e "${YELLOW}⚠️  Library not found, building...${NC}"
     cd "$CORE_DIR"
-    cargo build --release --no-default-features -p mepassa-core
+    cargo build --release --features video -p mepassa-core
     echo ""
 fi
 

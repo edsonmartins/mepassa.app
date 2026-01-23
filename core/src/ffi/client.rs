@@ -109,18 +109,18 @@ enum ClientCommand {
         response: oneshot::Sender<Result<(), MePassaFfiError>>,
     },
     // Video commands (FASE 14)
-    #[cfg(feature = "voip")]
+    #[cfg(any(feature = "voip", feature = "video"))]
     EnableVideo {
         call_id: String,
         codec: types::FfiVideoCodec,
         response: oneshot::Sender<Result<(), MePassaFfiError>>,
     },
-    #[cfg(feature = "voip")]
+    #[cfg(any(feature = "voip", feature = "video"))]
     DisableVideo {
         call_id: String,
         response: oneshot::Sender<Result<(), MePassaFfiError>>,
     },
-    #[cfg(feature = "voip")]
+    #[cfg(any(feature = "voip", feature = "video"))]
     SendVideoFrame {
         call_id: String,
         frame_data: Vec<u8>,
@@ -128,12 +128,12 @@ enum ClientCommand {
         height: u32,
         response: oneshot::Sender<Result<(), MePassaFfiError>>,
     },
-    #[cfg(feature = "voip")]
+    #[cfg(any(feature = "voip", feature = "video"))]
     SwitchCamera {
         call_id: String,
         response: oneshot::Sender<Result<(), MePassaFfiError>>,
     },
-    #[cfg(feature = "voip")]
+    #[cfg(any(feature = "voip", feature = "video"))]
     RegisterVideoFrameCallback {
         callback: Box<dyn types::FfiVideoFrameCallback>,
         response: oneshot::Sender<Result<(), MePassaFfiError>>,
@@ -358,7 +358,7 @@ async fn run_client_task(
                 let _ = response.send(result);
             }
             // Video command handlers (FASE 14)
-            #[cfg(feature = "voip")]
+            #[cfg(any(feature = "voip", feature = "video"))]
             ClientCommand::EnableVideo { call_id, codec, response } => {
                 let result = client
                     .enable_video(call_id, codec.into())
@@ -366,7 +366,7 @@ async fn run_client_task(
                     .map_err(|e| e.into());
                 let _ = response.send(result);
             }
-            #[cfg(feature = "voip")]
+            #[cfg(any(feature = "voip", feature = "video"))]
             ClientCommand::DisableVideo { call_id, response } => {
                 let result = client
                     .disable_video(call_id)
@@ -374,7 +374,7 @@ async fn run_client_task(
                     .map_err(|e| e.into());
                 let _ = response.send(result);
             }
-            #[cfg(feature = "voip")]
+            #[cfg(any(feature = "voip", feature = "video"))]
             ClientCommand::SendVideoFrame {
                 call_id,
                 frame_data,
@@ -388,7 +388,7 @@ async fn run_client_task(
                     .map_err(|e| e.into());
                 let _ = response.send(result);
             }
-            #[cfg(feature = "voip")]
+            #[cfg(any(feature = "voip", feature = "video"))]
             ClientCommand::SwitchCamera { call_id, response } => {
                 let result = client
                     .switch_camera(call_id)
@@ -396,7 +396,7 @@ async fn run_client_task(
                     .map_err(|e| e.into());
                 let _ = response.send(result);
             }
-            #[cfg(feature = "voip")]
+            #[cfg(any(feature = "voip", feature = "video"))]
             ClientCommand::RegisterVideoFrameCallback { callback, response } => {
                 // Register the callback with VoIPIntegration via Client
                 client.register_video_frame_callback(callback).await;
@@ -1028,7 +1028,7 @@ impl MePassaClient {
 
     // ========== Video Methods (FASE 14) ==========
 
-    #[cfg(feature = "voip")]
+    #[cfg(any(feature = "voip", feature = "video"))]
     /// Enable video for an active call
     pub async fn enable_video(
         &self,
@@ -1052,7 +1052,7 @@ impl MePassaClient {
         })?
     }
 
-    #[cfg(feature = "voip")]
+    #[cfg(any(feature = "voip", feature = "video"))]
     /// Disable video for an active call
     pub async fn disable_video(&self, call_id: String) -> Result<(), MePassaFfiError> {
         let (tx, rx) = oneshot::channel();
@@ -1071,7 +1071,7 @@ impl MePassaClient {
         })?
     }
 
-    #[cfg(feature = "voip")]
+    #[cfg(any(feature = "voip", feature = "video"))]
     /// Send video frame to remote peer
     ///
     /// Frame data should be pre-encoded (H.264 NALUs or VP8/VP9 frames)
@@ -1102,7 +1102,7 @@ impl MePassaClient {
         })?
     }
 
-    #[cfg(feature = "voip")]
+    #[cfg(any(feature = "voip", feature = "video"))]
     /// Switch camera (front/back) during video call
     ///
     /// Only applicable on mobile devices with multiple cameras.
@@ -1124,7 +1124,7 @@ impl MePassaClient {
         })?
     }
 
-    #[cfg(feature = "voip")]
+    #[cfg(any(feature = "voip", feature = "video"))]
     /// Register a callback for receiving remote video frames
     ///
     /// The callback will be invoked on a background thread whenever a remote
@@ -1207,24 +1207,24 @@ impl MePassaClient {
         })
     }
 
-    #[cfg(not(feature = "voip"))]
-    /// Enable video (stub - VoIP feature disabled)
+    #[cfg(not(any(feature = "voip", feature = "video")))]
+    /// Enable video (stub - VoIP/video features disabled)
     pub async fn enable_video(&self, _call_id: String, _codec: types::FfiVideoCodec) -> Result<(), MePassaFfiError> {
         Err(MePassaFfiError::Other {
-            message: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
+            message: "VoIP/video features are not enabled. Rebuild with --features voip or --features video".to_string(),
         })
     }
 
-    #[cfg(not(feature = "voip"))]
-    /// Disable video (stub - VoIP feature disabled)
+    #[cfg(not(any(feature = "voip", feature = "video")))]
+    /// Disable video (stub - VoIP/video features disabled)
     pub async fn disable_video(&self, _call_id: String) -> Result<(), MePassaFfiError> {
         Err(MePassaFfiError::Other {
-            message: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
+            message: "VoIP/video features are not enabled. Rebuild with --features voip or --features video".to_string(),
         })
     }
 
-    #[cfg(not(feature = "voip"))]
-    /// Send video frame (stub - VoIP feature disabled)
+    #[cfg(not(any(feature = "voip", feature = "video")))]
+    /// Send video frame (stub - VoIP/video features disabled)
     pub async fn send_video_frame(
         &self,
         _call_id: String,
@@ -1233,15 +1233,15 @@ impl MePassaClient {
         _height: u32,
     ) -> Result<(), MePassaFfiError> {
         Err(MePassaFfiError::Other {
-            message: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
+            message: "VoIP/video features are not enabled. Rebuild with --features voip or --features video".to_string(),
         })
     }
 
-    #[cfg(not(feature = "voip"))]
-    /// Switch camera (stub - VoIP feature disabled)
+    #[cfg(not(any(feature = "voip", feature = "video")))]
+    /// Switch camera (stub - VoIP/video features disabled)
     pub async fn switch_camera(&self, _call_id: String) -> Result<(), MePassaFfiError> {
         Err(MePassaFfiError::Other {
-            message: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
+            message: "VoIP/video features are not enabled. Rebuild with --features voip or --features video".to_string(),
         })
     }
 

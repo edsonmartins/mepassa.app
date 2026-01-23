@@ -12,11 +12,11 @@ import SwiftUI
 struct MessageSearchView: View {
     let conversationId: String?  // nil = global search
     let peerName: String?
-    let onMessageTap: (FfiMessage) -> Void
+    let onMessageTap: (FfiMessageWrapper) -> Void
 
     @Environment(\.dismiss) var dismiss
     @State private var searchQuery = ""
-    @State private var searchResults: [FfiMessage] = []
+    @State private var searchResults: [FfiMessageWrapper] = []
     @State private var isSearching = false
     @State private var searchTask: Task<Void, Never>?
 
@@ -81,7 +81,7 @@ struct MessageSearchView: View {
                                 .padding(.vertical, 8)
 
                             // Results
-                            ForEach(searchResults, id: \.messageId) { message in
+                            ForEach(searchResults) { message in
                                 SearchResultRow(
                                     message: message,
                                     query: searchQuery,
@@ -194,7 +194,7 @@ struct SearchBarView: View {
 
 /// SearchResultRow - Single search result with highlighted query
 struct SearchResultRow: View {
-    let message: FfiMessage
+    let message: FfiMessageWrapper
     let query: String
     let onTap: () -> Void
 
@@ -218,7 +218,7 @@ struct SearchResultRow: View {
                     Spacer()
 
                     // Timestamp
-                    Text(message.formattedTime)
+                    Text(formatTime(message.createdAt))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -233,7 +233,7 @@ struct SearchResultRow: View {
     }
 
     private var highlightedText: AttributedString {
-        let content = message.contentPlaintext ?? "[Mídia]"
+        let content = message.content ?? "[Mídia]"
         var attributedString = AttributedString(content)
 
         let lowerContent = content.lowercased()
@@ -255,6 +255,19 @@ struct SearchResultRow: View {
         }
 
         return attributedString
+    }
+
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) {
+            formatter.dateFormat = "HH:mm"
+        } else if calendar.isDateInYesterday(date) {
+            return "Ontem"
+        } else {
+            formatter.dateFormat = "dd/MM/yy"
+        }
+        return formatter.string(from: date)
     }
 }
 

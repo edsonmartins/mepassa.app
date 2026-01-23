@@ -9,7 +9,8 @@
 import Foundation
 import AVFoundation
 import VideoToolbox
-import mepassa
+// Note: No need to import mepassa - the generated Swift code (mepassa.swift)
+// is part of the same target. The bridging header already imports mepassaFFI.h
 
 /// VideoFrameHandler - Implements FfiVideoFrameCallback for rendering remote video
 ///
@@ -84,13 +85,17 @@ class VideoFrameHandler: FfiVideoFrameCallback {
         // Create format description if not already created
         if formatDescription == nil {
             var formatDesc: CMFormatDescription?
+
+            // SPS (Sequence Parameter Set) - simplified for VGA H.264
+            let sps: [UInt8] = [0x67, 0x42, 0x00, 0x1e, 0xab, 0x40, 0x50, 0x1e, 0xd0, 0x0f, 0x08, 0x84, 0x6a]
+            // PPS (Picture Parameter Set)
+            let pps: [UInt8] = [0x68, 0xce, 0x3c, 0x80]
+
             let parameterSetPointers: [UnsafePointer<UInt8>] = [
-                // SPS (Sequence Parameter Set) - simplified for VGA H.264
-                [0x67, 0x42, 0x00, 0x1e, 0xab, 0x40, 0x50, 0x1e, 0xd0, 0x0f, 0x08, 0x84, 0x6a],
-                // PPS (Picture Parameter Set)
-                [0x68, 0xce, 0x3c, 0x80]
+                UnsafePointer<UInt8>(sps),
+                UnsafePointer<UInt8>(pps)
             ]
-            let parameterSetSizes: [Int] = [13, 4]
+            let parameterSetSizes: [Int] = [sps.count, pps.count]
 
             let status = CMVideoFormatDescriptionCreateFromH264ParameterSets(
                 allocator: kCFAllocatorDefault,

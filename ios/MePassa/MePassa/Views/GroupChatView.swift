@@ -9,7 +9,7 @@
 import SwiftUI
 
 struct GroupChatView: View {
-    let group: Group
+    let group: ChatGroup
 
     @State private var messages: [GroupMessage] = []
     @State private var messageText = ""
@@ -66,10 +66,17 @@ struct GroupChatView: View {
 
             // Message input bar
             HStack(spacing: 12) {
-                TextField("Mensagem", text: $messageText, axis: .vertical)
-                    .textFieldStyle(.roundedBorder)
-                    .lineLimit(1...4)
-                    .disabled(isSending)
+                if #available(iOS 16.0, *) {
+                    TextField("Mensagem", text: $messageText, axis: .vertical)
+                        .textFieldStyle(.roundedBorder)
+                        .lineLimit(1...4)
+                        .disabled(isSending)
+                } else {
+                    TextField("Mensagem", text: $messageText)
+                        .textFieldStyle(.roundedBorder)
+                        .lineLimit(4)
+                        .disabled(isSending)
+                }
 
                 Button(action: sendMessage) {
                     if isSending {
@@ -88,13 +95,11 @@ struct GroupChatView: View {
         }
         .navigationTitle(group.name)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button(action: { showingGroupInfo = true }) {
-                    Image(systemName: "info.circle")
-                }
+        .navigationBarItems(trailing:
+            Button(action: { showingGroupInfo = true }) {
+                Image(systemName: "info.circle")
             }
-        }
+        )
         .sheet(isPresented: $showingGroupInfo) {
             GroupInfoView(group: group)
         }
@@ -226,7 +231,7 @@ struct GroupMessage: Identifiable {
 
 #Preview {
     NavigationView {
-        GroupChatView(group: Group(
+        GroupChatView(group: ChatGroup(
             id: "1",
             name: "Amigos da Faculdade",
             description: "Grupo de estudos",

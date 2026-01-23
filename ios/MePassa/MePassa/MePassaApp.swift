@@ -56,7 +56,7 @@ class AppState: ObservableObject {
     @Published var isAuthenticated = false
     @Published var currentUser: User?
     @Published var conversations: [Conversation] = []
-    @Published var groups: [Group] = []
+    @Published var groups: [ChatGroup] = []
 
     func login(peerId: String) {
         // TODO: Implement login with UniFFI
@@ -87,7 +87,7 @@ struct Conversation: Identifiable {
     let unreadCount: Int
 }
 
-struct Group: Identifiable {
+struct ChatGroup: Identifiable {
     let id: String
     let name: String
     let description: String?

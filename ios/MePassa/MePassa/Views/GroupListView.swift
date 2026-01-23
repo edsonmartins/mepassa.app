@@ -126,7 +126,7 @@ struct GroupListView: View {
 }
 
 struct GroupRow: View {
-    let group: Group
+    let group: ChatGroup
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -195,8 +195,13 @@ struct CreateGroupView: View {
                     TextField("Nome do grupo", text: $groupName)
                         .autocapitalization(.words)
 
-                    TextField("Descrição (opcional)", text: $groupDescription, axis: .vertical)
-                        .lineLimit(3...6)
+                    if #available(iOS 16.0, *) {
+                        TextField("Descrição (opcional)", text: $groupDescription, axis: .vertical)
+                            .lineLimit(3...6)
+                    } else {
+                        TextField("Descrição (opcional)", text: $groupDescription)
+                            .lineLimit(6)
+                    }
                 }
 
                 if let error = errorMessage {
@@ -209,23 +214,18 @@ struct CreateGroupView: View {
             }
             .navigationTitle("Criar Grupo")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancelar") {
-                        dismiss()
-                    }
-                    .disabled(isCreating)
+            .navigationBarItems(
+                leading: Button("Cancelar") {
+                    dismiss()
                 }
-
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Criar") {
-                        Task {
-                            await createGroup()
-                        }
+                .disabled(isCreating),
+                trailing: Button("Criar") {
+                    Task {
+                        await createGroup()
                     }
-                    .disabled(groupName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isCreating)
                 }
-            }
+                .disabled(groupName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isCreating)
+            )
         }
     }
 

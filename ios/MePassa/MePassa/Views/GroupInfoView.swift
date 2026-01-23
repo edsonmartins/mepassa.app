@@ -10,7 +10,7 @@ import SwiftUI
 
 struct GroupInfoView: View {
     @Environment(\.dismiss) var dismiss
-    let group: Group
+    let group: ChatGroup
 
     @State private var showingLeaveConfirmation = false
     @State private var showingAddMember = false
@@ -182,7 +182,6 @@ struct InfoRow: View {
                 .foregroundColor(.secondary)
             Spacer()
             Text(value)
-                .fontDesign(.monospaced)
                 .foregroundColor(.primary)
         }
         .font(.subheadline)
@@ -205,7 +204,6 @@ struct AddMemberView: View {
                         .autocapitalization(.none)
                         .autocorrectionDisabled()
                         .textContentType(.none)
-                        .fontDesign(.monospaced)
                 }
 
                 if let error = errorMessage {
@@ -265,14 +263,14 @@ struct AddMemberView: View {
 
 struct EditGroupView: View {
     @Environment(\.dismiss) var dismiss
-    let group: Group
+    let group: ChatGroup
 
     @State private var groupName: String
     @State private var groupDescription: String
     @State private var isSaving = false
     @State private var errorMessage: String?
 
-    init(group: Group) {
+    init(group: ChatGroup) {
         self.group = group
         _groupName = State(initialValue: group.name)
         _groupDescription = State(initialValue: group.description ?? "")
@@ -285,8 +283,13 @@ struct EditGroupView: View {
                     TextField("Nome do grupo", text: $groupName)
                         .autocapitalization(.words)
 
-                    TextField("Descrição (opcional)", text: $groupDescription, axis: .vertical)
-                        .lineLimit(3...6)
+                    if #available(iOS 16.0, *) {
+                        TextField("Descrição (opcional)", text: $groupDescription, axis: .vertical)
+                            .lineLimit(3...6)
+                    } else {
+                        TextField("Descrição (opcional)", text: $groupDescription)
+                            .lineLimit(6)
+                    }
                 }
 
                 if let error = errorMessage {
@@ -299,23 +302,18 @@ struct EditGroupView: View {
             }
             .navigationTitle("Editar Grupo")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancelar") {
-                        dismiss()
-                    }
-                    .disabled(isSaving)
+            .navigationBarItems(
+                leading: Button("Cancelar") {
+                    dismiss()
                 }
-
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Salvar") {
-                        Task {
-                            await saveChanges()
-                        }
+                .disabled(isSaving),
+                trailing: Button("Salvar") {
+                    Task {
+                        await saveChanges()
                     }
-                    .disabled(groupName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSaving)
                 }
-            }
+                .disabled(groupName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSaving)
+            )
         }
     }
 
@@ -345,7 +343,7 @@ struct EditGroupView: View {
 }
 
 #Preview {
-    GroupInfoView(group: Group(
+    GroupInfoView(group: ChatGroup(
         id: "1",
         name: "Amigos da Faculdade",
         description: "Grupo de estudos",
