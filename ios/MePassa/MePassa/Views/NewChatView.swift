@@ -10,8 +10,11 @@ import SwiftUI
 
 struct NewChatView: View {
     @Environment(\.dismiss) var dismiss
+    @EnvironmentObject var appState: AppState
     @State private var peerId = ""
     @State private var showingQRScanner = false
+    @State private var isStartingChat = false
+    @State private var errorMessage: String?
 
     var body: some View {
         NavigationView {
@@ -58,15 +61,30 @@ struct NewChatView: View {
                         .autocorrectionDisabled()
 
                     Button(action: startChat) {
-                        Text("Iniciar conversa")
-                            .fontWeight(.semibold)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(peerId.isEmpty ? Color.secondary.opacity(0.3) : Color.blue)
-                            .foregroundColor(.white)
-                            .cornerRadius(12)
+                        HStack {
+                            if isStartingChat {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                    .scaleEffect(0.8)
+                            }
+                            Text(isStartingChat ? "Conectando..." : "Iniciar conversa")
+                                .fontWeight(.semibold)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(peerId.isEmpty || isStartingChat ? Color.secondary.opacity(0.3) : Color.blue)
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
                     }
-                    .disabled(peerId.isEmpty)
+                    .disabled(peerId.isEmpty || isStartingChat)
+
+                    // Error message
+                    if let errorMessage = errorMessage {
+                        Text(errorMessage)
+                            .font(.caption)
+                            .foregroundColor(.red)
+                            .multilineTextAlignment(.center)
+                    }
                 }
 
                 Spacer()
@@ -85,15 +103,53 @@ struct NewChatView: View {
                 QRScannerView { scannedPeerId in
                     peerId = scannedPeerId
                     showingQRScanner = false
+                    // Automatically start chat after scanning
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        startChat()
+                    }
                 }
             }
         }
     }
 
     private func startChat() {
-        // TODO: Verify peer ID format and initiate connection via UniFFI
-        print("📱 Starting chat with peer: \(peerId)")
-        dismiss()
+        guard !peerId.isEmpty else { return }
+
+        // Validate peer ID format (should start with 12D3KooW for libp2p)
+        guard peerId.starts(with: "12D3KooW") || peerId.starts(with: "Qm") else {
+            errorMessage = "Peer ID inválido. Deve começar com 12D3KooW ou Qm"
+            return
+        }
+
+        isStartingChat = true
+        errorMessage = nil
+
+        Task {
+            do {
+                // Send a test message to establish connection
+                // This will create the conversation if it doesn't exist
+                let testMessage = "👋 Olá! Conectado via QR Code"
+
+                try await MePassaCore.shared.sendMessage(
+                    to: peerId,
+                    content: testMessage
+                )
+
+                print("✅ Chat initiated with peer: \(peerId)")
+
+                // Navigate to conversations list (it will show the new chat)
+                await MainActor.run {
+                    isStartingChat = false
+                    dismiss()
+                }
+            } catch {
+                print("❌ Failed to start chat: \(error)")
+                await MainActor.run {
+                    isStartingChat = false
+                    errorMessage = "Falha ao iniciar conversa: \(error.localizedDescription)"
+                }
+            }
+        }
     }
 }
 
