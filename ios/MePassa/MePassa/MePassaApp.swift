@@ -58,10 +58,15 @@ class AppState: ObservableObject {
     @Published var conversations: [Conversation] = []
     @Published var groups: [ChatGroup] = []
 
+    private var refreshTimer: Timer?
+
     func login(peerId: String) {
         // TODO: Implement login with UniFFI
         self.isAuthenticated = true
         print("✅ Logged in as: \(peerId)")
+
+        // Start auto-refresh when logged in
+        startAutoRefresh()
     }
 
     func logout() {
@@ -69,6 +74,53 @@ class AppState: ObservableObject {
         self.currentUser = nil
         self.conversations = []
         self.groups = []
+
+        // Stop auto-refresh when logged out
+        stopAutoRefresh()
+    }
+
+    /// Load conversations from MePassaCore
+    func loadConversations() {
+        Task {
+            do {
+                let convs = try await MePassaCore.shared.listConversations()
+
+                // Convert FFI conversations to local model
+                await MainActor.run {
+                    self.conversations = convs.map { ffiConv in
+                        Conversation(
+                            id: ffiConv.peerId,
+                            peerId: ffiConv.peerId,
+                            displayName: ffiConv.peerId.prefix(12) + "...",
+                            lastMessage: ffiConv.lastMessage,
+                            unreadCount: Int(ffiConv.unreadCount)
+                        )
+                    }
+
+                    print("✅ Loaded \(self.conversations.count) conversations")
+                }
+            } catch {
+                print("❌ Failed to load conversations: \(error)")
+            }
+        }
+    }
+
+    /// Start auto-refresh timer (every 5 seconds)
+    private func startAutoRefresh() {
+        // Load immediately
+        loadConversations()
+
+        // Then refresh every 5 seconds
+        refreshTimer?.invalidate()
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+            self?.loadConversations()
+        }
+    }
+
+    /// Stop auto-refresh timer
+    private func stopAutoRefresh() {
+        refreshTimer?.invalidate()
+        refreshTimer = nil
     }
 }
 
