@@ -1,28 +1,20 @@
 //! Video capture and codec support
-//!
-//! Provides video codec definitions, configuration, and platform-agnostic
-//! camera capture trait for WebRTC video calls.
 
 use super::Result;
 
-/// Video codecs supported by MePassa
+/// Video codecs supported
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VideoCodec {
-    /// H.264 (AVC) - Primary codec with hardware acceleration
-    /// Supported by MediaCodec (Android) and VideoToolbox (iOS)
+    /// H.264 - Primary codec (hardware accelerated on most devices)
     H264,
-
-    /// VP8 - Fallback software codec
-    /// Mandatory in WebRTC spec, royalty-free
+    /// VP8 - Fallback codec (software, good compatibility)
     VP8,
-
-    /// VP9 - Future codec with better compression
-    /// Growing hardware support
+    /// VP9 - Future codec (better compression, hardware support growing)
     VP9,
 }
 
 impl VideoCodec {
-    /// Get MIME type string for SDP negotiation
+    /// Get MIME type for the codec
     pub fn mime_type(&self) -> &'static str {
         match self {
             VideoCodec::H264 => "video/H264",
@@ -31,18 +23,26 @@ impl VideoCodec {
         }
     }
 
-    /// Get SDP fmtp line for codec parameters
+    /// Get SDP fmtp line for the codec
     pub fn fmtp_line(&self) -> String {
         match self {
-            // H.264 Baseline Profile Level 3.1, packetization-mode 1
             VideoCodec::H264 => "profile-level-id=42e01f;packetization-mode=1".to_string(),
             VideoCodec::VP8 | VideoCodec::VP9 => String::new(),
         }
     }
 
-    /// Get clock rate for RTP (standard 90kHz for video)
-    pub const fn clock_rate(&self) -> u32 {
-        90000
+    /// Get RTP payload type (dynamic range 96-127)
+    pub fn payload_type(&self) -> u8 {
+        match self {
+            VideoCodec::H264 => 96,
+            VideoCodec::VP8 => 97,
+            VideoCodec::VP9 => 98,
+        }
+    }
+
+    /// Get RTP clock rate (standard for video is 90000 Hz)
+    pub fn clock_rate(&self) -> u32 {
+        90000 // Standard clock rate for all video codecs
     }
 }
 
@@ -54,49 +54,39 @@ pub struct VideoResolution {
 }
 
 impl VideoResolution {
-    /// VGA 640x480 - Default for video calls
+    /// VGA resolution (640x480)
     pub const VGA: Self = Self {
         width: 640,
         height: 480,
     };
 
-    /// HD 1280x720 - High quality
+    /// HD resolution (1280x720)
     pub const HD: Self = Self {
         width: 1280,
         height: 720,
     };
 
-    /// Full HD 1920x1080 - Premium quality
+    /// Full HD resolution (1920x1080)
     pub const FHD: Self = Self {
         width: 1920,
         height: 1080,
     };
 
-    /// QVGA 320x240 - Low bandwidth
-    pub const QVGA: Self = Self {
-        width: 320,
-        height: 240,
-    };
-}
-
-impl std::fmt::Display for VideoResolution {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}x{}", self.width, self.height)
+    /// Create custom resolution
+    pub fn new(width: u32, height: u32) -> Self {
+        Self { width, height }
     }
 }
 
 /// Video configuration
 #[derive(Debug, Clone)]
 pub struct VideoConfig {
-    /// Codec to use
+    /// Video codec to use
     pub codec: VideoCodec,
-
-    /// Resolution
+    /// Video resolution
     pub resolution: VideoResolution,
-
-    /// Frame rate (fps)
+    /// Frames per second
     pub fps: u32,
-
     /// Target bitrate in kbps
     pub bitrate_kbps: u32,
 }
@@ -112,79 +102,89 @@ impl Default for VideoConfig {
     }
 }
 
-impl VideoConfig {
-    /// Create config optimized for low bandwidth (3G)
-    pub fn low_bandwidth() -> Self {
-        Self {
-            codec: VideoCodec::H264,
-            resolution: VideoResolution::QVGA,
-            fps: 15,
-            bitrate_kbps: 200,
-        }
-    }
-
-    /// Create config optimized for high quality (WiFi)
-    pub fn high_quality() -> Self {
-        Self {
-            codec: VideoCodec::H264,
-            resolution: VideoResolution::HD,
-            fps: 30,
-            bitrate_kbps: 1500,
-        }
-    }
-}
-
-/// Video frame data
-pub struct VideoFrame {
-    /// Raw frame data (YUV or RGB)
-    pub data: Vec<u8>,
-
-    /// Frame width in pixels
-    pub width: u32,
-
-    /// Frame height in pixels
-    pub height: u32,
-
-    /// Timestamp in microseconds
-    pub timestamp_us: i64,
-
-    /// Pixel format
-    pub format: PixelFormat,
-}
-
-/// Pixel formats for video frames
+/// Pixel format for video frames
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PixelFormat {
-    /// YUV 4:2:0 planar (most common)
+    /// YUV 4:2:0 planar format
     YUV420,
-
-    /// NV21 (Android camera format)
+    /// NV21 format (YUV 4:2:0 semi-planar)
     NV21,
-
+    /// NV12 format (YUV 4:2:0 semi-planar)
+    NV12,
     /// RGB 24-bit
     RGB24,
-
     /// RGBA 32-bit
     RGBA,
 }
 
-impl PixelFormat {
-    /// Get bytes per pixel
-    pub const fn bytes_per_pixel(&self) -> f32 {
-        match self {
-            PixelFormat::YUV420 | PixelFormat::NV21 => 1.5, // 12 bits per pixel
-            PixelFormat::RGB24 => 3.0,
-            PixelFormat::RGBA => 4.0,
+/// Video frame data
+pub struct VideoFrame {
+    /// Raw frame data
+    pub data: Vec<u8>,
+    /// Frame width in pixels
+    pub width: u32,
+    /// Frame height in pixels
+    pub height: u32,
+    /// Timestamp in microseconds
+    pub timestamp_us: i64,
+    /// Pixel format
+    pub format: PixelFormat,
+}
+
+impl VideoFrame {
+    /// Create a new video frame
+    pub fn new(
+        data: Vec<u8>,
+        width: u32,
+        height: u32,
+        timestamp_us: i64,
+        format: PixelFormat,
+    ) -> Self {
+        Self {
+            data,
+            width,
+            height,
+            timestamp_us,
+            format,
         }
+    }
+
+    /// Get frame size in bytes
+    pub fn size(&self) -> usize {
+        self.data.len()
     }
 }
 
-/// Platform-agnostic camera capture trait
-///
-/// Implemented by platform-specific camera managers:
-/// - Android: CameraX via JNI
-/// - iOS: AVCaptureSession via FFI
-/// - Desktop: webrtc native camera or gstreamer
+/// Camera position
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CameraPosition {
+    /// Front-facing camera
+    Front,
+    /// Back-facing camera
+    Back,
+    /// External camera (USB, etc.)
+    External,
+}
+
+/// Camera information
+#[derive(Debug, Clone)]
+pub struct CameraInfo {
+    /// Camera identifier
+    pub id: String,
+    /// Camera name
+    pub name: String,
+    /// Camera position
+    pub position: CameraPosition,
+}
+
+impl CameraInfo {
+    /// Create new camera info
+    pub fn new(id: String, name: String, position: CameraPosition) -> Self {
+        Self { id, name, position }
+    }
+}
+
+/// Platform-agnostic video capture trait
 pub trait VideoCapture: Send + Sync {
     /// Start camera capture
     fn start(&mut self, config: VideoConfig) -> Result<()>;
@@ -192,7 +192,7 @@ pub trait VideoCapture: Send + Sync {
     /// Stop camera capture
     fn stop(&mut self) -> Result<()>;
 
-    /// Get next video frame (blocking until available)
+    /// Get next video frame (blocking)
     fn next_frame(&mut self) -> Result<VideoFrame>;
 
     /// Switch camera (front/back) - mobile only
@@ -201,44 +201,8 @@ pub trait VideoCapture: Send + Sync {
     /// Get available cameras
     fn list_cameras(&self) -> Result<Vec<CameraInfo>>;
 
-    /// Check if camera is currently running
-    fn is_running(&self) -> bool;
-}
-
-/// Camera information
-#[derive(Debug, Clone)]
-pub struct CameraInfo {
-    /// Platform-specific camera ID
-    pub id: String,
-
-    /// Human-readable camera name
-    pub name: String,
-
-    /// Camera position
-    pub position: CameraPosition,
-}
-
-/// Camera position (mobile devices)
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CameraPosition {
-    /// Front-facing camera (selfie)
-    Front,
-
-    /// Back-facing camera (environment)
-    Back,
-
-    /// External camera (USB webcam, etc.)
-    External,
-}
-
-impl std::fmt::Display for CameraPosition {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            CameraPosition::Front => write!(f, "Front"),
-            CameraPosition::Back => write!(f, "Back"),
-            CameraPosition::External => write!(f, "External"),
-        }
-    }
+    /// Check if currently capturing
+    fn is_capturing(&self) -> bool;
 }
 
 #[cfg(test)]
@@ -253,45 +217,35 @@ mod tests {
     }
 
     #[test]
-    fn test_video_codec_clock_rate() {
-        assert_eq!(VideoCodec::H264.clock_rate(), 90000);
-        assert_eq!(VideoCodec::VP8.clock_rate(), 90000);
-        assert_eq!(VideoCodec::VP9.clock_rate(), 90000);
+    fn test_video_codec_payload_types() {
+        assert_eq!(VideoCodec::H264.payload_type(), 96);
+        assert_eq!(VideoCodec::VP8.payload_type(), 97);
+        assert_eq!(VideoCodec::VP9.payload_type(), 98);
+    }
+
+    #[test]
+    fn test_video_resolution_constants() {
+        assert_eq!(VideoResolution::VGA.width, 640);
+        assert_eq!(VideoResolution::VGA.height, 480);
+        assert_eq!(VideoResolution::HD.width, 1280);
+        assert_eq!(VideoResolution::HD.height, 720);
     }
 
     #[test]
     fn test_video_config_default() {
         let config = VideoConfig::default();
         assert_eq!(config.codec, VideoCodec::H264);
-        assert_eq!(config.resolution.width, 640);
-        assert_eq!(config.resolution.height, 480);
+        assert_eq!(config.resolution, VideoResolution::VGA);
         assert_eq!(config.fps, 24);
         assert_eq!(config.bitrate_kbps, 500);
     }
 
     #[test]
-    fn test_video_config_presets() {
-        let low = VideoConfig::low_bandwidth();
-        assert_eq!(low.resolution.width, 320);
-        assert_eq!(low.fps, 15);
-        assert_eq!(low.bitrate_kbps, 200);
-
-        let high = VideoConfig::high_quality();
-        assert_eq!(high.resolution.width, 1280);
-        assert_eq!(high.fps, 30);
-        assert_eq!(high.bitrate_kbps, 1500);
-    }
-
-    #[test]
-    fn test_resolution_display() {
-        assert_eq!(VideoResolution::VGA.to_string(), "640x480");
-        assert_eq!(VideoResolution::HD.to_string(), "1280x720");
-    }
-
-    #[test]
-    fn test_pixel_format_bytes_per_pixel() {
-        assert_eq!(PixelFormat::YUV420.bytes_per_pixel(), 1.5);
-        assert_eq!(PixelFormat::RGB24.bytes_per_pixel(), 3.0);
-        assert_eq!(PixelFormat::RGBA.bytes_per_pixel(), 4.0);
+    fn test_video_frame_creation() {
+        let data = vec![0u8; 640 * 480 * 3];
+        let frame = VideoFrame::new(data.clone(), 640, 480, 1000000, PixelFormat::RGB24);
+        assert_eq!(frame.width, 640);
+        assert_eq!(frame.height, 480);
+        assert_eq!(frame.size(), data.len());
     }
 }

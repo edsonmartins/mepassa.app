@@ -1,6 +1,5 @@
 package com.mepassa.ui.screens.call
 
-import android.Manifest
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -20,157 +19,90 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.isGranted
-import com.google.accompanist.permissions.rememberPermissionState
-import com.mepassa.core.MePassaClientWrapper
-import com.mepassa.voip.CallAudioManager
 import com.mepassa.voip.CameraManager
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.time.Duration.Companion.seconds
 
 /**
- * VideoCallScreen - Tela durante uma videochamada ativa
- *
- * Exibe:
- * - Vídeo remoto em fullscreen
- * - Preview local da câmera (PiP no canto superior direito)
- * - Timer de duração da chamada
- * - Botões de controle: video toggle, mute, camera switch, hangup
+ * VideoCallScreen - UI for video call with local preview and remote video
  */
-@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun VideoCallScreen(
     callId: String,
-    remotePeerId: String,
-    onCallEnded: () -> Unit
+    peerName: String,
+    onHangup: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-
-    // Camera permission state
-    val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
-
-    // Managers
-    val audioManager = remember { CallAudioManager(context) }
-    val cameraManager = remember { CameraManager(context) }
-
+    val scope = rememberCoroutineScope()
+    
     // State
+    var videoEnabled by remember { mutableStateOf(true) }
     var isMuted by remember { mutableStateOf(false) }
-    var isVideoEnabled by remember { mutableStateOf(true) }
-    var isFrontCamera by remember { mutableStateOf(true) }
     var callDuration by remember { mutableStateOf(0) }
-    var isCallActive by remember { mutableStateOf(true) }
+    
+    // Camera manager
+    val cameraManager = remember { CameraManager(context) }
+    
+    // Preview views
     var localPreviewView by remember { mutableStateOf<PreviewView?>(null) }
-
-    // Initialize audio management
+    
     DisposableEffect(Unit) {
-        audioManager.startCall()
-        onDispose {
-            audioManager.stopCall()
-            cameraManager.stopCamera()
-        }
-    }
-
-    // Timer for call duration
-    LaunchedEffect(Unit) {
-        while (isCallActive) {
-            delay(1.seconds)
-            callDuration++
-        }
-    }
-
-    // Request camera permission on start
-    LaunchedEffect(Unit) {
-        if (!cameraPermissionState.status.isGranted) {
-            cameraPermissionState.launchPermissionRequest()
-        }
-    }
-
-    // Start camera when permission granted and video enabled
-    LaunchedEffect(cameraPermissionState.status.isGranted, isVideoEnabled, localPreviewView) {
-        if (cameraPermissionState.status.isGranted && isVideoEnabled && localPreviewView != null) {
-            cameraManager.startCamera(lifecycleOwner, localPreviewView!!) { frameData, width, height ->
-                // Send frame to FFI for encoding and transmission
-                scope.launch {
-                    try {
-                        MePassaClientWrapper.client?.sendVideoFrame(
-                            callId = callId,
-                            frameData = frameData,
-                            width = width.toUInt(),
-                            height = height.toUInt()
-                        )
-                    } catch (e: Exception) {
-                        // Log error but don't crash
-                    }
+        // Start camera when screen appears
+        if (videoEnabled && localPreviewView != null) {
+            cameraManager.startCamera(
+                lifecycleOwner = lifecycleOwner,
+                previewView = localPreviewView!!,
+                onFrameCallback = { data, width, height ->
+                    // TODO: Send frame to WebRTC via FFI
+                    // MePassaClientWrapper.sendVideoFrame(callId, data, width, height)
                 }
-            }
-        }
-    }
-
-    // Main layout
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-    ) {
-        // Remote video (fullscreen)
-        // TODO: Implement RemoteVideoView component
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "Remote Video\n(Placeholder)",
-                color = Color.White,
-                fontSize = 18.sp
             )
         }
+        
+        onDispose {
+            cameraManager.stopCamera()
+            cameraManager.release()
+        }
+    }
 
-        // Local camera preview (PiP - top right corner)
-        if (isVideoEnabled && cameraPermissionState.status.isGranted) {
-            AndroidView(
-                factory = { ctx ->
-                    PreviewView(ctx).also { previewView ->
-                        localPreviewView = previewView
-                    }
-                },
+    Box(
+        modifier = modifier.fillMaxSize()
+    ) {
+        // Remote video (full screen)
+        RemoteVideoView(
+            callId = callId,
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // Local video preview (PiP - top right corner)
+        if (videoEnabled) {
+            Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(16.dp)
                     .size(120.dp, 160.dp)
                     .clip(RoundedCornerShape(12.dp))
-            )
-        }
-
-        // Call info overlay (top)
-        Column(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(16.dp)
-                .background(
-                    Color.Black.copy(alpha = 0.5f),
-                    shape = RoundedCornerShape(8.dp)
+                    .background(Color.Black)
+            ) {
+                AndroidView(
+                    factory = { ctx ->
+                        PreviewView(ctx).also { preview ->
+                            localPreviewView = preview
+                            if (videoEnabled) {
+                                cameraManager.startCamera(
+                                    lifecycleOwner = lifecycleOwner,
+                                    previewView = preview,
+                                    onFrameCallback = { data, width, height ->
+                                        // TODO: Send frame to WebRTC
+                                    }
+                                )
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize()
                 )
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalAlignment = Alignment.Start
-        ) {
-            // Peer name (truncated)
-            Text(
-                text = remotePeerId.take(16) + if (remotePeerId.length > 16) "..." else "",
-                color = Color.White,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium
-            )
-
-            // Call duration
-            Text(
-                text = formatDuration(callDuration),
-                color = Color.White.copy(alpha = 0.8f),
-                fontSize = 14.sp
-            )
+            }
         }
 
         // Controls overlay (bottom)
@@ -178,75 +110,103 @@ fun VideoCallScreen(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .background(Color.Black.copy(alpha = 0.6f))
-                .padding(vertical = 24.dp, horizontal = 16.dp),
+                .background(Color.Black.copy(alpha = 0.5f))
+                .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Call info
+            Text(
+                text = peerName,
+                color = Color.White,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Medium
+            )
+
+            // Call duration
+            Text(
+                text = formatDuration(callDuration),
+                color = Color.White.copy(alpha = 0.8f),
+                fontSize = 16.sp
+            )
+
             // Control buttons row
             Row(
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                modifier = Modifier.fillMaxWidth()
+                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Video toggle button
+                // Video toggle
                 IconButton(
                     onClick = {
-                        isVideoEnabled = !isVideoEnabled
-                        scope.launch {
-                            try {
-                                if (isVideoEnabled) {
-                                    MePassaClientWrapper.client?.enableVideo(callId, uniffi.mepassa_core.FfiVideoCodec.H264)
-                                } else {
-                                    MePassaClientWrapper.client?.disableVideo(callId)
-                                    cameraManager.stopCamera()
+                        videoEnabled = !videoEnabled
+                        if (videoEnabled && localPreviewView != null) {
+                            cameraManager.startCamera(
+                                lifecycleOwner = lifecycleOwner,
+                                previewView = localPreviewView!!,
+                                onFrameCallback = { data, width, height ->
+                                    // TODO: Send frame to WebRTC
                                 }
-                            } catch (e: Exception) {
-                                // Handle error
-                            }
+                            )
+                            // TODO: Call FFI enable_video
+                            // MePassaClientWrapper.enableVideo(callId, FfiVideoCodec.H264)
+                        } else {
+                            cameraManager.stopCamera()
+                            // TODO: Call FFI disable_video
+                            // MePassaClientWrapper.disableVideo(callId)
                         }
                     },
                     modifier = Modifier
                         .size(56.dp)
                         .background(
-                            color = if (isVideoEnabled) MaterialTheme.colorScheme.primary else Color.Red,
+                            color = if (videoEnabled) MaterialTheme.colorScheme.primary
+                            else Color.Red,
                             shape = CircleShape
                         )
                 ) {
                     Icon(
-                        imageVector = if (isVideoEnabled) Icons.Default.Videocam else Icons.Default.VideocamOff,
+                        imageVector = if (videoEnabled) Icons.Default.Videocam
+                        else Icons.Default.VideocamOff,
                         contentDescription = "Toggle video",
                         tint = Color.White
                     )
                 }
 
-                // Mute toggle button
+                // Mute toggle
                 IconButton(
                     onClick = {
                         isMuted = !isMuted
-                        scope.launch {
-                            MePassaClientWrapper.client?.toggleMute(callId)
-                        }
+                        // TODO: Call FFI toggle_mute
+                        // MePassaClientWrapper.toggleMute(callId)
                     },
                     modifier = Modifier
                         .size(56.dp)
                         .background(
-                            color = if (isMuted) Color.Red else MaterialTheme.colorScheme.primary,
+                            color = if (isMuted) Color.Red
+                            else MaterialTheme.colorScheme.primary,
                             shape = CircleShape
                         )
                 ) {
                     Icon(
-                        imageVector = if (isMuted) Icons.Default.MicOff else Icons.Default.Mic,
+                        imageVector = if (isMuted) Icons.Default.MicOff
+                        else Icons.Default.Mic,
                         contentDescription = "Toggle mute",
                         tint = Color.White
                     )
                 }
 
-                // Switch camera button
+                // Switch camera
                 IconButton(
                     onClick = {
-                        isFrontCamera = !isFrontCamera
                         if (localPreviewView != null) {
-                            cameraManager.switchCamera(lifecycleOwner, localPreviewView!!)
+                            cameraManager.switchCamera(
+                                lifecycleOwner = lifecycleOwner,
+                                previewView = localPreviewView!!,
+                                onFrameCallback = { data, width, height ->
+                                    // TODO: Send frame to WebRTC
+                                }
+                            )
+                            // TODO: Call FFI switch_camera
+                            // MePassaClientWrapper.switchCamera(callId)
                         }
                     },
                     modifier = Modifier
@@ -263,16 +223,9 @@ fun VideoCallScreen(
                     )
                 }
 
-                // Hangup button (larger, more prominent)
+                // Hangup
                 IconButton(
-                    onClick = {
-                        isCallActive = false
-                        scope.launch {
-                            MePassaClientWrapper.client?.hangupCall(callId)
-                            cameraManager.stopCamera()
-                            onCallEnded()
-                        }
-                    },
+                    onClick = onHangup,
                     modifier = Modifier
                         .size(72.dp)
                         .background(color = Color(0xFFE53935), shape = CircleShape)
@@ -286,49 +239,50 @@ fun VideoCallScreen(
                 }
             }
         }
+    }
 
-        // Camera permission denied message
-        if (!cameraPermissionState.status.isGranted && isVideoEnabled) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .background(
-                        Color.Black.copy(alpha = 0.7f),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    .padding(24.dp)
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        imageVector = Icons.Default.Videocam,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(48.dp)
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Camera Permission Required",
-                        color = Color.White,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Button(
-                        onClick = { cameraPermissionState.launchPermissionRequest() }
-                    ) {
-                        Text("Grant Permission")
-                    }
-                }
-            }
+    // Call duration timer
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(1000)
+            callDuration++
         }
     }
 }
 
 /**
- * Format call duration in MM:SS format
+ * Format call duration (seconds → MM:SS or HH:MM:SS)
  */
 private fun formatDuration(seconds: Int): String {
-    val minutes = seconds / 60
+    val hours = seconds / 3600
+    val minutes = (seconds % 3600) / 60
     val secs = seconds % 60
-    return String.format("%02d:%02d", minutes, secs)
+
+    return if (hours > 0) {
+        String.format("%d:%02d:%02d", hours, minutes, secs)
+    } else {
+        String.format("%02d:%02d", minutes, secs)
+    }
+}
+
+/**
+ * RemoteVideoView - Placeholder for remote video rendering
+ * TODO: Implement actual video rendering using SurfaceView or TextureView
+ */
+@Composable
+fun RemoteVideoView(
+    callId: String,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier.background(Color.Black),
+        contentAlignment = Alignment.Center
+    ) {
+        // Placeholder - will be replaced with actual video surface
+        Text(
+            text = "Remote Video\n(To be implemented)",
+            color = Color.White.copy(alpha = 0.5f),
+            fontSize = 14.sp
+        )
+    }
 }
