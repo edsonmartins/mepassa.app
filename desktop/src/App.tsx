@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { invoke } from '@tauri-apps/api/core'
 import { homeDir } from '@tauri-apps/api/path'
 import OnboardingView from './views/OnboardingView'
@@ -8,7 +8,6 @@ import ChatView from './views/ChatView'
 import CallView from './views/CallView'
 import GroupListView from './views/GroupListView'
 import GroupChatView from './views/GroupChatView'
-import ProfileView from './views/ProfileView'
 
 function App() {
   console.log('🔵 App component mounted')
@@ -18,6 +17,7 @@ function App() {
   const [localPeerId, setLocalPeerId] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string>('')
   const navigate = useNavigate()
+  const location = useLocation()
 
   useEffect(() => {
     console.log('🔵 useEffect running - about to call initializeApp')
@@ -59,12 +59,19 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (!isLoading && isInitialized) {
-      navigate('/conversations')
-    } else if (!isLoading && !isInitialized) {
-      navigate('/onboarding')
+    // Only auto-navigate if on root path or onboarding when should be elsewhere
+    const shouldNavigate = location.pathname === '/' ||
+                          (location.pathname === '/onboarding' && isInitialized) ||
+                          (location.pathname === '/conversations' && !isInitialized)
+
+    if (!isLoading && shouldNavigate) {
+      if (isInitialized) {
+        navigate('/conversations')
+      } else {
+        navigate('/onboarding')
+      }
     }
-  }, [isLoading, isInitialized, navigate])
+  }, [isLoading, isInitialized, navigate, location.pathname])
 
   if (isLoading) {
     return (
@@ -113,7 +120,6 @@ function App() {
       <Route path="/call/:callId/:remotePeerId" element={<CallView localPeerId={localPeerId} />} />
       <Route path="/groups" element={<GroupListView localPeerId={localPeerId} />} />
       <Route path="/group/:groupId" element={<GroupChatView />} />
-      <Route path="/profile" element={<ProfileView localPeerId={localPeerId!} />} />
       <Route path="*" element={<Navigate to={isInitialized ? "/conversations" : "/onboarding"} replace />} />
     </Routes>
   )
