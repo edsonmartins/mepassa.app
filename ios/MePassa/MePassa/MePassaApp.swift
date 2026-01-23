@@ -87,12 +87,22 @@ class AppState: ObservableObject {
 
                 // Convert FFI conversations to local model
                 await MainActor.run {
-                    self.conversations = convs.map { ffiConv in
-                        Conversation(
-                            id: ffiConv.peerId,
-                            peerId: ffiConv.peerId,
-                            displayName: ffiConv.peerId.prefix(12) + "...",
-                            lastMessage: ffiConv.lastMessage,
+                    self.conversations = convs.compactMap { ffiConv in
+                        // Only include conversations that have a peer_id
+                        guard let peerId = ffiConv.peerId else { return nil }
+
+                        let displayName: String
+                        if let name = ffiConv.displayName {
+                            displayName = name
+                        } else {
+                            displayName = String(peerId.prefix(12)) + "..."
+                        }
+
+                        return Conversation(
+                            id: ffiConv.id,
+                            peerId: peerId,
+                            displayName: displayName,
+                            lastMessage: nil, // FFI doesn't include message text, only ID
                             unreadCount: Int(ffiConv.unreadCount)
                         )
                     }
