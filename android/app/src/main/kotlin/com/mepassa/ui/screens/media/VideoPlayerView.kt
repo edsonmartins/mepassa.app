@@ -16,7 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.mepassa.core.MePassaCore
+import com.mepassa.core.MePassaClientWrapper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -55,7 +55,7 @@ fun VideoPlayerView(
                     }
 
                     // Download video to cache
-                    val videoData = MePassaCore.downloadMedia(media.mediaHash)
+                    val videoData = MePassaClientWrapper.downloadMedia(media.mediaHash)
                     val cacheFile = File(context.cacheDir, "video_${media.id}.mp4")
                     cacheFile.writeBytes(videoData)
 

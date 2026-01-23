@@ -24,6 +24,7 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.mepassa.core.MePassaClientWrapper
+import com.mepassa.ui.components.RemoteVideoView
 import com.mepassa.voip.CameraManager
 import kotlinx.coroutines.launch
 import uniffi.mepassa.FfiVideoCodec
@@ -363,66 +364,4 @@ private fun formatDuration(seconds: Int): String {
     } else {
         String.format("%02d:%02d", minutes, secs)
     }
-}
-
-/**
- * RemoteVideoView - Renders remote video using SurfaceView + MediaCodec
- */
-@Composable
-fun RemoteVideoView(
-    callId: String,
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-
-    // Video frame handler (implements FfiVideoFrameCallback)
-    val videoHandler = remember(callId) {
-        com.mepassa.voip.VideoFrameHandler(callId)
-    }
-
-    DisposableEffect(callId) {
-        // Register callback when view appears
-        scope.launch {
-            try {
-                MePassaClientWrapper.registerVideoFrameCallback(videoHandler)
-                Log.d("RemoteVideoView", "✅ Video frame callback registered for call: $callId")
-            } catch (e: Exception) {
-                Log.e("RemoteVideoView", "❌ Failed to register video callback", e)
-            }
-        }
-
-        onDispose {
-            // Cleanup
-            videoHandler.release()
-        }
-    }
-
-    // SurfaceView for rendering decoded frames
-    AndroidView(
-        factory = { ctx ->
-            android.view.SurfaceView(ctx).apply {
-                holder.addCallback(object : android.view.SurfaceHolder.Callback {
-                    override fun surfaceCreated(holder: android.view.SurfaceHolder) {
-                        Log.d("RemoteVideoView", "📹 Surface created for call: $callId")
-                        videoHandler.setSurface(holder.surface)
-                    }
-
-                    override fun surfaceChanged(
-                        holder: android.view.SurfaceHolder,
-                        format: Int,
-                        width: Int,
-                        height: Int
-                    ) {
-                        Log.d("RemoteVideoView", "🔄 Surface changed: ${width}x${height}")
-                    }
-
-                    override fun surfaceDestroyed(holder: android.view.SurfaceHolder) {
-                        Log.d("RemoteVideoView", "🗑️ Surface destroyed")
-                    }
-                })
-            }
-        },
-        modifier = modifier.background(Color.Black)
-    )
 }

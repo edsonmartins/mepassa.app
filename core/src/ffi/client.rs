@@ -682,11 +682,27 @@ impl MePassaClient {
 
                 // Build and run the client task
                 local.block_on(rt, async move {
-                    let client = ClientBuilder::new()
-                        .data_dir(PathBuf::from(&data_dir_clone))
-                        .build()
-                        .await
-                        .expect("Failed to build client");
+                    let mut builder = ClientBuilder::new()
+                        .data_dir(PathBuf::from(&data_dir_clone));
+
+                    // Add default bootstrap peers (IPFS public nodes)
+                    let bootstrap_peers = vec![
+                        ("/dnsaddr/bootstrap.libp2p.io/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN", "QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN"),
+                        ("/dnsaddr/bootstrap.libp2p.io/p2p/QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa", "QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa"),
+                        ("/dnsaddr/bootstrap.libp2p.io/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb", "QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb"),
+                        ("/dnsaddr/bootstrap.libp2p.io/p2p/QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt", "QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt"),
+                    ];
+
+                    for (addr_str, peer_id_str) in bootstrap_peers {
+                        if let (Ok(addr), Ok(peer_id)) = (
+                            addr_str.parse::<libp2p::Multiaddr>(),
+                            peer_id_str.parse::<libp2p::PeerId>()
+                        ) {
+                            builder = builder.add_bootstrap_peer(peer_id, addr);
+                        }
+                    }
+
+                    let client = builder.build().await.expect("Failed to build client");
 
                     run_client_task(receiver, client).await;
                 });

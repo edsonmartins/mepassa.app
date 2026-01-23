@@ -170,7 +170,7 @@ fun GroupListScreen(
                                     onGroupClick(group.id)
                                 }
                             )
-                            HorizontalDivider()
+                            Divider()
                         }
                     }
                 }

@@ -125,7 +125,7 @@ fun ConversationsScreen(
                                     conversation.peerId?.let { onConversationClick(it) }
                                 }
                             )
-                            HorizontalDivider()
+                            Divider()
                         }
                     }
                 }

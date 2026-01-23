@@ -19,7 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
-import com.mepassa.core.MePassaCore
+import com.mepassa.core.MePassaClientWrapper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -55,7 +55,7 @@ fun MediaGalleryScreen(
                 }
 
                 val media = withContext(Dispatchers.IO) {
-                    MePassaCore.getConversationMedia(
+                    MePassaClientWrapper.getConversationMedia(
                         conversationId = conversationId,
                         mediaType = mediaType,
                         limit = 500u
@@ -184,14 +184,16 @@ fun MediaGridItem(
                     }
 
                     // Otherwise download from media hash
-                    MePassaCore.downloadMedia(media.mediaHash)
+                    MePassaClientWrapper.downloadMedia(media.mediaHash)
                 }
 
-                thumbnail = BitmapFactory.decodeByteArray(
-                    thumbnailData,
-                    0,
-                    thumbnailData.size
-                )
+                thumbnailData?.let { data ->
+                    thumbnail = BitmapFactory.decodeByteArray(
+                        data,
+                        0,
+                        data.size
+                    )
+                }
             } catch (e: Exception) {
                 println("❌ Error loading thumbnail: ${e.message}")
             }

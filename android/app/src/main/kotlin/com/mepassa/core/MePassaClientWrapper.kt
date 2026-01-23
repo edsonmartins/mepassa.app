@@ -459,7 +459,7 @@ object MePassaClientWrapper {
         height: UInt
     ) = withContext(Dispatchers.IO) {
         try {
-            getClient().sendVideoFrame(callId, frameData.toList(), width, height)
+            getClient().sendVideoFrame(callId, frameData.toUByteArray().toList(), width, height)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to send video frame for call: $callId", e)
             // Don't throw - frame drops are acceptable
@@ -493,6 +493,192 @@ object MePassaClientWrapper {
             Log.i(TAG, "✅ Video frame callback registered")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Failed to register video frame callback", e)
+            throw e
+        }
+    }
+
+    // ====== Media Messages ======
+
+    /**
+     * Send image message
+     */
+    suspend fun sendImageMessage(
+        toPeerId: String,
+        imageData: List<UByte>,
+        fileName: String,
+        quality: UInt = 85u
+    ) = withContext(Dispatchers.IO) {
+        try {
+            val c = client ?: throw IllegalStateException("Client not initialized")
+            c.sendImageMessage(toPeerId, imageData, fileName, quality)
+            Log.d(TAG, "✅ Image message sent to $toPeerId")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to send image message", e)
+            throw e
+        }
+    }
+
+    /**
+     * Send voice message
+     */
+    suspend fun sendVoiceMessage(
+        toPeerId: String,
+        audioData: List<UByte>,
+        fileName: String,
+        durationSeconds: Int
+    ) = withContext(Dispatchers.IO) {
+        try {
+            val c = client ?: throw IllegalStateException("Client not initialized")
+            c.sendVoiceMessage(toPeerId, audioData, fileName, durationSeconds)
+            Log.d(TAG, "✅ Voice message sent to $toPeerId")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to send voice message", e)
+            throw e
+        }
+    }
+
+    /**
+     * Send document/file message
+     */
+    suspend fun sendDocumentMessage(
+        toPeerId: String,
+        fileData: List<UByte>,
+        fileName: String,
+        mimeType: String
+    ) = withContext(Dispatchers.IO) {
+        try {
+            val c = client ?: throw IllegalStateException("Client not initialized")
+            c.sendDocumentMessage(toPeerId, fileData, fileName, mimeType)
+            Log.d(TAG, "✅ Document message sent to $toPeerId: $fileName")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to send document message", e)
+            throw e
+        }
+    }
+
+    /**
+     * Send video message
+     */
+    suspend fun sendVideoMessage(
+        toPeerId: String,
+        videoData: List<UByte>,
+        fileName: String,
+        width: Int? = null,
+        height: Int? = null,
+        durationSeconds: Int,
+        thumbnailData: List<UByte>? = null
+    ) = withContext(Dispatchers.IO) {
+        try {
+            val c = client ?: throw IllegalStateException("Client not initialized")
+            c.sendVideoMessage(toPeerId, videoData, fileName, width, height, durationSeconds, thumbnailData)
+            Log.d(TAG, "✅ Video message sent to $toPeerId")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to send video message", e)
+            throw e
+        }
+    }
+
+    // ====== Message Actions ======
+
+    /**
+     * Delete message
+     */
+    suspend fun deleteMessage(messageId: String) = withContext(Dispatchers.IO) {
+        try {
+            val c = client ?: throw IllegalStateException("Client not initialized")
+            c.deleteMessage(messageId)
+            Log.d(TAG, "✅ Message deleted: $messageId")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to delete message", e)
+            throw e
+        }
+    }
+
+    /**
+     * Forward message
+     */
+    suspend fun forwardMessage(messageId: String, toPeerId: String) = withContext(Dispatchers.IO) {
+        try {
+            val c = client ?: throw IllegalStateException("Client not initialized")
+            c.forwardMessage(messageId, toPeerId)
+            Log.d(TAG, "✅ Message forwarded: $messageId to $toPeerId")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to forward message", e)
+            throw e
+        }
+    }
+
+    // ====== Reactions ======
+
+    /**
+     * Add reaction to message
+     */
+    suspend fun addReaction(messageId: String, emoji: String) = withContext(Dispatchers.IO) {
+        try {
+            val c = client ?: throw IllegalStateException("Client not initialized")
+            c.addReaction(messageId, emoji)
+            Log.d(TAG, "✅ Reaction added: $emoji to $messageId")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to add reaction", e)
+            throw e
+        }
+    }
+
+    /**
+     * Remove reaction from message
+     */
+    suspend fun removeReaction(messageId: String, emoji: String) = withContext(Dispatchers.IO) {
+        try {
+            val c = client ?: throw IllegalStateException("Client not initialized")
+            c.removeReaction(messageId, emoji)
+            Log.d(TAG, "✅ Reaction removed: $emoji from $messageId")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to remove reaction", e)
+            throw e
+        }
+    }
+
+    /**
+     * Get reactions for message
+     */
+    suspend fun getMessageReactions(messageId: String): List<uniffi.mepassa.FfiReaction> = withContext(Dispatchers.IO) {
+        try {
+            val c = client ?: throw IllegalStateException("Client not initialized")
+            c.getMessageReactions(messageId)
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to get message reactions", e)
+            emptyList()
+        }
+    }
+
+    // ====== Media Management ======
+
+    /**
+     * Get media from conversation
+     */
+    suspend fun getConversationMedia(
+        conversationId: String,
+        mediaType: uniffi.mepassa.FfiMediaType? = null,
+        limit: UInt = 100u
+    ): List<uniffi.mepassa.FfiMedia> = withContext(Dispatchers.IO) {
+        try {
+            val c = client ?: throw IllegalStateException("Client not initialized")
+            c.getConversationMedia(conversationId, mediaType, limit)
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to get conversation media", e)
+            emptyList()
+        }
+    }
+
+    /**
+     * Download media by hash
+     */
+    suspend fun downloadMedia(mediaHash: String): ByteArray = withContext(Dispatchers.IO) {
+        try {
+            val c = client ?: throw IllegalStateException("Client not initialized")
+            c.downloadMedia(mediaHash).map { it.toByte() }.toByteArray()
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to download media", e)
             throw e
         }
     }

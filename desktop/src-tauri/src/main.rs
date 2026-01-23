@@ -3,6 +3,7 @@
 
 mod commands;
 
+use std::sync::{Arc, Mutex};
 use tracing_subscriber;
 
 fn main() {
@@ -11,10 +12,15 @@ fn main() {
         .with_env_filter("mepassa_desktop=debug,mepassa_core=debug")
         .init();
 
+    // Initialize client state
+    let client_state: Arc<Mutex<Option<Arc<mepassa_core::ffi::MePassaClient>>>> =
+        Arc::new(Mutex::new(None));
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
+        .manage(client_state)
         .invoke_handler(tauri::generate_handler![
             commands::init_client,
             commands::get_local_peer_id,

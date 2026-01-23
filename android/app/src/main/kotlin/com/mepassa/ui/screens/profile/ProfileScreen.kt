@@ -177,7 +177,7 @@ fun ProfileScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = localPeerId.take(32) + "...",
+                            text = (localPeerId?.take(32) ?: "") + "...",
                             style = MaterialTheme.typography.bodyMedium,
                             fontFamily = FontFamily.Monospace,
                             modifier = Modifier.weight(1f)
@@ -219,7 +219,7 @@ fun ProfileScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "QR CODE\n${localPeerId.take(8)}...",
+                        text = "QR CODE\n${localPeerId?.take(8) ?: ""}...",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.Gray
                     )

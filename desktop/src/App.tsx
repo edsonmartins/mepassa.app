@@ -10,32 +10,44 @@ import GroupListView from './views/GroupListView'
 import GroupChatView from './views/GroupChatView'
 
 function App() {
+  console.log('🔵 App component mounted')
+
   const [isInitialized, setIsInitialized] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [localPeerId, setLocalPeerId] = useState<string | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string>('')
   const navigate = useNavigate()
 
   useEffect(() => {
+    console.log('🔵 useEffect running - about to call initializeApp')
+
     const initializeApp = async () => {
       try {
+        console.log('🔵 initializeApp STARTED')
         const home = await homeDir()
         const dataDir = `${home}/.mepassa`
 
-        console.log('Initializing MePassa with data_dir:', dataDir)
+        console.log('🔵 Initializing MePassa with data_dir:', dataDir)
 
         const peerId = await invoke<string>('init_client', { dataDir })
+        console.log('🔵 init_client returned peer_id:', peerId)
         setLocalPeerId(peerId)
         setIsInitialized(true)
 
-        // Listen on default address
-        await invoke('listen_on', { multiaddr: '/ip4/0.0.0.0/tcp/0' })
+        // Listen on default address (skip for now - runtime conflict)
+        // console.log('🔵 Calling listen_on...')
+        // await invoke('listen_on', { multiaddr: '/ip4/0.0.0.0/tcp/0' })
 
-        // Bootstrap to DHT
-        await invoke('bootstrap')
+        // Bootstrap to DHT (skip for now due to runtime conflict)
+        // TODO: Fix bootstrap runtime issue
+        // console.log('🔵 Calling bootstrap...')
+        // await invoke('bootstrap')
 
-        console.log('MePassa initialized successfully. Peer ID:', peerId)
+        console.log('✅ MePassa initialized successfully. Peer ID:', peerId)
       } catch (error) {
-        console.error('Failed to initialize MePassa:', error)
+        console.error('❌ Failed to initialize MePassa:', error)
+        const errorMsg = error instanceof Error ? error.message : String(error)
+        setErrorMessage(errorMsg)
         setIsInitialized(false)
       } finally {
         setIsLoading(false)
@@ -59,6 +71,34 @@ function App() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-primary-500 mx-auto"></div>
           <p className="mt-4 text-gray-600 font-medium">Loading MePassa...</p>
+          {errorMessage && (
+            <div className="mt-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+              <p className="font-bold">Error during initialization:</p>
+              <p className="text-sm mt-2">{errorMessage}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  if (errorMessage && !isInitialized) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-100">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6">
+          <div className="text-center">
+            <div className="text-red-500 text-6xl mb-4">⚠️</div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Initialization Failed</h2>
+            <div className="p-4 bg-red-50 border border-red-200 rounded text-left">
+              <p className="text-sm text-gray-700 break-all">{errorMessage}</p>
+            </div>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-6 px-4 py-2 bg-primary-500 text-white rounded hover:bg-primary-600"
+            >
+              Retry
+            </button>
+          </div>
         </div>
       </div>
     )

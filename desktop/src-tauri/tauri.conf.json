@@ -26,7 +26,8 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:"
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:",
+      "capabilities": ["main-capability"]
     },
     "trayIcon": {
       "iconPath": "icons/icon.png",
@@ -73,9 +74,6 @@
   "plugins": {
     "shell": {
       "open": true
-    },
-    "notification": {
-      "all": true
     }
   }
 }

@@ -12,7 +12,7 @@ use crate::{
     storage::{Database, migrate, needs_migration},
     utils::error::{MePassaError, Result},
 };
-#[cfg(feature = "voip")]
+#[cfg(any(feature = "voip", feature = "video"))]
 use crate::voip::{CallManager, VoIPIntegration};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -127,15 +127,18 @@ impl ClientBuilder {
 
         // Add bootstrap peers to DHT (if any)
         if !self.bootstrap_peers.is_empty() {
-            // Bootstrap peers will be added when the network starts
-            // They are stored in the builder and can be accessed by the network manager
-            tracing::info!("Configured {} bootstrap peers", self.bootstrap_peers.len());
+            tracing::info!("Adding {} bootstrap peers to DHT", self.bootstrap_peers.len());
+            let mut network = network_arc.write().await;
+            for (peer_id, addr) in self.bootstrap_peers {
+                tracing::info!("  Adding bootstrap peer {} at {}", peer_id, addr);
+                network.add_peer_to_dht(peer_id, addr);
+            }
         }
 
         // Create VoIP components (only if feature is enabled)
-        #[cfg(feature = "voip")]
+        #[cfg(any(feature = "voip", feature = "video"))]
         let call_manager = Arc::new(CallManager::new());
-        #[cfg(feature = "voip")]
+        #[cfg(any(feature = "voip", feature = "video"))]
         let voip_integration = Arc::new(
             VoIPIntegration::new(Arc::clone(&network_arc), Arc::clone(&call_manager)).await,
         );
@@ -162,9 +165,9 @@ impl ClientBuilder {
             network_arc,
             Arc::try_unwrap(database_arc).unwrap_or_else(|arc| (*arc).clone()),
             data_dir,
-            #[cfg(feature = "voip")]
+            #[cfg(any(feature = "voip", feature = "video"))]
             call_manager,
-            #[cfg(feature = "voip")]
+            #[cfg(any(feature = "voip", feature = "video"))]
             voip_integration,
             group_manager,
         );

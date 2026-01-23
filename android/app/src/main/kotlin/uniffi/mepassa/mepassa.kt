@@ -66,7 +66,7 @@ open class RustBuffer : Structure() {
     companion object {
         internal fun alloc(size: ULong = 0UL) = uniffiRustCall() { status ->
             // Note: need to convert the size to a `Long` value to make this work with JVM.
-            UniffiLib.ffi_mepassa_core_rustbuffer_alloc(size.toLong(), status)
+            UniffiLib.INSTANCE.ffi_mepassa_core_rustbuffer_alloc(size.toLong(), status)
         }.also {
             if(it.data == null) {
                throw RuntimeException("RustBuffer.alloc() returned null data pointer (size=${size})")
@@ -82,15 +82,49 @@ open class RustBuffer : Structure() {
         }
 
         internal fun free(buf: RustBuffer.ByValue) = uniffiRustCall() { status ->
-            UniffiLib.ffi_mepassa_core_rustbuffer_free(buf, status)
+            UniffiLib.INSTANCE.ffi_mepassa_core_rustbuffer_free(buf, status)
         }
     }
 
     @Suppress("TooGenericExceptionThrown")
     fun asByteBuffer() =
-        this.data?.getByteBuffer(0, this.len)?.also {
+        this.data?.getByteBuffer(0, this.len.toLong())?.also {
             it.order(ByteOrder.BIG_ENDIAN)
         }
+}
+
+/**
+ * The equivalent of the `*mut RustBuffer` type.
+ * Required for callbacks taking in an out pointer.
+ *
+ * Size is the sum of all values in the struct.
+ *
+ * @suppress
+ */
+class RustBufferByReference : ByReference(16) {
+    /**
+     * Set the pointed-to `RustBuffer` to the given value.
+     */
+    fun setValue(value: RustBuffer.ByValue) {
+        // NOTE: The offsets are as they are in the C-like struct.
+        val pointer = getPointer()
+        pointer.setLong(0, value.capacity)
+        pointer.setLong(8, value.len)
+        pointer.setPointer(16, value.data)
+    }
+
+    /**
+     * Get a `RustBuffer.ByValue` from this reference.
+     */
+    fun getValue(): RustBuffer.ByValue {
+        val pointer = getPointer()
+        val value = RustBuffer.ByValue()
+        value.writeField("capacity", pointer.getLong(0))
+        value.writeField("len", pointer.getLong(8))
+        value.writeField("data", pointer.getLong(16))
+
+        return value
+    }
 }
 
 // This is a helper for safely passing byte references into the rust code.
@@ -289,9 +323,8 @@ internal inline fun<T> uniffiTraitInterfaceCall(
     try {
         writeReturn(makeCall())
     } catch(e: kotlin.Exception) {
-        val err = try { e.stackTraceToString() } catch(_: Throwable) { "" }
         callStatus.code = UNIFFI_CALL_UNEXPECTED_ERROR
-        callStatus.error_buf = FfiConverterString.lower(err)
+        callStatus.error_buf = FfiConverterString.lower(e.toString())
     }
 }
 
@@ -308,39 +341,26 @@ internal inline fun<T, reified E: Throwable> uniffiTraitInterfaceCallWithError(
             callStatus.code = UNIFFI_CALL_ERROR
             callStatus.error_buf = lowerError(e)
         } else {
-            val err = try { e.stackTraceToString() } catch(_: Throwable) { "" }
             callStatus.code = UNIFFI_CALL_UNEXPECTED_ERROR
-            callStatus.error_buf = FfiConverterString.lower(err)
+            callStatus.error_buf = FfiConverterString.lower(e.toString())
         }
     }
 }
-// Initial value and increment amount for handles. 
-// These ensure that Kotlin-generated handles always have the lowest bit set
-private const val UNIFFI_HANDLEMAP_INITIAL = 1.toLong()
-private const val UNIFFI_HANDLEMAP_DELTA = 2.toLong()
-
 // Map handles to objects
 //
 // This is used pass an opaque 64-bit handle representing a foreign object to the Rust code.
 internal class UniffiHandleMap<T: Any> {
     private val map = ConcurrentHashMap<Long, T>()
-    // Start 
-    private val counter = java.util.concurrent.atomic.AtomicLong(UNIFFI_HANDLEMAP_INITIAL)
+    private val counter = java.util.concurrent.atomic.AtomicLong(0)
 
     val size: Int
         get() = map.size
 
     // Insert a new object into the handle map and get a handle for it
     fun insert(obj: T): Long {
-        val handle = counter.getAndAdd(UNIFFI_HANDLEMAP_DELTA)
+        val handle = counter.getAndAdd(1)
         map.put(handle, obj)
         return handle
-    }
-
-    // Clone a handle, creating a new one
-    fun clone(handle: Long): Long {
-        val obj = map.get(handle) ?: throw InternalException("UniffiHandleMap.clone: Invalid handle")
-        return insert(obj)
     }
 
     // Get an object from the handle map
@@ -362,522 +382,884 @@ private fun findLibraryName(componentName: String): String {
     if (libOverride != null) {
         return libOverride
     }
-    return "uniffi_mepassa"
+    return "mepassa_core"
+}
+
+private inline fun <reified Lib : Library> loadIndirect(
+    componentName: String
+): Lib {
+    return Native.load<Lib>(findLibraryName(componentName), Lib::class.java)
 }
 
 // Define FFI callback types
 internal interface UniffiRustFutureContinuationCallback : com.sun.jna.Callback {
     fun callback(`data`: Long,`pollResult`: Byte,)
 }
-internal interface UniffiForeignFutureDroppedCallback : com.sun.jna.Callback {
+internal interface UniffiForeignFutureFree : com.sun.jna.Callback {
     fun callback(`handle`: Long,)
 }
 internal interface UniffiCallbackInterfaceFree : com.sun.jna.Callback {
     fun callback(`handle`: Long,)
 }
-internal interface UniffiCallbackInterfaceClone : com.sun.jna.Callback {
-    fun callback(`handle`: Long,)
-    : Long
-}
 @Structure.FieldOrder("handle", "free")
-internal open class UniffiForeignFutureDroppedCallbackStruct(
+internal open class UniffiForeignFuture(
     @JvmField internal var `handle`: Long = 0.toLong(),
-    @JvmField internal var `free`: UniffiForeignFutureDroppedCallback? = null,
+    @JvmField internal var `free`: UniffiForeignFutureFree? = null,
 ) : Structure() {
     class UniffiByValue(
         `handle`: Long = 0.toLong(),
-        `free`: UniffiForeignFutureDroppedCallback? = null,
-    ): UniffiForeignFutureDroppedCallbackStruct(`handle`,`free`,), Structure.ByValue
+        `free`: UniffiForeignFutureFree? = null,
+    ): UniffiForeignFuture(`handle`,`free`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureDroppedCallbackStruct) {
+   internal fun uniffiSetValue(other: UniffiForeignFuture) {
         `handle` = other.`handle`
         `free` = other.`free`
     }
 
 }
 @Structure.FieldOrder("returnValue", "callStatus")
-internal open class UniffiForeignFutureResultU8(
+internal open class UniffiForeignFutureStructU8(
     @JvmField internal var `returnValue`: Byte = 0.toByte(),
     @JvmField internal var `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
 ) : Structure() {
     class UniffiByValue(
         `returnValue`: Byte = 0.toByte(),
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
-    ): UniffiForeignFutureResultU8(`returnValue`,`callStatus`,), Structure.ByValue
+    ): UniffiForeignFutureStructU8(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureResultU8) {
+   internal fun uniffiSetValue(other: UniffiForeignFutureStructU8) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
 
 }
 internal interface UniffiForeignFutureCompleteU8 : com.sun.jna.Callback {
-    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureResultU8.UniffiByValue,)
+    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructU8.UniffiByValue,)
 }
 @Structure.FieldOrder("returnValue", "callStatus")
-internal open class UniffiForeignFutureResultI8(
+internal open class UniffiForeignFutureStructI8(
     @JvmField internal var `returnValue`: Byte = 0.toByte(),
     @JvmField internal var `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
 ) : Structure() {
     class UniffiByValue(
         `returnValue`: Byte = 0.toByte(),
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
-    ): UniffiForeignFutureResultI8(`returnValue`,`callStatus`,), Structure.ByValue
+    ): UniffiForeignFutureStructI8(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureResultI8) {
+   internal fun uniffiSetValue(other: UniffiForeignFutureStructI8) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
 
 }
 internal interface UniffiForeignFutureCompleteI8 : com.sun.jna.Callback {
-    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureResultI8.UniffiByValue,)
+    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructI8.UniffiByValue,)
 }
 @Structure.FieldOrder("returnValue", "callStatus")
-internal open class UniffiForeignFutureResultU16(
+internal open class UniffiForeignFutureStructU16(
     @JvmField internal var `returnValue`: Short = 0.toShort(),
     @JvmField internal var `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
 ) : Structure() {
     class UniffiByValue(
         `returnValue`: Short = 0.toShort(),
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
-    ): UniffiForeignFutureResultU16(`returnValue`,`callStatus`,), Structure.ByValue
+    ): UniffiForeignFutureStructU16(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureResultU16) {
+   internal fun uniffiSetValue(other: UniffiForeignFutureStructU16) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
 
 }
 internal interface UniffiForeignFutureCompleteU16 : com.sun.jna.Callback {
-    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureResultU16.UniffiByValue,)
+    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructU16.UniffiByValue,)
 }
 @Structure.FieldOrder("returnValue", "callStatus")
-internal open class UniffiForeignFutureResultI16(
+internal open class UniffiForeignFutureStructI16(
     @JvmField internal var `returnValue`: Short = 0.toShort(),
     @JvmField internal var `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
 ) : Structure() {
     class UniffiByValue(
         `returnValue`: Short = 0.toShort(),
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
-    ): UniffiForeignFutureResultI16(`returnValue`,`callStatus`,), Structure.ByValue
+    ): UniffiForeignFutureStructI16(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureResultI16) {
+   internal fun uniffiSetValue(other: UniffiForeignFutureStructI16) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
 
 }
 internal interface UniffiForeignFutureCompleteI16 : com.sun.jna.Callback {
-    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureResultI16.UniffiByValue,)
+    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructI16.UniffiByValue,)
 }
 @Structure.FieldOrder("returnValue", "callStatus")
-internal open class UniffiForeignFutureResultU32(
+internal open class UniffiForeignFutureStructU32(
     @JvmField internal var `returnValue`: Int = 0,
     @JvmField internal var `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
 ) : Structure() {
     class UniffiByValue(
         `returnValue`: Int = 0,
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
-    ): UniffiForeignFutureResultU32(`returnValue`,`callStatus`,), Structure.ByValue
+    ): UniffiForeignFutureStructU32(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureResultU32) {
+   internal fun uniffiSetValue(other: UniffiForeignFutureStructU32) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
 
 }
 internal interface UniffiForeignFutureCompleteU32 : com.sun.jna.Callback {
-    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureResultU32.UniffiByValue,)
+    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructU32.UniffiByValue,)
 }
 @Structure.FieldOrder("returnValue", "callStatus")
-internal open class UniffiForeignFutureResultI32(
+internal open class UniffiForeignFutureStructI32(
     @JvmField internal var `returnValue`: Int = 0,
     @JvmField internal var `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
 ) : Structure() {
     class UniffiByValue(
         `returnValue`: Int = 0,
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
-    ): UniffiForeignFutureResultI32(`returnValue`,`callStatus`,), Structure.ByValue
+    ): UniffiForeignFutureStructI32(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureResultI32) {
+   internal fun uniffiSetValue(other: UniffiForeignFutureStructI32) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
 
 }
 internal interface UniffiForeignFutureCompleteI32 : com.sun.jna.Callback {
-    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureResultI32.UniffiByValue,)
+    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructI32.UniffiByValue,)
 }
 @Structure.FieldOrder("returnValue", "callStatus")
-internal open class UniffiForeignFutureResultU64(
+internal open class UniffiForeignFutureStructU64(
     @JvmField internal var `returnValue`: Long = 0.toLong(),
     @JvmField internal var `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
 ) : Structure() {
     class UniffiByValue(
         `returnValue`: Long = 0.toLong(),
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
-    ): UniffiForeignFutureResultU64(`returnValue`,`callStatus`,), Structure.ByValue
+    ): UniffiForeignFutureStructU64(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureResultU64) {
+   internal fun uniffiSetValue(other: UniffiForeignFutureStructU64) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
 
 }
 internal interface UniffiForeignFutureCompleteU64 : com.sun.jna.Callback {
-    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureResultU64.UniffiByValue,)
+    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructU64.UniffiByValue,)
 }
 @Structure.FieldOrder("returnValue", "callStatus")
-internal open class UniffiForeignFutureResultI64(
+internal open class UniffiForeignFutureStructI64(
     @JvmField internal var `returnValue`: Long = 0.toLong(),
     @JvmField internal var `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
 ) : Structure() {
     class UniffiByValue(
         `returnValue`: Long = 0.toLong(),
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
-    ): UniffiForeignFutureResultI64(`returnValue`,`callStatus`,), Structure.ByValue
+    ): UniffiForeignFutureStructI64(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureResultI64) {
+   internal fun uniffiSetValue(other: UniffiForeignFutureStructI64) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
 
 }
 internal interface UniffiForeignFutureCompleteI64 : com.sun.jna.Callback {
-    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureResultI64.UniffiByValue,)
+    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructI64.UniffiByValue,)
 }
 @Structure.FieldOrder("returnValue", "callStatus")
-internal open class UniffiForeignFutureResultF32(
+internal open class UniffiForeignFutureStructF32(
     @JvmField internal var `returnValue`: Float = 0.0f,
     @JvmField internal var `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
 ) : Structure() {
     class UniffiByValue(
         `returnValue`: Float = 0.0f,
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
-    ): UniffiForeignFutureResultF32(`returnValue`,`callStatus`,), Structure.ByValue
+    ): UniffiForeignFutureStructF32(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureResultF32) {
+   internal fun uniffiSetValue(other: UniffiForeignFutureStructF32) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
 
 }
 internal interface UniffiForeignFutureCompleteF32 : com.sun.jna.Callback {
-    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureResultF32.UniffiByValue,)
+    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructF32.UniffiByValue,)
 }
 @Structure.FieldOrder("returnValue", "callStatus")
-internal open class UniffiForeignFutureResultF64(
+internal open class UniffiForeignFutureStructF64(
     @JvmField internal var `returnValue`: Double = 0.0,
     @JvmField internal var `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
 ) : Structure() {
     class UniffiByValue(
         `returnValue`: Double = 0.0,
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
-    ): UniffiForeignFutureResultF64(`returnValue`,`callStatus`,), Structure.ByValue
+    ): UniffiForeignFutureStructF64(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureResultF64) {
+   internal fun uniffiSetValue(other: UniffiForeignFutureStructF64) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
 
 }
 internal interface UniffiForeignFutureCompleteF64 : com.sun.jna.Callback {
-    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureResultF64.UniffiByValue,)
+    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructF64.UniffiByValue,)
 }
 @Structure.FieldOrder("returnValue", "callStatus")
-internal open class UniffiForeignFutureResultRustBuffer(
+internal open class UniffiForeignFutureStructPointer(
+    @JvmField internal var `returnValue`: Pointer = Pointer.NULL,
+    @JvmField internal var `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
+) : Structure() {
+    class UniffiByValue(
+        `returnValue`: Pointer = Pointer.NULL,
+        `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
+    ): UniffiForeignFutureStructPointer(`returnValue`,`callStatus`,), Structure.ByValue
+
+   internal fun uniffiSetValue(other: UniffiForeignFutureStructPointer) {
+        `returnValue` = other.`returnValue`
+        `callStatus` = other.`callStatus`
+    }
+
+}
+internal interface UniffiForeignFutureCompletePointer : com.sun.jna.Callback {
+    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructPointer.UniffiByValue,)
+}
+@Structure.FieldOrder("returnValue", "callStatus")
+internal open class UniffiForeignFutureStructRustBuffer(
     @JvmField internal var `returnValue`: RustBuffer.ByValue = RustBuffer.ByValue(),
     @JvmField internal var `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
 ) : Structure() {
     class UniffiByValue(
         `returnValue`: RustBuffer.ByValue = RustBuffer.ByValue(),
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
-    ): UniffiForeignFutureResultRustBuffer(`returnValue`,`callStatus`,), Structure.ByValue
+    ): UniffiForeignFutureStructRustBuffer(`returnValue`,`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureResultRustBuffer) {
+   internal fun uniffiSetValue(other: UniffiForeignFutureStructRustBuffer) {
         `returnValue` = other.`returnValue`
         `callStatus` = other.`callStatus`
     }
 
 }
 internal interface UniffiForeignFutureCompleteRustBuffer : com.sun.jna.Callback {
-    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureResultRustBuffer.UniffiByValue,)
+    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructRustBuffer.UniffiByValue,)
 }
 @Structure.FieldOrder("callStatus")
-internal open class UniffiForeignFutureResultVoid(
+internal open class UniffiForeignFutureStructVoid(
     @JvmField internal var `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
 ) : Structure() {
     class UniffiByValue(
         `callStatus`: UniffiRustCallStatus.ByValue = UniffiRustCallStatus.ByValue(),
-    ): UniffiForeignFutureResultVoid(`callStatus`,), Structure.ByValue
+    ): UniffiForeignFutureStructVoid(`callStatus`,), Structure.ByValue
 
-   internal fun uniffiSetValue(other: UniffiForeignFutureResultVoid) {
+   internal fun uniffiSetValue(other: UniffiForeignFutureStructVoid) {
         `callStatus` = other.`callStatus`
     }
 
 }
 internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
-    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureResultVoid.UniffiByValue,)
+    fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructVoid.UniffiByValue,)
 }
+internal interface UniffiCallbackInterfaceFfiVideoFrameCallbackMethod0 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`callId`: RustBuffer.ByValue,`frameData`: RustBuffer.ByValue,`width`: Int,`height`: Int,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+@Structure.FieldOrder("onVideoFrame", "uniffiFree")
+internal open class UniffiVTableCallbackInterfaceFfiVideoFrameCallback(
+    @JvmField internal var `onVideoFrame`: UniffiCallbackInterfaceFfiVideoFrameCallbackMethod0? = null,
+    @JvmField internal var `uniffiFree`: UniffiCallbackInterfaceFree? = null,
+) : Structure() {
+    class UniffiByValue(
+        `onVideoFrame`: UniffiCallbackInterfaceFfiVideoFrameCallbackMethod0? = null,
+        `uniffiFree`: UniffiCallbackInterfaceFree? = null,
+    ): UniffiVTableCallbackInterfaceFfiVideoFrameCallback(`onVideoFrame`,`uniffiFree`,), Structure.ByValue
+
+   internal fun uniffiSetValue(other: UniffiVTableCallbackInterfaceFfiVideoFrameCallback) {
+        `onVideoFrame` = other.`onVideoFrame`
+        `uniffiFree` = other.`uniffiFree`
+    }
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
-// For large crates we prevent `MethodTooLargeException` (see #2340)
-// N.B. the name of the extension is very misleading, since it is
-// rather `InterfaceTooLargeException`, caused by too many methods
-// in the interface for large crates.
-//
-// By splitting the otherwise huge interface into two parts
-// * UniffiLib (this)
-// * IntegrityCheckingUniffiLib
-// And all checksum methods are put into `IntegrityCheckingUniffiLib`
-// we allow for ~2x as many methods in the UniffiLib interface.
-//
-// Note: above all written when we used JNA's `loadIndirect` etc.
-// We now use JNA's "direct mapping" - unclear if same considerations apply exactly.
-internal object IntegrityCheckingUniffiLib {
-    init {
-        Native.register(IntegrityCheckingUniffiLib::class.java, findLibraryName(componentName = "mepassa"))
-        uniffiCheckContractApiVersion(this)
-        uniffiCheckApiChecksums(this)
-    }
-    external fun uniffi_mepassa_core_checksum_method_mepassaclient_bootstrap(
-    ): Short
-    external fun uniffi_mepassa_core_checksum_method_mepassaclient_connect_to_peer(
-    ): Short
-    external fun uniffi_mepassa_core_checksum_method_mepassaclient_connected_peers_count(
-    ): Short
-    external fun uniffi_mepassa_core_checksum_method_mepassaclient_get_conversation_messages(
-    ): Short
-    external fun uniffi_mepassa_core_checksum_method_mepassaclient_list_conversations(
-    ): Short
-    external fun uniffi_mepassa_core_checksum_method_mepassaclient_listen_on(
-    ): Short
-    external fun uniffi_mepassa_core_checksum_method_mepassaclient_local_peer_id(
-    ): Short
-    external fun uniffi_mepassa_core_checksum_method_mepassaclient_mark_conversation_read(
-    ): Short
-    external fun uniffi_mepassa_core_checksum_method_mepassaclient_search_messages(
-    ): Short
-    external fun uniffi_mepassa_core_checksum_method_mepassaclient_send_text_message(
-    ): Short
-    external fun uniffi_mepassa_core_checksum_constructor_mepassaclient_new(
-    ): Short
-    external fun ffi_mepassa_core_uniffi_contract_version(
-    ): Int
-
+internal interface UniffiLib : Library {
+    companion object {
+        internal val INSTANCE: UniffiLib by lazy {
+            loadIndirect<UniffiLib>(componentName = "mepassa")
+            .also { lib: UniffiLib ->
+                uniffiCheckContractApiVersion(lib)
+                uniffiCheckApiChecksums(lib)
+                uniffiCallbackInterfaceFfiVideoFrameCallback.register(lib)
+                }
+        }
         
-}
-
-internal object UniffiLib {
-    
-    // The Cleaner for the whole library
-    internal val CLEANER: UniffiCleaner by lazy {
-        UniffiCleaner.create()
+        // The Cleaner for the whole library
+        internal val CLEANER: UniffiCleaner by lazy {
+            UniffiCleaner.create()
+        }
     }
-    
 
-    init {
-        Native.register(UniffiLib::class.java, findLibraryName(componentName = "mepassa"))
-        
-    }
-    external fun uniffi_mepassa_core_fn_clone_mepassaclient(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
-    ): Long
-    external fun uniffi_mepassa_core_fn_free_mepassaclient(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_mepassa_core_fn_clone_mepassaclient(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): Pointer
+    fun uniffi_mepassa_core_fn_free_mepassaclient(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    external fun uniffi_mepassa_core_fn_constructor_mepassaclient_new(`dataDir`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_mepassa_core_fn_constructor_mepassaclient_new(`dataDir`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Pointer
+    fun uniffi_mepassa_core_fn_method_mepassaclient_accept_call(`ptr`: Pointer,`callId`: RustBuffer.ByValue,
     ): Long
-    external fun uniffi_mepassa_core_fn_method_mepassaclient_bootstrap(`ptr`: Long,
+    fun uniffi_mepassa_core_fn_method_mepassaclient_add_group_member(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`peerId`: RustBuffer.ByValue,
     ): Long
-    external fun uniffi_mepassa_core_fn_method_mepassaclient_connect_to_peer(`ptr`: Long,`peerId`: RustBuffer.ByValue,`multiaddr`: RustBuffer.ByValue,
-    ): Long
-    external fun uniffi_mepassa_core_fn_method_mepassaclient_connected_peers_count(`ptr`: Long,
-    ): Long
-    external fun uniffi_mepassa_core_fn_method_mepassaclient_get_conversation_messages(`ptr`: Long,`peerId`: RustBuffer.ByValue,`limit`: RustBuffer.ByValue,`offset`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    external fun uniffi_mepassa_core_fn_method_mepassaclient_list_conversations(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    external fun uniffi_mepassa_core_fn_method_mepassaclient_listen_on(`ptr`: Long,`multiaddr`: RustBuffer.ByValue,
-    ): Long
-    external fun uniffi_mepassa_core_fn_method_mepassaclient_local_peer_id(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    external fun uniffi_mepassa_core_fn_method_mepassaclient_mark_conversation_read(`ptr`: Long,`peerId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_mepassa_core_fn_method_mepassaclient_add_reaction(`ptr`: Pointer,`messageId`: RustBuffer.ByValue,`emoji`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    external fun uniffi_mepassa_core_fn_method_mepassaclient_search_messages(`ptr`: Long,`query`: RustBuffer.ByValue,`limit`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    external fun uniffi_mepassa_core_fn_method_mepassaclient_send_text_message(`ptr`: Long,`toPeerId`: RustBuffer.ByValue,`content`: RustBuffer.ByValue,
+    fun uniffi_mepassa_core_fn_method_mepassaclient_bootstrap(`ptr`: Pointer,
     ): Long
-    external fun ffi_mepassa_core_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_mepassa_core_fn_method_mepassaclient_connect_to_peer(`ptr`: Pointer,`peerId`: RustBuffer.ByValue,`multiaddr`: RustBuffer.ByValue,
+    ): Long
+    fun uniffi_mepassa_core_fn_method_mepassaclient_connected_peers_count(`ptr`: Pointer,
+    ): Long
+    fun uniffi_mepassa_core_fn_method_mepassaclient_create_group(`ptr`: Pointer,`name`: RustBuffer.ByValue,`description`: RustBuffer.ByValue,
+    ): Long
+    fun uniffi_mepassa_core_fn_method_mepassaclient_delete_message(`ptr`: Pointer,`messageId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    fun uniffi_mepassa_core_fn_method_mepassaclient_disable_video(`ptr`: Pointer,`callId`: RustBuffer.ByValue,
+    ): Long
+    fun uniffi_mepassa_core_fn_method_mepassaclient_download_media(`ptr`: Pointer,`mediaHash`: RustBuffer.ByValue,
+    ): Long
+    fun uniffi_mepassa_core_fn_method_mepassaclient_enable_video(`ptr`: Pointer,`callId`: RustBuffer.ByValue,`codec`: RustBuffer.ByValue,
+    ): Long
+    fun uniffi_mepassa_core_fn_method_mepassaclient_forward_message(`ptr`: Pointer,`messageId`: RustBuffer.ByValue,`toPeerId`: RustBuffer.ByValue,
+    ): Long
+    fun uniffi_mepassa_core_fn_method_mepassaclient_get_conversation_media(`ptr`: Pointer,`conversationId`: RustBuffer.ByValue,`mediaType`: RustBuffer.ByValue,`limit`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    external fun ffi_mepassa_core_rustbuffer_from_bytes(`bytes`: ForeignBytes.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_mepassa_core_fn_method_mepassaclient_get_conversation_messages(`ptr`: Pointer,`peerId`: RustBuffer.ByValue,`limit`: RustBuffer.ByValue,`offset`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    external fun ffi_mepassa_core_rustbuffer_free(`buf`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): Unit
-    external fun ffi_mepassa_core_rustbuffer_reserve(`buf`: RustBuffer.ByValue,`additional`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_mepassa_core_fn_method_mepassaclient_get_groups(`ptr`: Pointer,
+    ): Long
+    fun uniffi_mepassa_core_fn_method_mepassaclient_get_message_reactions(`ptr`: Pointer,`messageId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    external fun ffi_mepassa_core_rust_future_poll_u8(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    fun uniffi_mepassa_core_fn_method_mepassaclient_hangup_call(`ptr`: Pointer,`callId`: RustBuffer.ByValue,
+    ): Long
+    fun uniffi_mepassa_core_fn_method_mepassaclient_join_group(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`groupName`: RustBuffer.ByValue,
+    ): Long
+    fun uniffi_mepassa_core_fn_method_mepassaclient_leave_group(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,
+    ): Long
+    fun uniffi_mepassa_core_fn_method_mepassaclient_list_conversations(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_mepassa_core_fn_method_mepassaclient_listen_on(`ptr`: Pointer,`multiaddr`: RustBuffer.ByValue,
+    ): Long
+    fun uniffi_mepassa_core_fn_method_mepassaclient_local_peer_id(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_mepassa_core_fn_method_mepassaclient_mark_conversation_read(`ptr`: Pointer,`peerId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    external fun ffi_mepassa_core_rust_future_cancel_u8(`handle`: Long,
+    fun uniffi_mepassa_core_fn_method_mepassaclient_register_video_frame_callback(`ptr`: Pointer,`callback`: Long,
+    ): Long
+    fun uniffi_mepassa_core_fn_method_mepassaclient_reject_call(`ptr`: Pointer,`callId`: RustBuffer.ByValue,`reason`: RustBuffer.ByValue,
+    ): Long
+    fun uniffi_mepassa_core_fn_method_mepassaclient_remove_group_member(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`peerId`: RustBuffer.ByValue,
+    ): Long
+    fun uniffi_mepassa_core_fn_method_mepassaclient_remove_reaction(`ptr`: Pointer,`messageId`: RustBuffer.ByValue,`emoji`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    external fun ffi_mepassa_core_rust_future_free_u8(`handle`: Long,
+    fun uniffi_mepassa_core_fn_method_mepassaclient_search_messages(`ptr`: Pointer,`query`: RustBuffer.ByValue,`limit`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_mepassa_core_fn_method_mepassaclient_send_document_message(`ptr`: Pointer,`toPeerId`: RustBuffer.ByValue,`fileData`: RustBuffer.ByValue,`fileName`: RustBuffer.ByValue,`mimeType`: RustBuffer.ByValue,
+    ): Long
+    fun uniffi_mepassa_core_fn_method_mepassaclient_send_image_message(`ptr`: Pointer,`toPeerId`: RustBuffer.ByValue,`imageData`: RustBuffer.ByValue,`fileName`: RustBuffer.ByValue,`quality`: Int,
+    ): Long
+    fun uniffi_mepassa_core_fn_method_mepassaclient_send_text_message(`ptr`: Pointer,`toPeerId`: RustBuffer.ByValue,`content`: RustBuffer.ByValue,
+    ): Long
+    fun uniffi_mepassa_core_fn_method_mepassaclient_send_video_frame(`ptr`: Pointer,`callId`: RustBuffer.ByValue,`frameData`: RustBuffer.ByValue,`width`: Int,`height`: Int,
+    ): Long
+    fun uniffi_mepassa_core_fn_method_mepassaclient_send_video_message(`ptr`: Pointer,`toPeerId`: RustBuffer.ByValue,`videoData`: RustBuffer.ByValue,`fileName`: RustBuffer.ByValue,`width`: RustBuffer.ByValue,`height`: RustBuffer.ByValue,`durationSeconds`: Int,`thumbnailData`: RustBuffer.ByValue,
+    ): Long
+    fun uniffi_mepassa_core_fn_method_mepassaclient_send_voice_message(`ptr`: Pointer,`toPeerId`: RustBuffer.ByValue,`audioData`: RustBuffer.ByValue,`fileName`: RustBuffer.ByValue,`durationSeconds`: Int,
+    ): Long
+    fun uniffi_mepassa_core_fn_method_mepassaclient_start_call(`ptr`: Pointer,`toPeerId`: RustBuffer.ByValue,
+    ): Long
+    fun uniffi_mepassa_core_fn_method_mepassaclient_switch_camera(`ptr`: Pointer,`callId`: RustBuffer.ByValue,
+    ): Long
+    fun uniffi_mepassa_core_fn_method_mepassaclient_toggle_mute(`ptr`: Pointer,`callId`: RustBuffer.ByValue,
+    ): Long
+    fun uniffi_mepassa_core_fn_method_mepassaclient_toggle_speakerphone(`ptr`: Pointer,`callId`: RustBuffer.ByValue,
+    ): Long
+    fun uniffi_mepassa_core_fn_init_callback_vtable_ffivideoframecallback(`vtable`: UniffiVTableCallbackInterfaceFfiVideoFrameCallback,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_complete_u8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_mepassa_core_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun ffi_mepassa_core_rustbuffer_from_bytes(`bytes`: ForeignBytes.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun ffi_mepassa_core_rustbuffer_free(`buf`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    fun ffi_mepassa_core_rustbuffer_reserve(`buf`: RustBuffer.ByValue,`additional`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun ffi_mepassa_core_rust_future_poll_u8(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    ): Unit
+    fun ffi_mepassa_core_rust_future_cancel_u8(`handle`: Long,
+    ): Unit
+    fun ffi_mepassa_core_rust_future_free_u8(`handle`: Long,
+    ): Unit
+    fun ffi_mepassa_core_rust_future_complete_u8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Byte
-    external fun ffi_mepassa_core_rust_future_poll_i8(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    fun ffi_mepassa_core_rust_future_poll_i8(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_cancel_i8(`handle`: Long,
+    fun ffi_mepassa_core_rust_future_cancel_i8(`handle`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_free_i8(`handle`: Long,
+    fun ffi_mepassa_core_rust_future_free_i8(`handle`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_complete_i8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_mepassa_core_rust_future_complete_i8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Byte
-    external fun ffi_mepassa_core_rust_future_poll_u16(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    fun ffi_mepassa_core_rust_future_poll_u16(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_cancel_u16(`handle`: Long,
+    fun ffi_mepassa_core_rust_future_cancel_u16(`handle`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_free_u16(`handle`: Long,
+    fun ffi_mepassa_core_rust_future_free_u16(`handle`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_complete_u16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_mepassa_core_rust_future_complete_u16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Short
-    external fun ffi_mepassa_core_rust_future_poll_i16(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    fun ffi_mepassa_core_rust_future_poll_i16(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_cancel_i16(`handle`: Long,
+    fun ffi_mepassa_core_rust_future_cancel_i16(`handle`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_free_i16(`handle`: Long,
+    fun ffi_mepassa_core_rust_future_free_i16(`handle`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_complete_i16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_mepassa_core_rust_future_complete_i16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Short
-    external fun ffi_mepassa_core_rust_future_poll_u32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    fun ffi_mepassa_core_rust_future_poll_u32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_cancel_u32(`handle`: Long,
+    fun ffi_mepassa_core_rust_future_cancel_u32(`handle`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_free_u32(`handle`: Long,
+    fun ffi_mepassa_core_rust_future_free_u32(`handle`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_complete_u32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_mepassa_core_rust_future_complete_u32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Int
-    external fun ffi_mepassa_core_rust_future_poll_i32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    fun ffi_mepassa_core_rust_future_poll_i32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_cancel_i32(`handle`: Long,
+    fun ffi_mepassa_core_rust_future_cancel_i32(`handle`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_free_i32(`handle`: Long,
+    fun ffi_mepassa_core_rust_future_free_i32(`handle`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_complete_i32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_mepassa_core_rust_future_complete_i32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Int
-    external fun ffi_mepassa_core_rust_future_poll_u64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    fun ffi_mepassa_core_rust_future_poll_u64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_cancel_u64(`handle`: Long,
+    fun ffi_mepassa_core_rust_future_cancel_u64(`handle`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_free_u64(`handle`: Long,
+    fun ffi_mepassa_core_rust_future_free_u64(`handle`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_complete_u64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_mepassa_core_rust_future_complete_u64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Long
-    external fun ffi_mepassa_core_rust_future_poll_i64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    fun ffi_mepassa_core_rust_future_poll_i64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_cancel_i64(`handle`: Long,
+    fun ffi_mepassa_core_rust_future_cancel_i64(`handle`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_free_i64(`handle`: Long,
+    fun ffi_mepassa_core_rust_future_free_i64(`handle`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_complete_i64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_mepassa_core_rust_future_complete_i64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Long
-    external fun ffi_mepassa_core_rust_future_poll_f32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    fun ffi_mepassa_core_rust_future_poll_f32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_cancel_f32(`handle`: Long,
+    fun ffi_mepassa_core_rust_future_cancel_f32(`handle`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_free_f32(`handle`: Long,
+    fun ffi_mepassa_core_rust_future_free_f32(`handle`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_complete_f32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_mepassa_core_rust_future_complete_f32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Float
-    external fun ffi_mepassa_core_rust_future_poll_f64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    fun ffi_mepassa_core_rust_future_poll_f64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_cancel_f64(`handle`: Long,
+    fun ffi_mepassa_core_rust_future_cancel_f64(`handle`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_free_f64(`handle`: Long,
+    fun ffi_mepassa_core_rust_future_free_f64(`handle`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_complete_f64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_mepassa_core_rust_future_complete_f64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Double
-    external fun ffi_mepassa_core_rust_future_poll_rust_buffer(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    fun ffi_mepassa_core_rust_future_poll_pointer(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_cancel_rust_buffer(`handle`: Long,
+    fun ffi_mepassa_core_rust_future_cancel_pointer(`handle`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_free_rust_buffer(`handle`: Long,
+    fun ffi_mepassa_core_rust_future_free_pointer(`handle`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_complete_rust_buffer(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_mepassa_core_rust_future_complete_pointer(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): Pointer
+    fun ffi_mepassa_core_rust_future_poll_rust_buffer(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    ): Unit
+    fun ffi_mepassa_core_rust_future_cancel_rust_buffer(`handle`: Long,
+    ): Unit
+    fun ffi_mepassa_core_rust_future_free_rust_buffer(`handle`: Long,
+    ): Unit
+    fun ffi_mepassa_core_rust_future_complete_rust_buffer(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    external fun ffi_mepassa_core_rust_future_poll_void(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    fun ffi_mepassa_core_rust_future_poll_void(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_cancel_void(`handle`: Long,
+    fun ffi_mepassa_core_rust_future_cancel_void(`handle`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_free_void(`handle`: Long,
+    fun ffi_mepassa_core_rust_future_free_void(`handle`: Long,
     ): Unit
-    external fun ffi_mepassa_core_rust_future_complete_void(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_mepassa_core_rust_future_complete_void(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-
-        
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_accept_call(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_add_group_member(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_add_reaction(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_bootstrap(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_connect_to_peer(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_connected_peers_count(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_create_group(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_delete_message(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_disable_video(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_download_media(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_enable_video(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_forward_message(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_get_conversation_media(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_get_conversation_messages(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_get_groups(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_get_message_reactions(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_hangup_call(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_join_group(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_leave_group(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_list_conversations(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_listen_on(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_local_peer_id(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_mark_conversation_read(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_register_video_frame_callback(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_reject_call(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_remove_group_member(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_remove_reaction(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_search_messages(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_send_document_message(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_send_image_message(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_send_text_message(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_send_video_frame(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_send_video_message(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_send_voice_message(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_start_call(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_switch_camera(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_toggle_mute(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_toggle_speakerphone(
+    ): Short
+    fun uniffi_mepassa_core_checksum_constructor_mepassaclient_new(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_ffivideoframecallback_on_video_frame(
+    ): Short
+    fun ffi_mepassa_core_uniffi_contract_version(
+    ): Int
+    
 }
 
-private fun uniffiCheckContractApiVersion(lib: IntegrityCheckingUniffiLib) {
+private fun uniffiCheckContractApiVersion(lib: UniffiLib) {
     // Get the bindings contract version from our ComponentInterface
-    val bindings_contract_version = 30
+    val bindings_contract_version = 26
     // Get the scaffolding contract version by calling the into the dylib
     val scaffolding_contract_version = lib.ffi_mepassa_core_uniffi_contract_version()
     if (bindings_contract_version != scaffolding_contract_version) {
         throw RuntimeException("UniFFI contract version mismatch: try cleaning and rebuilding your project")
     }
 }
-@Suppress("UNUSED_PARAMETER")
-private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
-    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_bootstrap() != 55239.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_connect_to_peer() != 21040.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_connected_peers_count() != 44284.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_get_conversation_messages() != 58448.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_list_conversations() != 64648.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_listen_on() != 55341.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_local_peer_id() != 16142.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_mark_conversation_read() != 59401.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_search_messages() != 8650.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_send_text_message() != 45664.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_mepassa_core_checksum_constructor_mepassaclient_new() != 46917.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-}
 
-/**
- * @suppress
- */
-public fun uniffiEnsureInitialized() {
-    IntegrityCheckingUniffiLib
-    // UniffiLib() initialized as objects are used, but we still need to explicitly
-    // reference it so initialization across crates works as expected.
-    UniffiLib
+@Suppress("UNUSED_PARAMETER")
+private fun uniffiCheckApiChecksums(lib: UniffiLib) {
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_accept_call() != 36665.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_add_group_member() != 27257.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_add_reaction() != 30358.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_bootstrap() != 50425.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_connect_to_peer() != 13556.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_connected_peers_count() != 44264.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_create_group() != 32075.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_delete_message() != 36580.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_disable_video() != 22386.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_download_media() != 4122.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_enable_video() != 63294.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_forward_message() != 52303.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_get_conversation_media() != 54874.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_get_conversation_messages() != 5424.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_get_groups() != 26850.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_get_message_reactions() != 57499.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_hangup_call() != 41033.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_join_group() != 24248.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_leave_group() != 19345.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_list_conversations() != 61225.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_listen_on() != 4155.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_local_peer_id() != 35327.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_mark_conversation_read() != 7782.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_register_video_frame_callback() != 57380.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_reject_call() != 59311.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_remove_group_member() != 37164.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_remove_reaction() != 38012.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_search_messages() != 45022.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_send_document_message() != 14185.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_send_image_message() != 63432.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_send_text_message() != 56271.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_send_video_frame() != 52593.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_send_video_message() != 7749.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_send_voice_message() != 15962.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_start_call() != 10921.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_switch_camera() != 59798.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_toggle_mute() != 36733.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_toggle_speakerphone() != 42924.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_constructor_mepassaclient_new() != 5686.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_ffivideoframecallback_on_video_frame() != 35554.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
 }
 
 // Async support
 // Async return type handlers
 
 internal const val UNIFFI_RUST_FUTURE_POLL_READY = 0.toByte()
-internal const val UNIFFI_RUST_FUTURE_POLL_WAKE = 1.toByte()
+internal const val UNIFFI_RUST_FUTURE_POLL_MAYBE_READY = 1.toByte()
 
 internal val uniffiContinuationHandleMap = UniffiHandleMap<CancellableContinuation<Byte>>()
 
@@ -930,33 +1312,8 @@ interface Disposable {
     fun destroy()
     companion object {
         fun destroy(vararg args: Any?) {
-            for (arg in args) {
-                when (arg) {
-                    is Disposable -> arg.destroy()
-                    is ArrayList<*> -> {
-                        for (idx in arg.indices) {
-                            val element = arg[idx]
-                            if (element is Disposable) {
-                                element.destroy()
-                            }
-                        }
-                    }
-                    is Map<*, *> -> {
-                        for (element in arg.values) {
-                            if (element is Disposable) {
-                                element.destroy()
-                            }
-                        }
-                    }
-                    is Iterable<*> -> {
-                        for (element in arg) {
-                            if (element is Disposable) {
-                                element.destroy()
-                            }
-                        }
-                    }
-                }
-            }
+            args.filterIsInstance<Disposable>()
+                .forEach(Disposable::destroy)
         }
     }
 }
@@ -977,85 +1334,33 @@ inline fun <T : Disposable?, R> T.use(block: (T) -> R) =
     }
 
 /** 
- * Placeholder object used to signal that we're constructing an interface with a FFI handle.
- *
- * This is the first argument for interface constructors that input a raw handle. It exists is that
- * so we can avoid signature conflicts when an interface has a regular constructor than inputs a
- * Long.
- *
- * @suppress
- * */
-object UniffiWithHandle
-
-/** 
  * Used to instantiate an interface without an actual pointer, for fakes in tests, mostly.
  *
  * @suppress
  * */
-object NoHandle
+object NoPointer
+
 /**
- * The cleaner interface for Object finalization code to run.
- * This is the entry point to any implementation that we're using.
- *
- * The cleaner registers objects and returns cleanables, so now we are
- * defining a `UniffiCleaner` with a `UniffiClenaer.Cleanable` to abstract the
- * different implmentations available at compile time.
- *
  * @suppress
  */
-interface UniffiCleaner {
-    interface Cleanable {
-        fun clean()
+public object FfiConverterUByte: FfiConverter<UByte, Byte> {
+    override fun lift(value: Byte): UByte {
+        return value.toUByte()
     }
 
-    fun register(value: Any, cleanUpTask: Runnable): UniffiCleaner.Cleanable
-
-    companion object
-}
-
-// The fallback Jna cleaner, which is available for both Android, and the JVM.
-private class UniffiJnaCleaner : UniffiCleaner {
-    private val cleaner = com.sun.jna.internal.Cleaner.getCleaner()
-
-    override fun register(value: Any, cleanUpTask: Runnable): UniffiCleaner.Cleanable =
-        UniffiJnaCleanable(cleaner.register(value, cleanUpTask))
-}
-
-private class UniffiJnaCleanable(
-    private val cleanable: com.sun.jna.internal.Cleaner.Cleanable,
-) : UniffiCleaner.Cleanable {
-    override fun clean() = cleanable.clean()
-}
-
-
-// We decide at uniffi binding generation time whether we were
-// using Android or not.
-// There are further runtime checks to chose the correct implementation
-// of the cleaner.
-private fun UniffiCleaner.Companion.create(): UniffiCleaner =
-    try {
-        // For safety's sake: if the library hasn't been run in android_cleaner = true
-        // mode, but is being run on Android, then we still need to think about
-        // Android API versions.
-        // So we check if java.lang.ref.Cleaner is there, and use that…
-        java.lang.Class.forName("java.lang.ref.Cleaner")
-        JavaLangRefCleaner()
-    } catch (e: ClassNotFoundException) {
-        // … otherwise, fallback to the JNA cleaner.
-        UniffiJnaCleaner()
+    override fun read(buf: ByteBuffer): UByte {
+        return lift(buf.get())
     }
 
-private class JavaLangRefCleaner : UniffiCleaner {
-    val cleaner = java.lang.ref.Cleaner.create()
+    override fun lower(value: UByte): Byte {
+        return value.toByte()
+    }
 
-    override fun register(value: Any, cleanUpTask: Runnable): UniffiCleaner.Cleanable =
-        JavaLangRefCleanable(cleaner.register(value, cleanUpTask))
-}
+    override fun allocationSize(value: UByte) = 1UL
 
-private class JavaLangRefCleanable(
-    val cleanable: java.lang.ref.Cleaner.Cleanable
-) : UniffiCleaner.Cleanable {
-    override fun clean() = cleanable.clean()
+    override fun write(value: UByte, buf: ByteBuffer) {
+        buf.put(value.toByte())
+    }
 }
 
 /**
@@ -1101,6 +1406,29 @@ public object FfiConverterInt: FfiConverter<Int, Int> {
 
     override fun write(value: Int, buf: ByteBuffer) {
         buf.putInt(value)
+    }
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterULong: FfiConverter<ULong, Long> {
+    override fun lift(value: Long): ULong {
+        return value.toULong()
+    }
+
+    override fun read(buf: ByteBuffer): ULong {
+        return lift(buf.getLong())
+    }
+
+    override fun lower(value: ULong): Long {
+        return value.toLong()
+    }
+
+    override fun allocationSize(value: ULong) = 8UL
+
+    override fun write(value: ULong, buf: ByteBuffer) {
+        buf.putLong(value.toLong())
     }
 }
 
@@ -1208,18 +1536,21 @@ public object FfiConverterString: FfiConverter<String, RustBuffer.ByValue> {
 }
 
 
-// This template implements a class for working with a Rust struct via a handle
+// This template implements a class for working with a Rust struct via a Pointer/Arc<T>
 // to the live Rust struct on the other side of the FFI.
+//
+// Each instance implements core operations for working with the Rust `Arc<T>` and the
+// Kotlin Pointer to work with the live Rust struct on the other side of the FFI.
 //
 // There's some subtlety here, because we have to be careful not to operate on a Rust
 // struct after it has been dropped, and because we must expose a public API for freeing
 // theq Kotlin wrapper object in lieu of reliable finalizers. The core requirements are:
 //
-//   * Each instance holds an opaque handle to the underlying Rust struct.
-//     Method calls need to read this handle from the object's state and pass it in to
+//   * Each instance holds an opaque pointer to the underlying Rust struct.
+//     Method calls need to read this pointer from the object's state and pass it in to
 //     the Rust FFI.
 //
-//   * When an instance is no longer needed, its handle should be passed to a
+//   * When an instance is no longer needed, its pointer should be passed to a
 //     special destructor function provided by the Rust FFI, which will drop the
 //     underlying Rust struct.
 //
@@ -1244,13 +1575,13 @@ public object FfiConverterString: FfiConverter<String, RustBuffer.ByValue> {
 //      2. the thread is shared across the whole library. This can be tuned by using `android_cleaner = true`,
 //         or `android = true` in the [`kotlin` section of the `uniffi.toml` file](https://mozilla.github.io/uniffi-rs/kotlin/configuration.html).
 //
-// If we try to implement this with mutual exclusion on access to the handle, there is the
+// If we try to implement this with mutual exclusion on access to the pointer, there is the
 // possibility of a race between a method call and a concurrent call to `destroy`:
 //
-//    * Thread A starts a method call, reads the value of the handle, but is interrupted
-//      before it can pass the handle over the FFI to Rust.
+//    * Thread A starts a method call, reads the value of the pointer, but is interrupted
+//      before it can pass the pointer over the FFI to Rust.
 //    * Thread B calls `destroy` and frees the underlying Rust struct.
-//    * Thread A resumes, passing the already-read handle value to Rust and triggering
+//    * Thread A resumes, passing the already-read pointer value to Rust and triggering
 //      a use-after-free.
 //
 // One possible solution would be to use a `ReadWriteLock`, with each method call taking
@@ -1303,7 +1634,76 @@ public object FfiConverterString: FfiConverter<String, RustBuffer.ByValue> {
 //
 
 
+/**
+ * The cleaner interface for Object finalization code to run.
+ * This is the entry point to any implementation that we're using.
+ *
+ * The cleaner registers objects and returns cleanables, so now we are
+ * defining a `UniffiCleaner` with a `UniffiClenaer.Cleanable` to abstract the
+ * different implmentations available at compile time.
+ *
+ * @suppress
+ */
+interface UniffiCleaner {
+    interface Cleanable {
+        fun clean()
+    }
+
+    fun register(value: Any, cleanUpTask: Runnable): UniffiCleaner.Cleanable
+
+    companion object
+}
+
+// The fallback Jna cleaner, which is available for both Android, and the JVM.
+private class UniffiJnaCleaner : UniffiCleaner {
+    private val cleaner = com.sun.jna.internal.Cleaner.getCleaner()
+
+    override fun register(value: Any, cleanUpTask: Runnable): UniffiCleaner.Cleanable =
+        UniffiJnaCleanable(cleaner.register(value, cleanUpTask))
+}
+
+private class UniffiJnaCleanable(
+    private val cleanable: com.sun.jna.internal.Cleaner.Cleanable,
+) : UniffiCleaner.Cleanable {
+    override fun clean() = cleanable.clean()
+}
+
+// We decide at uniffi binding generation time whether we were
+// using Android or not.
+// There are further runtime checks to chose the correct implementation
+// of the cleaner.
+private fun UniffiCleaner.Companion.create(): UniffiCleaner =
+    try {
+        // For safety's sake: if the library hasn't been run in android_cleaner = true
+        // mode, but is being run on Android, then we still need to think about
+        // Android API versions.
+        // So we check if java.lang.ref.Cleaner is there, and use that…
+        java.lang.Class.forName("java.lang.ref.Cleaner")
+        JavaLangRefCleaner()
+    } catch (e: ClassNotFoundException) {
+        // … otherwise, fallback to the JNA cleaner.
+        UniffiJnaCleaner()
+    }
+
+private class JavaLangRefCleaner : UniffiCleaner {
+    val cleaner = java.lang.ref.Cleaner.create()
+
+    override fun register(value: Any, cleanUpTask: Runnable): UniffiCleaner.Cleanable =
+        JavaLangRefCleanable(cleaner.register(value, cleanUpTask))
+}
+
+private class JavaLangRefCleanable(
+    val cleanable: java.lang.ref.Cleaner.Cleanable
+) : UniffiCleaner.Cleanable {
+    override fun clean() = cleanable.clean()
+}
 public interface MePassaClientInterface {
+    
+    suspend fun `acceptCall`(`callId`: kotlin.String)
+    
+    suspend fun `addGroupMember`(`groupId`: kotlin.String, `peerId`: kotlin.String)
+    
+    fun `addReaction`(`messageId`: kotlin.String, `emoji`: kotlin.String)
     
     suspend fun `bootstrap`()
     
@@ -1311,7 +1711,31 @@ public interface MePassaClientInterface {
     
     suspend fun `connectedPeersCount`(): kotlin.UInt
     
+    suspend fun `createGroup`(`name`: kotlin.String, `description`: kotlin.String?): FfiGroup
+    
+    fun `deleteMessage`(`messageId`: kotlin.String)
+    
+    suspend fun `disableVideo`(`callId`: kotlin.String)
+    
+    suspend fun `downloadMedia`(`mediaHash`: kotlin.String): List<kotlin.UByte>
+    
+    suspend fun `enableVideo`(`callId`: kotlin.String, `codec`: FfiVideoCodec)
+    
+    suspend fun `forwardMessage`(`messageId`: kotlin.String, `toPeerId`: kotlin.String): kotlin.String
+    
+    fun `getConversationMedia`(`conversationId`: kotlin.String, `mediaType`: FfiMediaType?, `limit`: kotlin.UInt?): List<FfiMedia>
+    
     fun `getConversationMessages`(`peerId`: kotlin.String, `limit`: kotlin.UInt?, `offset`: kotlin.UInt?): List<FfiMessage>
+    
+    suspend fun `getGroups`(): List<FfiGroup>
+    
+    fun `getMessageReactions`(`messageId`: kotlin.String): List<FfiReaction>
+    
+    suspend fun `hangupCall`(`callId`: kotlin.String)
+    
+    suspend fun `joinGroup`(`groupId`: kotlin.String, `groupName`: kotlin.String)
+    
+    suspend fun `leaveGroup`(`groupId`: kotlin.String)
     
     fun `listConversations`(): List<FfiConversation>
     
@@ -1321,48 +1745,66 @@ public interface MePassaClientInterface {
     
     fun `markConversationRead`(`peerId`: kotlin.String)
     
+    suspend fun `registerVideoFrameCallback`(`callback`: FfiVideoFrameCallback)
+    
+    suspend fun `rejectCall`(`callId`: kotlin.String, `reason`: kotlin.String?)
+    
+    suspend fun `removeGroupMember`(`groupId`: kotlin.String, `peerId`: kotlin.String)
+    
+    fun `removeReaction`(`messageId`: kotlin.String, `emoji`: kotlin.String)
+    
     fun `searchMessages`(`query`: kotlin.String, `limit`: kotlin.UInt?): List<FfiMessage>
     
+    suspend fun `sendDocumentMessage`(`toPeerId`: kotlin.String, `fileData`: List<kotlin.UByte>, `fileName`: kotlin.String, `mimeType`: kotlin.String): kotlin.String
+    
+    suspend fun `sendImageMessage`(`toPeerId`: kotlin.String, `imageData`: List<kotlin.UByte>, `fileName`: kotlin.String, `quality`: kotlin.UInt): kotlin.String
+    
     suspend fun `sendTextMessage`(`toPeerId`: kotlin.String, `content`: kotlin.String): kotlin.String
+    
+    suspend fun `sendVideoFrame`(`callId`: kotlin.String, `frameData`: List<kotlin.UByte>, `width`: kotlin.UInt, `height`: kotlin.UInt)
+    
+    suspend fun `sendVideoMessage`(`toPeerId`: kotlin.String, `videoData`: List<kotlin.UByte>, `fileName`: kotlin.String, `width`: kotlin.Int?, `height`: kotlin.Int?, `durationSeconds`: kotlin.Int, `thumbnailData`: List<kotlin.UByte>?): kotlin.String
+    
+    suspend fun `sendVoiceMessage`(`toPeerId`: kotlin.String, `audioData`: List<kotlin.UByte>, `fileName`: kotlin.String, `durationSeconds`: kotlin.Int): kotlin.String
+    
+    suspend fun `startCall`(`toPeerId`: kotlin.String): kotlin.String
+    
+    suspend fun `switchCamera`(`callId`: kotlin.String)
+    
+    suspend fun `toggleMute`(`callId`: kotlin.String)
+    
+    suspend fun `toggleSpeakerphone`(`callId`: kotlin.String)
     
     companion object
 }
 
-open class MePassaClient: Disposable, AutoCloseable, MePassaClientInterface
-{
+open class MePassaClient: Disposable, AutoCloseable, MePassaClientInterface {
 
-    @Suppress("UNUSED_PARAMETER")
-    /**
-     * @suppress
-     */
-    constructor(withHandle: UniffiWithHandle, handle: Long) {
-        this.handle = handle
-        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(handle))
+    constructor(pointer: Pointer) {
+        this.pointer = pointer
+        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
     }
 
     /**
-     * @suppress
-     *
      * This constructor can be used to instantiate a fake object. Only used for tests. Any
      * attempt to actually use an object constructed this way will fail as there is no
      * connected Rust object.
      */
     @Suppress("UNUSED_PARAMETER")
-    constructor(noHandle: NoHandle) {
-        this.handle = 0
-        this.cleanable = null
+    constructor(noPointer: NoPointer) {
+        this.pointer = null
+        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
     }
     constructor(`dataDir`: kotlin.String) :
-        this(UniffiWithHandle, 
+        this(
     uniffiRustCallWithError(MePassaFfiException) { _status ->
-    UniffiLib.uniffi_mepassa_core_fn_constructor_mepassaclient_new(
-    
+    UniffiLib.INSTANCE.uniffi_mepassa_core_fn_constructor_mepassaclient_new(
         FfiConverterString.lower(`dataDir`),_status)
 }
     )
 
-    protected val handle: Long
-    protected val cleanable: UniffiCleaner.Cleanable?
+    protected val pointer: Pointer?
+    protected val cleanable: UniffiCleaner.Cleanable
 
     private val wasDestroyed = AtomicBoolean(false)
     private val callCounter = AtomicLong(1)
@@ -1373,7 +1815,7 @@ open class MePassaClient: Disposable, AutoCloseable, MePassaClientInterface
         if (this.wasDestroyed.compareAndSet(false, true)) {
             // This decrement always matches the initial count of 1 given at creation time.
             if (this.callCounter.decrementAndGet() == 0L) {
-                cleanable?.clean()
+                cleanable.clean()
             }
         }
     }
@@ -1383,7 +1825,7 @@ open class MePassaClient: Disposable, AutoCloseable, MePassaClientInterface
         this.destroy()
     }
 
-    internal inline fun <R> callWithHandle(block: (handle: Long) -> R): R {
+    internal inline fun <R> callWithPointer(block: (ptr: Pointer) -> R): R {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
         do {
@@ -1395,57 +1837,105 @@ open class MePassaClient: Disposable, AutoCloseable, MePassaClientInterface
                 throw IllegalStateException("${this.javaClass.simpleName} call counter would overflow")
             }
         } while (! this.callCounter.compareAndSet(c, c + 1L))
-        // Now we can safely do the method call without the handle being freed concurrently.
+        // Now we can safely do the method call without the pointer being freed concurrently.
         try {
-            return block(this.uniffiCloneHandle())
+            return block(this.uniffiClonePointer())
         } finally {
             // This decrement always matches the increment we performed above.
             if (this.callCounter.decrementAndGet() == 0L) {
-                cleanable?.clean()
+                cleanable.clean()
             }
         }
     }
 
     // Use a static inner class instead of a closure so as not to accidentally
     // capture `this` as part of the cleanable's action.
-    private class UniffiCleanAction(private val handle: Long) : Runnable {
+    private class UniffiCleanAction(private val pointer: Pointer?) : Runnable {
         override fun run() {
-            if (handle == 0.toLong()) {
-                // Fake object created with `NoHandle`, don't try to free.
-                return;
-            }
-            uniffiRustCall { status ->
-                UniffiLib.uniffi_mepassa_core_fn_free_mepassaclient(handle, status)
+            pointer?.let { ptr ->
+                uniffiRustCall { status ->
+                    UniffiLib.INSTANCE.uniffi_mepassa_core_fn_free_mepassaclient(ptr, status)
+                }
             }
         }
     }
 
-    /**
-     * @suppress
-     */
-    fun uniffiCloneHandle(): Long {
-        if (handle == 0.toLong()) {
-            throw InternalException("uniffiCloneHandle() called on NoHandle object");
-        }
+    fun uniffiClonePointer(): Pointer {
         return uniffiRustCall() { status ->
-            UniffiLib.uniffi_mepassa_core_fn_clone_mepassaclient(handle, status)
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_clone_mepassaclient(pointer!!, status)
         }
     }
 
     
     @Throws(MePassaFfiException::class)
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `acceptCall`(`callId`: kotlin.String) {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_accept_call(
+                thisPtr,
+                FfiConverterString.lower(`callId`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+        
+        // Error FFI converter
+        MePassaFfiException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(MePassaFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `addGroupMember`(`groupId`: kotlin.String, `peerId`: kotlin.String) {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_add_group_member(
+                thisPtr,
+                FfiConverterString.lower(`groupId`),FfiConverterString.lower(`peerId`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+        
+        // Error FFI converter
+        MePassaFfiException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(MePassaFfiException::class)override fun `addReaction`(`messageId`: kotlin.String, `emoji`: kotlin.String)
+        = 
+    callWithPointer {
+    uniffiRustCallWithError(MePassaFfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_add_reaction(
+        it, FfiConverterString.lower(`messageId`),FfiConverterString.lower(`emoji`),_status)
+}
+    }
+    
+    
+
+    
+    @Throws(MePassaFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
     override suspend fun `bootstrap`() {
         return uniffiRustCallAsync(
-        callWithHandle { uniffiHandle ->
-            UniffiLib.uniffi_mepassa_core_fn_method_mepassaclient_bootstrap(
-                uniffiHandle,
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_bootstrap(
+                thisPtr,
                 
             )
         },
-        { future, callback, continuation -> UniffiLib.ffi_mepassa_core_rust_future_poll_void(future, callback, continuation) },
-        { future, continuation -> UniffiLib.ffi_mepassa_core_rust_future_complete_void(future, continuation) },
-        { future -> UniffiLib.ffi_mepassa_core_rust_future_free_void(future) },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_void(future) },
         // lift function
         { Unit },
         
@@ -1459,15 +1949,15 @@ open class MePassaClient: Disposable, AutoCloseable, MePassaClientInterface
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
     override suspend fun `connectToPeer`(`peerId`: kotlin.String, `multiaddr`: kotlin.String) {
         return uniffiRustCallAsync(
-        callWithHandle { uniffiHandle ->
-            UniffiLib.uniffi_mepassa_core_fn_method_mepassaclient_connect_to_peer(
-                uniffiHandle,
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_connect_to_peer(
+                thisPtr,
                 FfiConverterString.lower(`peerId`),FfiConverterString.lower(`multiaddr`),
             )
         },
-        { future, callback, continuation -> UniffiLib.ffi_mepassa_core_rust_future_poll_void(future, callback, continuation) },
-        { future, continuation -> UniffiLib.ffi_mepassa_core_rust_future_complete_void(future, continuation) },
-        { future -> UniffiLib.ffi_mepassa_core_rust_future_free_void(future) },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_void(future) },
         // lift function
         { Unit },
         
@@ -1481,15 +1971,15 @@ open class MePassaClient: Disposable, AutoCloseable, MePassaClientInterface
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
     override suspend fun `connectedPeersCount`() : kotlin.UInt {
         return uniffiRustCallAsync(
-        callWithHandle { uniffiHandle ->
-            UniffiLib.uniffi_mepassa_core_fn_method_mepassaclient_connected_peers_count(
-                uniffiHandle,
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_connected_peers_count(
+                thisPtr,
                 
             )
         },
-        { future, callback, continuation -> UniffiLib.ffi_mepassa_core_rust_future_poll_u32(future, callback, continuation) },
-        { future, continuation -> UniffiLib.ffi_mepassa_core_rust_future_complete_u32(future, continuation) },
-        { future -> UniffiLib.ffi_mepassa_core_rust_future_free_u32(future) },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_u32(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_u32(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_u32(future) },
         // lift function
         { FfiConverterUInt.lift(it) },
         // Error FFI converter
@@ -1498,13 +1988,131 @@ open class MePassaClient: Disposable, AutoCloseable, MePassaClientInterface
     }
 
     
-    @Throws(MePassaFfiException::class)override fun `getConversationMessages`(`peerId`: kotlin.String, `limit`: kotlin.UInt?, `offset`: kotlin.UInt?): List<FfiMessage> {
-            return FfiConverterSequenceTypeFfiMessage.lift(
-    callWithHandle {
+    @Throws(MePassaFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `createGroup`(`name`: kotlin.String, `description`: kotlin.String?) : FfiGroup {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_create_group(
+                thisPtr,
+                FfiConverterString.lower(`name`),FfiConverterOptionalString.lower(`description`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterTypeFfiGroup.lift(it) },
+        // Error FFI converter
+        MePassaFfiException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(MePassaFfiException::class)override fun `deleteMessage`(`messageId`: kotlin.String)
+        = 
+    callWithPointer {
     uniffiRustCallWithError(MePassaFfiException) { _status ->
-    UniffiLib.uniffi_mepassa_core_fn_method_mepassaclient_get_conversation_messages(
-        it,
-        FfiConverterString.lower(`peerId`),FfiConverterOptionalUInt.lower(`limit`),FfiConverterOptionalUInt.lower(`offset`),_status)
+    UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_delete_message(
+        it, FfiConverterString.lower(`messageId`),_status)
+}
+    }
+    
+    
+
+    
+    @Throws(MePassaFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `disableVideo`(`callId`: kotlin.String) {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_disable_video(
+                thisPtr,
+                FfiConverterString.lower(`callId`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+        
+        // Error FFI converter
+        MePassaFfiException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(MePassaFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `downloadMedia`(`mediaHash`: kotlin.String) : List<kotlin.UByte> {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_download_media(
+                thisPtr,
+                FfiConverterString.lower(`mediaHash`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterSequenceUByte.lift(it) },
+        // Error FFI converter
+        MePassaFfiException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(MePassaFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `enableVideo`(`callId`: kotlin.String, `codec`: FfiVideoCodec) {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_enable_video(
+                thisPtr,
+                FfiConverterString.lower(`callId`),FfiConverterTypeFfiVideoCodec.lower(`codec`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+        
+        // Error FFI converter
+        MePassaFfiException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(MePassaFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `forwardMessage`(`messageId`: kotlin.String, `toPeerId`: kotlin.String) : kotlin.String {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_forward_message(
+                thisPtr,
+                FfiConverterString.lower(`messageId`),FfiConverterString.lower(`toPeerId`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterString.lift(it) },
+        // Error FFI converter
+        MePassaFfiException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(MePassaFfiException::class)override fun `getConversationMedia`(`conversationId`: kotlin.String, `mediaType`: FfiMediaType?, `limit`: kotlin.UInt?): List<FfiMedia> {
+            return FfiConverterSequenceTypeFfiMedia.lift(
+    callWithPointer {
+    uniffiRustCallWithError(MePassaFfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_get_conversation_media(
+        it, FfiConverterString.lower(`conversationId`),FfiConverterOptionalTypeFfiMediaType.lower(`mediaType`),FfiConverterOptionalUInt.lower(`limit`),_status)
 }
     }
     )
@@ -1512,13 +2120,125 @@ open class MePassaClient: Disposable, AutoCloseable, MePassaClientInterface
     
 
     
+    @Throws(MePassaFfiException::class)override fun `getConversationMessages`(`peerId`: kotlin.String, `limit`: kotlin.UInt?, `offset`: kotlin.UInt?): List<FfiMessage> {
+            return FfiConverterSequenceTypeFfiMessage.lift(
+    callWithPointer {
+    uniffiRustCallWithError(MePassaFfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_get_conversation_messages(
+        it, FfiConverterString.lower(`peerId`),FfiConverterOptionalUInt.lower(`limit`),FfiConverterOptionalUInt.lower(`offset`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    @Throws(MePassaFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `getGroups`() : List<FfiGroup> {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_get_groups(
+                thisPtr,
+                
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterSequenceTypeFfiGroup.lift(it) },
+        // Error FFI converter
+        MePassaFfiException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(MePassaFfiException::class)override fun `getMessageReactions`(`messageId`: kotlin.String): List<FfiReaction> {
+            return FfiConverterSequenceTypeFfiReaction.lift(
+    callWithPointer {
+    uniffiRustCallWithError(MePassaFfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_get_message_reactions(
+        it, FfiConverterString.lower(`messageId`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    @Throws(MePassaFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `hangupCall`(`callId`: kotlin.String) {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_hangup_call(
+                thisPtr,
+                FfiConverterString.lower(`callId`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+        
+        // Error FFI converter
+        MePassaFfiException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(MePassaFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `joinGroup`(`groupId`: kotlin.String, `groupName`: kotlin.String) {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_join_group(
+                thisPtr,
+                FfiConverterString.lower(`groupId`),FfiConverterString.lower(`groupName`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+        
+        // Error FFI converter
+        MePassaFfiException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(MePassaFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `leaveGroup`(`groupId`: kotlin.String) {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_leave_group(
+                thisPtr,
+                FfiConverterString.lower(`groupId`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+        
+        // Error FFI converter
+        MePassaFfiException.ErrorHandler,
+    )
+    }
+
+    
     @Throws(MePassaFfiException::class)override fun `listConversations`(): List<FfiConversation> {
             return FfiConverterSequenceTypeFfiConversation.lift(
-    callWithHandle {
+    callWithPointer {
     uniffiRustCallWithError(MePassaFfiException) { _status ->
-    UniffiLib.uniffi_mepassa_core_fn_method_mepassaclient_list_conversations(
-        it,
-        _status)
+    UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_list_conversations(
+        it, _status)
 }
     }
     )
@@ -1530,15 +2250,15 @@ open class MePassaClient: Disposable, AutoCloseable, MePassaClientInterface
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
     override suspend fun `listenOn`(`multiaddr`: kotlin.String) {
         return uniffiRustCallAsync(
-        callWithHandle { uniffiHandle ->
-            UniffiLib.uniffi_mepassa_core_fn_method_mepassaclient_listen_on(
-                uniffiHandle,
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_listen_on(
+                thisPtr,
                 FfiConverterString.lower(`multiaddr`),
             )
         },
-        { future, callback, continuation -> UniffiLib.ffi_mepassa_core_rust_future_poll_void(future, callback, continuation) },
-        { future, continuation -> UniffiLib.ffi_mepassa_core_rust_future_complete_void(future, continuation) },
-        { future -> UniffiLib.ffi_mepassa_core_rust_future_free_void(future) },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_void(future) },
         // lift function
         { Unit },
         
@@ -1550,11 +2270,10 @@ open class MePassaClient: Disposable, AutoCloseable, MePassaClientInterface
     
     @Throws(MePassaFfiException::class)override fun `localPeerId`(): kotlin.String {
             return FfiConverterString.lift(
-    callWithHandle {
+    callWithPointer {
     uniffiRustCallWithError(MePassaFfiException) { _status ->
-    UniffiLib.uniffi_mepassa_core_fn_method_mepassaclient_local_peer_id(
-        it,
-        _status)
+    UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_local_peer_id(
+        it, _status)
 }
     }
     )
@@ -1564,11 +2283,88 @@ open class MePassaClient: Disposable, AutoCloseable, MePassaClientInterface
     
     @Throws(MePassaFfiException::class)override fun `markConversationRead`(`peerId`: kotlin.String)
         = 
-    callWithHandle {
+    callWithPointer {
     uniffiRustCallWithError(MePassaFfiException) { _status ->
-    UniffiLib.uniffi_mepassa_core_fn_method_mepassaclient_mark_conversation_read(
-        it,
-        FfiConverterString.lower(`peerId`),_status)
+    UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_mark_conversation_read(
+        it, FfiConverterString.lower(`peerId`),_status)
+}
+    }
+    
+    
+
+    
+    @Throws(MePassaFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `registerVideoFrameCallback`(`callback`: FfiVideoFrameCallback) {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_register_video_frame_callback(
+                thisPtr,
+                FfiConverterTypeFfiVideoFrameCallback.lower(`callback`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+        
+        // Error FFI converter
+        MePassaFfiException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(MePassaFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `rejectCall`(`callId`: kotlin.String, `reason`: kotlin.String?) {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_reject_call(
+                thisPtr,
+                FfiConverterString.lower(`callId`),FfiConverterOptionalString.lower(`reason`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+        
+        // Error FFI converter
+        MePassaFfiException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(MePassaFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `removeGroupMember`(`groupId`: kotlin.String, `peerId`: kotlin.String) {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_remove_group_member(
+                thisPtr,
+                FfiConverterString.lower(`groupId`),FfiConverterString.lower(`peerId`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+        
+        // Error FFI converter
+        MePassaFfiException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(MePassaFfiException::class)override fun `removeReaction`(`messageId`: kotlin.String, `emoji`: kotlin.String)
+        = 
+    callWithPointer {
+    uniffiRustCallWithError(MePassaFfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_remove_reaction(
+        it, FfiConverterString.lower(`messageId`),FfiConverterString.lower(`emoji`),_status)
 }
     }
     
@@ -1577,11 +2373,10 @@ open class MePassaClient: Disposable, AutoCloseable, MePassaClientInterface
     
     @Throws(MePassaFfiException::class)override fun `searchMessages`(`query`: kotlin.String, `limit`: kotlin.UInt?): List<FfiMessage> {
             return FfiConverterSequenceTypeFfiMessage.lift(
-    callWithHandle {
+    callWithPointer {
     uniffiRustCallWithError(MePassaFfiException) { _status ->
-    UniffiLib.uniffi_mepassa_core_fn_method_mepassaclient_search_messages(
-        it,
-        FfiConverterString.lower(`query`),FfiConverterOptionalUInt.lower(`limit`),_status)
+    UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_search_messages(
+        it, FfiConverterString.lower(`query`),FfiConverterOptionalUInt.lower(`limit`),_status)
 }
     }
     )
@@ -1591,17 +2386,17 @@ open class MePassaClient: Disposable, AutoCloseable, MePassaClientInterface
     
     @Throws(MePassaFfiException::class)
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
-    override suspend fun `sendTextMessage`(`toPeerId`: kotlin.String, `content`: kotlin.String) : kotlin.String {
+    override suspend fun `sendDocumentMessage`(`toPeerId`: kotlin.String, `fileData`: List<kotlin.UByte>, `fileName`: kotlin.String, `mimeType`: kotlin.String) : kotlin.String {
         return uniffiRustCallAsync(
-        callWithHandle { uniffiHandle ->
-            UniffiLib.uniffi_mepassa_core_fn_method_mepassaclient_send_text_message(
-                uniffiHandle,
-                FfiConverterString.lower(`toPeerId`),FfiConverterString.lower(`content`),
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_send_document_message(
+                thisPtr,
+                FfiConverterString.lower(`toPeerId`),FfiConverterSequenceUByte.lower(`fileData`),FfiConverterString.lower(`fileName`),FfiConverterString.lower(`mimeType`),
             )
         },
-        { future, callback, continuation -> UniffiLib.ffi_mepassa_core_rust_future_poll_rust_buffer(future, callback, continuation) },
-        { future, continuation -> UniffiLib.ffi_mepassa_core_rust_future_complete_rust_buffer(future, continuation) },
-        { future -> UniffiLib.ffi_mepassa_core_rust_future_free_rust_buffer(future) },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_rust_buffer(future) },
         // lift function
         { FfiConverterString.lift(it) },
         // Error FFI converter
@@ -1610,71 +2405,364 @@ open class MePassaClient: Disposable, AutoCloseable, MePassaClientInterface
     }
 
     
+    @Throws(MePassaFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `sendImageMessage`(`toPeerId`: kotlin.String, `imageData`: List<kotlin.UByte>, `fileName`: kotlin.String, `quality`: kotlin.UInt) : kotlin.String {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_send_image_message(
+                thisPtr,
+                FfiConverterString.lower(`toPeerId`),FfiConverterSequenceUByte.lower(`imageData`),FfiConverterString.lower(`fileName`),FfiConverterUInt.lower(`quality`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterString.lift(it) },
+        // Error FFI converter
+        MePassaFfiException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(MePassaFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `sendTextMessage`(`toPeerId`: kotlin.String, `content`: kotlin.String) : kotlin.String {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_send_text_message(
+                thisPtr,
+                FfiConverterString.lower(`toPeerId`),FfiConverterString.lower(`content`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterString.lift(it) },
+        // Error FFI converter
+        MePassaFfiException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(MePassaFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `sendVideoFrame`(`callId`: kotlin.String, `frameData`: List<kotlin.UByte>, `width`: kotlin.UInt, `height`: kotlin.UInt) {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_send_video_frame(
+                thisPtr,
+                FfiConverterString.lower(`callId`),FfiConverterSequenceUByte.lower(`frameData`),FfiConverterUInt.lower(`width`),FfiConverterUInt.lower(`height`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+        
+        // Error FFI converter
+        MePassaFfiException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(MePassaFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `sendVideoMessage`(`toPeerId`: kotlin.String, `videoData`: List<kotlin.UByte>, `fileName`: kotlin.String, `width`: kotlin.Int?, `height`: kotlin.Int?, `durationSeconds`: kotlin.Int, `thumbnailData`: List<kotlin.UByte>?) : kotlin.String {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_send_video_message(
+                thisPtr,
+                FfiConverterString.lower(`toPeerId`),FfiConverterSequenceUByte.lower(`videoData`),FfiConverterString.lower(`fileName`),FfiConverterOptionalInt.lower(`width`),FfiConverterOptionalInt.lower(`height`),FfiConverterInt.lower(`durationSeconds`),FfiConverterOptionalSequenceUByte.lower(`thumbnailData`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterString.lift(it) },
+        // Error FFI converter
+        MePassaFfiException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(MePassaFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `sendVoiceMessage`(`toPeerId`: kotlin.String, `audioData`: List<kotlin.UByte>, `fileName`: kotlin.String, `durationSeconds`: kotlin.Int) : kotlin.String {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_send_voice_message(
+                thisPtr,
+                FfiConverterString.lower(`toPeerId`),FfiConverterSequenceUByte.lower(`audioData`),FfiConverterString.lower(`fileName`),FfiConverterInt.lower(`durationSeconds`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterString.lift(it) },
+        // Error FFI converter
+        MePassaFfiException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(MePassaFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `startCall`(`toPeerId`: kotlin.String) : kotlin.String {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_start_call(
+                thisPtr,
+                FfiConverterString.lower(`toPeerId`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterString.lift(it) },
+        // Error FFI converter
+        MePassaFfiException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(MePassaFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `switchCamera`(`callId`: kotlin.String) {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_switch_camera(
+                thisPtr,
+                FfiConverterString.lower(`callId`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+        
+        // Error FFI converter
+        MePassaFfiException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(MePassaFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `toggleMute`(`callId`: kotlin.String) {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_toggle_mute(
+                thisPtr,
+                FfiConverterString.lower(`callId`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+        
+        // Error FFI converter
+        MePassaFfiException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(MePassaFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `toggleSpeakerphone`(`callId`: kotlin.String) {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_toggle_speakerphone(
+                thisPtr,
+                FfiConverterString.lower(`callId`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+        
+        // Error FFI converter
+        MePassaFfiException.ErrorHandler,
+    )
+    }
 
     
 
-
     
     
-    /**
-     * @suppress
-     */
     companion object
     
 }
 
-
 /**
  * @suppress
  */
-public object FfiConverterTypeMePassaClient: FfiConverter<MePassaClient, Long> {
-    override fun lower(value: MePassaClient): Long {
-        return value.uniffiCloneHandle()
+public object FfiConverterTypeMePassaClient: FfiConverter<MePassaClient, Pointer> {
+
+    override fun lower(value: MePassaClient): Pointer {
+        return value.uniffiClonePointer()
     }
 
-    override fun lift(value: Long): MePassaClient {
-        return MePassaClient(UniffiWithHandle, value)
+    override fun lift(value: Pointer): MePassaClient {
+        return MePassaClient(value)
     }
 
     override fun read(buf: ByteBuffer): MePassaClient {
-        return lift(buf.getLong())
+        // The Rust code always writes pointers as 8 bytes, and will
+        // fail to compile if they don't fit.
+        return lift(Pointer(buf.getLong()))
     }
 
     override fun allocationSize(value: MePassaClient) = 8UL
 
     override fun write(value: MePassaClient, buf: ByteBuffer) {
-        buf.putLong(lower(value))
+        // The Rust code always expects pointers written as 8 bytes,
+        // and will fail to compile if they don't fit.
+        buf.putLong(Pointer.nativeValue(lower(value)))
+    }
+}
+
+
+
+data class FfiCall (
+    var `id`: kotlin.String, 
+    var `remotePeerId`: kotlin.String, 
+    var `direction`: FfiCallDirection, 
+    var `state`: FfiCallState, 
+    var `startedAt`: kotlin.Long, 
+    var `connectedAt`: kotlin.Long?, 
+    var `endedAt`: kotlin.Long?, 
+    var `audioMuted`: kotlin.Boolean, 
+    var `speakerphone`: kotlin.Boolean, 
+    var `videoEnabled`: kotlin.Boolean, 
+    var `videoCodec`: FfiVideoCodec?
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiCall: FfiConverterRustBuffer<FfiCall> {
+    override fun read(buf: ByteBuffer): FfiCall {
+        return FfiCall(
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterTypeFfiCallDirection.read(buf),
+            FfiConverterTypeFfiCallState.read(buf),
+            FfiConverterLong.read(buf),
+            FfiConverterOptionalLong.read(buf),
+            FfiConverterOptionalLong.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterOptionalTypeFfiVideoCodec.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiCall) = (
+            FfiConverterString.allocationSize(value.`id`) +
+            FfiConverterString.allocationSize(value.`remotePeerId`) +
+            FfiConverterTypeFfiCallDirection.allocationSize(value.`direction`) +
+            FfiConverterTypeFfiCallState.allocationSize(value.`state`) +
+            FfiConverterLong.allocationSize(value.`startedAt`) +
+            FfiConverterOptionalLong.allocationSize(value.`connectedAt`) +
+            FfiConverterOptionalLong.allocationSize(value.`endedAt`) +
+            FfiConverterBoolean.allocationSize(value.`audioMuted`) +
+            FfiConverterBoolean.allocationSize(value.`speakerphone`) +
+            FfiConverterBoolean.allocationSize(value.`videoEnabled`) +
+            FfiConverterOptionalTypeFfiVideoCodec.allocationSize(value.`videoCodec`)
+    )
+
+    override fun write(value: FfiCall, buf: ByteBuffer) {
+            FfiConverterString.write(value.`id`, buf)
+            FfiConverterString.write(value.`remotePeerId`, buf)
+            FfiConverterTypeFfiCallDirection.write(value.`direction`, buf)
+            FfiConverterTypeFfiCallState.write(value.`state`, buf)
+            FfiConverterLong.write(value.`startedAt`, buf)
+            FfiConverterOptionalLong.write(value.`connectedAt`, buf)
+            FfiConverterOptionalLong.write(value.`endedAt`, buf)
+            FfiConverterBoolean.write(value.`audioMuted`, buf)
+            FfiConverterBoolean.write(value.`speakerphone`, buf)
+            FfiConverterBoolean.write(value.`videoEnabled`, buf)
+            FfiConverterOptionalTypeFfiVideoCodec.write(value.`videoCodec`, buf)
+    }
+}
+
+
+
+data class FfiCallStats (
+    var `avgRttMs`: kotlin.UInt, 
+    var `packetsSent`: kotlin.ULong, 
+    var `packetsReceived`: kotlin.ULong, 
+    var `packetsLost`: kotlin.ULong, 
+    var `jitterMs`: kotlin.UInt, 
+    var `audioBitrateKbps`: kotlin.UInt
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiCallStats: FfiConverterRustBuffer<FfiCallStats> {
+    override fun read(buf: ByteBuffer): FfiCallStats {
+        return FfiCallStats(
+            FfiConverterUInt.read(buf),
+            FfiConverterULong.read(buf),
+            FfiConverterULong.read(buf),
+            FfiConverterULong.read(buf),
+            FfiConverterUInt.read(buf),
+            FfiConverterUInt.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiCallStats) = (
+            FfiConverterUInt.allocationSize(value.`avgRttMs`) +
+            FfiConverterULong.allocationSize(value.`packetsSent`) +
+            FfiConverterULong.allocationSize(value.`packetsReceived`) +
+            FfiConverterULong.allocationSize(value.`packetsLost`) +
+            FfiConverterUInt.allocationSize(value.`jitterMs`) +
+            FfiConverterUInt.allocationSize(value.`audioBitrateKbps`)
+    )
+
+    override fun write(value: FfiCallStats, buf: ByteBuffer) {
+            FfiConverterUInt.write(value.`avgRttMs`, buf)
+            FfiConverterULong.write(value.`packetsSent`, buf)
+            FfiConverterULong.write(value.`packetsReceived`, buf)
+            FfiConverterULong.write(value.`packetsLost`, buf)
+            FfiConverterUInt.write(value.`jitterMs`, buf)
+            FfiConverterUInt.write(value.`audioBitrateKbps`, buf)
     }
 }
 
 
 
 data class FfiConversation (
-    var `id`: kotlin.String
-    , 
-    var `conversationType`: kotlin.String
-    , 
-    var `peerId`: kotlin.String?
-    , 
-    var `displayName`: kotlin.String?
-    , 
-    var `lastMessageId`: kotlin.String?
-    , 
-    var `lastMessageAt`: kotlin.Long?
-    , 
-    var `unreadCount`: kotlin.Int
-    , 
-    var `isMuted`: kotlin.Boolean
-    , 
-    var `isArchived`: kotlin.Boolean
-    , 
+    var `id`: kotlin.String, 
+    var `conversationType`: kotlin.String, 
+    var `peerId`: kotlin.String?, 
+    var `displayName`: kotlin.String?, 
+    var `lastMessageId`: kotlin.String?, 
+    var `lastMessageAt`: kotlin.Long?, 
+    var `unreadCount`: kotlin.Int, 
+    var `isMuted`: kotlin.Boolean, 
+    var `isArchived`: kotlin.Boolean, 
     var `createdAt`: kotlin.Long
-    
-){
-    
-
-    
-
+) {
     
     companion object
 }
@@ -1727,36 +2815,152 @@ public object FfiConverterTypeFfiConversation: FfiConverterRustBuffer<FfiConvers
 
 
 
-data class FfiMessage (
-    var `messageId`: kotlin.String
-    , 
-    var `conversationId`: kotlin.String
-    , 
-    var `senderPeerId`: kotlin.String
-    , 
-    var `recipientPeerId`: kotlin.String?
-    , 
-    var `messageType`: kotlin.String
-    , 
-    var `contentPlaintext`: kotlin.String?
-    , 
+data class FfiGroup (
+    var `id`: kotlin.String, 
+    var `name`: kotlin.String, 
+    var `description`: kotlin.String?, 
+    var `avatarHash`: kotlin.String?, 
+    var `creatorPeerId`: kotlin.String, 
+    var `memberCount`: kotlin.UInt, 
+    var `isAdmin`: kotlin.Boolean, 
     var `createdAt`: kotlin.Long
-    , 
-    var `sentAt`: kotlin.Long?
-    , 
-    var `receivedAt`: kotlin.Long?
-    , 
-    var `readAt`: kotlin.Long?
-    , 
-    var `status`: MessageStatus
-    , 
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiGroup: FfiConverterRustBuffer<FfiGroup> {
+    override fun read(buf: ByteBuffer): FfiGroup {
+        return FfiGroup(
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterUInt.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterLong.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiGroup) = (
+            FfiConverterString.allocationSize(value.`id`) +
+            FfiConverterString.allocationSize(value.`name`) +
+            FfiConverterOptionalString.allocationSize(value.`description`) +
+            FfiConverterOptionalString.allocationSize(value.`avatarHash`) +
+            FfiConverterString.allocationSize(value.`creatorPeerId`) +
+            FfiConverterUInt.allocationSize(value.`memberCount`) +
+            FfiConverterBoolean.allocationSize(value.`isAdmin`) +
+            FfiConverterLong.allocationSize(value.`createdAt`)
+    )
+
+    override fun write(value: FfiGroup, buf: ByteBuffer) {
+            FfiConverterString.write(value.`id`, buf)
+            FfiConverterString.write(value.`name`, buf)
+            FfiConverterOptionalString.write(value.`description`, buf)
+            FfiConverterOptionalString.write(value.`avatarHash`, buf)
+            FfiConverterString.write(value.`creatorPeerId`, buf)
+            FfiConverterUInt.write(value.`memberCount`, buf)
+            FfiConverterBoolean.write(value.`isAdmin`, buf)
+            FfiConverterLong.write(value.`createdAt`, buf)
+    }
+}
+
+
+
+data class FfiMedia (
+    var `id`: kotlin.Long, 
+    var `mediaHash`: kotlin.String, 
+    var `messageId`: kotlin.String, 
+    var `mediaType`: FfiMediaType, 
+    var `fileName`: kotlin.String?, 
+    var `fileSize`: kotlin.Long?, 
+    var `mimeType`: kotlin.String?, 
+    var `localPath`: kotlin.String?, 
+    var `thumbnailPath`: kotlin.String?, 
+    var `width`: kotlin.Int?, 
+    var `height`: kotlin.Int?, 
+    var `durationSeconds`: kotlin.Int?, 
+    var `createdAt`: kotlin.Long
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiMedia: FfiConverterRustBuffer<FfiMedia> {
+    override fun read(buf: ByteBuffer): FfiMedia {
+        return FfiMedia(
+            FfiConverterLong.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterTypeFfiMediaType.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalLong.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalInt.read(buf),
+            FfiConverterOptionalInt.read(buf),
+            FfiConverterOptionalInt.read(buf),
+            FfiConverterLong.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiMedia) = (
+            FfiConverterLong.allocationSize(value.`id`) +
+            FfiConverterString.allocationSize(value.`mediaHash`) +
+            FfiConverterString.allocationSize(value.`messageId`) +
+            FfiConverterTypeFfiMediaType.allocationSize(value.`mediaType`) +
+            FfiConverterOptionalString.allocationSize(value.`fileName`) +
+            FfiConverterOptionalLong.allocationSize(value.`fileSize`) +
+            FfiConverterOptionalString.allocationSize(value.`mimeType`) +
+            FfiConverterOptionalString.allocationSize(value.`localPath`) +
+            FfiConverterOptionalString.allocationSize(value.`thumbnailPath`) +
+            FfiConverterOptionalInt.allocationSize(value.`width`) +
+            FfiConverterOptionalInt.allocationSize(value.`height`) +
+            FfiConverterOptionalInt.allocationSize(value.`durationSeconds`) +
+            FfiConverterLong.allocationSize(value.`createdAt`)
+    )
+
+    override fun write(value: FfiMedia, buf: ByteBuffer) {
+            FfiConverterLong.write(value.`id`, buf)
+            FfiConverterString.write(value.`mediaHash`, buf)
+            FfiConverterString.write(value.`messageId`, buf)
+            FfiConverterTypeFfiMediaType.write(value.`mediaType`, buf)
+            FfiConverterOptionalString.write(value.`fileName`, buf)
+            FfiConverterOptionalLong.write(value.`fileSize`, buf)
+            FfiConverterOptionalString.write(value.`mimeType`, buf)
+            FfiConverterOptionalString.write(value.`localPath`, buf)
+            FfiConverterOptionalString.write(value.`thumbnailPath`, buf)
+            FfiConverterOptionalInt.write(value.`width`, buf)
+            FfiConverterOptionalInt.write(value.`height`, buf)
+            FfiConverterOptionalInt.write(value.`durationSeconds`, buf)
+            FfiConverterLong.write(value.`createdAt`, buf)
+    }
+}
+
+
+
+data class FfiMessage (
+    var `messageId`: kotlin.String, 
+    var `conversationId`: kotlin.String, 
+    var `senderPeerId`: kotlin.String, 
+    var `recipientPeerId`: kotlin.String?, 
+    var `messageType`: kotlin.String, 
+    var `contentPlaintext`: kotlin.String?, 
+    var `createdAt`: kotlin.Long, 
+    var `sentAt`: kotlin.Long?, 
+    var `receivedAt`: kotlin.Long?, 
+    var `readAt`: kotlin.Long?, 
+    var `status`: MessageStatus, 
     var `isDeleted`: kotlin.Boolean
-    
-){
-    
-
-    
-
+) {
     
     companion object
 }
@@ -1815,69 +3019,384 @@ public object FfiConverterTypeFfiMessage: FfiConverterRustBuffer<FfiMessage> {
 
 
 
+data class FfiReaction (
+    var `reactionId`: kotlin.String, 
+    var `messageId`: kotlin.String, 
+    var `peerId`: kotlin.String, 
+    var `emoji`: kotlin.String, 
+    var `createdAt`: kotlin.Long
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiReaction: FfiConverterRustBuffer<FfiReaction> {
+    override fun read(buf: ByteBuffer): FfiReaction {
+        return FfiReaction(
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterLong.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiReaction) = (
+            FfiConverterString.allocationSize(value.`reactionId`) +
+            FfiConverterString.allocationSize(value.`messageId`) +
+            FfiConverterString.allocationSize(value.`peerId`) +
+            FfiConverterString.allocationSize(value.`emoji`) +
+            FfiConverterLong.allocationSize(value.`createdAt`)
+    )
+
+    override fun write(value: FfiReaction, buf: ByteBuffer) {
+            FfiConverterString.write(value.`reactionId`, buf)
+            FfiConverterString.write(value.`messageId`, buf)
+            FfiConverterString.write(value.`peerId`, buf)
+            FfiConverterString.write(value.`emoji`, buf)
+            FfiConverterLong.write(value.`createdAt`, buf)
+    }
+}
+
+
+
+data class FfiVideoResolution (
+    var `width`: kotlin.UInt, 
+    var `height`: kotlin.UInt
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiVideoResolution: FfiConverterRustBuffer<FfiVideoResolution> {
+    override fun read(buf: ByteBuffer): FfiVideoResolution {
+        return FfiVideoResolution(
+            FfiConverterUInt.read(buf),
+            FfiConverterUInt.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiVideoResolution) = (
+            FfiConverterUInt.allocationSize(value.`width`) +
+            FfiConverterUInt.allocationSize(value.`height`)
+    )
+
+    override fun write(value: FfiVideoResolution, buf: ByteBuffer) {
+            FfiConverterUInt.write(value.`width`, buf)
+            FfiConverterUInt.write(value.`height`, buf)
+    }
+}
+
+
+
+data class FfiVideoStats (
+    var `resolution`: FfiVideoResolution, 
+    var `fps`: kotlin.UInt, 
+    var `bitrateKbps`: kotlin.UInt, 
+    var `framesSent`: kotlin.ULong, 
+    var `framesReceived`: kotlin.ULong, 
+    var `framesDropped`: kotlin.ULong
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiVideoStats: FfiConverterRustBuffer<FfiVideoStats> {
+    override fun read(buf: ByteBuffer): FfiVideoStats {
+        return FfiVideoStats(
+            FfiConverterTypeFfiVideoResolution.read(buf),
+            FfiConverterUInt.read(buf),
+            FfiConverterUInt.read(buf),
+            FfiConverterULong.read(buf),
+            FfiConverterULong.read(buf),
+            FfiConverterULong.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiVideoStats) = (
+            FfiConverterTypeFfiVideoResolution.allocationSize(value.`resolution`) +
+            FfiConverterUInt.allocationSize(value.`fps`) +
+            FfiConverterUInt.allocationSize(value.`bitrateKbps`) +
+            FfiConverterULong.allocationSize(value.`framesSent`) +
+            FfiConverterULong.allocationSize(value.`framesReceived`) +
+            FfiConverterULong.allocationSize(value.`framesDropped`)
+    )
+
+    override fun write(value: FfiVideoStats, buf: ByteBuffer) {
+            FfiConverterTypeFfiVideoResolution.write(value.`resolution`, buf)
+            FfiConverterUInt.write(value.`fps`, buf)
+            FfiConverterUInt.write(value.`bitrateKbps`, buf)
+            FfiConverterULong.write(value.`framesSent`, buf)
+            FfiConverterULong.write(value.`framesReceived`, buf)
+            FfiConverterULong.write(value.`framesDropped`, buf)
+    }
+}
+
+
+
+
+enum class FfiCallDirection {
+    
+    OUTGOING,
+    INCOMING;
+    companion object
+}
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiCallDirection: FfiConverterRustBuffer<FfiCallDirection> {
+    override fun read(buf: ByteBuffer) = try {
+        FfiCallDirection.values()[buf.getInt() - 1]
+    } catch (e: IndexOutOfBoundsException) {
+        throw RuntimeException("invalid enum value, something is very wrong!!", e)
+    }
+
+    override fun allocationSize(value: FfiCallDirection) = 4UL
+
+    override fun write(value: FfiCallDirection, buf: ByteBuffer) {
+        buf.putInt(value.ordinal + 1)
+    }
+}
+
+
+
+
+
+
+enum class FfiCallEndReason {
+    
+    HANGUP,
+    REJECTED,
+    LOCAL_HANGUP,
+    REMOTE_HANGUP,
+    CONNECTION_FAILED,
+    TIMEOUT,
+    NETWORK_ERROR;
+    companion object
+}
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiCallEndReason: FfiConverterRustBuffer<FfiCallEndReason> {
+    override fun read(buf: ByteBuffer) = try {
+        FfiCallEndReason.values()[buf.getInt() - 1]
+    } catch (e: IndexOutOfBoundsException) {
+        throw RuntimeException("invalid enum value, something is very wrong!!", e)
+    }
+
+    override fun allocationSize(value: FfiCallEndReason) = 4UL
+
+    override fun write(value: FfiCallEndReason, buf: ByteBuffer) {
+        buf.putInt(value.ordinal + 1)
+    }
+}
+
+
+
+
+
+
+enum class FfiCallState {
+    
+    INITIATING,
+    RINGING,
+    CONNECTING,
+    ACTIVE,
+    ENDING,
+    ENDED;
+    companion object
+}
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiCallState: FfiConverterRustBuffer<FfiCallState> {
+    override fun read(buf: ByteBuffer) = try {
+        FfiCallState.values()[buf.getInt() - 1]
+    } catch (e: IndexOutOfBoundsException) {
+        throw RuntimeException("invalid enum value, something is very wrong!!", e)
+    }
+
+    override fun allocationSize(value: FfiCallState) = 4UL
+
+    override fun write(value: FfiCallState, buf: ByteBuffer) {
+        buf.putInt(value.ordinal + 1)
+    }
+}
+
+
+
+
+
+
+enum class FfiCameraPosition {
+    
+    FRONT,
+    BACK,
+    EXTERNAL;
+    companion object
+}
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiCameraPosition: FfiConverterRustBuffer<FfiCameraPosition> {
+    override fun read(buf: ByteBuffer) = try {
+        FfiCameraPosition.values()[buf.getInt() - 1]
+    } catch (e: IndexOutOfBoundsException) {
+        throw RuntimeException("invalid enum value, something is very wrong!!", e)
+    }
+
+    override fun allocationSize(value: FfiCameraPosition) = 4UL
+
+    override fun write(value: FfiCameraPosition, buf: ByteBuffer) {
+        buf.putInt(value.ordinal + 1)
+    }
+}
+
+
+
+
+
+
+enum class FfiMediaType {
+    
+    IMAGE,
+    VIDEO,
+    AUDIO,
+    DOCUMENT,
+    VOICE_MESSAGE;
+    companion object
+}
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiMediaType: FfiConverterRustBuffer<FfiMediaType> {
+    override fun read(buf: ByteBuffer) = try {
+        FfiMediaType.values()[buf.getInt() - 1]
+    } catch (e: IndexOutOfBoundsException) {
+        throw RuntimeException("invalid enum value, something is very wrong!!", e)
+    }
+
+    override fun allocationSize(value: FfiMediaType) = 4UL
+
+    override fun write(value: FfiMediaType, buf: ByteBuffer) {
+        buf.putInt(value.ordinal + 1)
+    }
+}
+
+
+
+
+
+
+enum class FfiVideoCodec {
+    
+    H264,
+    VP8,
+    VP9;
+    companion object
+}
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiVideoCodec: FfiConverterRustBuffer<FfiVideoCodec> {
+    override fun read(buf: ByteBuffer) = try {
+        FfiVideoCodec.values()[buf.getInt() - 1]
+    } catch (e: IndexOutOfBoundsException) {
+        throw RuntimeException("invalid enum value, something is very wrong!!", e)
+    }
+
+    override fun allocationSize(value: FfiVideoCodec) = 4UL
+
+    override fun write(value: FfiVideoCodec, buf: ByteBuffer) {
+        buf.putInt(value.ordinal + 1)
+    }
+}
+
+
+
+
+
 
 
 sealed class MePassaFfiException: kotlin.Exception() {
-    
+
     class Identity(
-        
-        val `message`: kotlin.String
+
+        val errorMessage: kotlin.String
         ) : MePassaFfiException() {
-        override val message
-            get() = "message=${ `message` }"
+        override val message: kotlin.String
+            get() = errorMessage
     }
-    
+
     class Crypto(
-        
-        val `message`: kotlin.String
+
+        val errorMessage: kotlin.String
         ) : MePassaFfiException() {
-        override val message
-            get() = "message=${ `message` }"
+        override val message: kotlin.String
+            get() = errorMessage
     }
-    
+
     class Network(
-        
-        val `message`: kotlin.String
+
+        val errorMessage: kotlin.String
         ) : MePassaFfiException() {
-        override val message
-            get() = "message=${ `message` }"
+        override val message: kotlin.String
+            get() = errorMessage
     }
-    
+
     class Storage(
-        
-        val `message`: kotlin.String
+
+        val errorMessage: kotlin.String
         ) : MePassaFfiException() {
-        override val message
-            get() = "message=${ `message` }"
+        override val message: kotlin.String
+            get() = errorMessage
     }
-    
+
     class Protocol(
-        
-        val `message`: kotlin.String
+
+        val errorMessage: kotlin.String
         ) : MePassaFfiException() {
-        override val message
-            get() = "message=${ `message` }"
+        override val message: kotlin.String
+            get() = errorMessage
     }
-    
+
     class Io(
-        
-        val `message`: kotlin.String
+
+        val errorMessage: kotlin.String
         ) : MePassaFfiException() {
-        override val message
-            get() = "message=${ `message` }"
+        override val message: kotlin.String
+            get() = errorMessage
     }
-    
+
     class Other(
-        
-        val `message`: kotlin.String
+
+        val errorMessage: kotlin.String
         ) : MePassaFfiException() {
-        override val message
-            get() = "message=${ `message` }"
+        override val message: kotlin.String
+            get() = errorMessage
     }
     
-
-    
-
 
     companion object ErrorHandler : UniffiRustCallStatusErrorHandler<MePassaFfiException> {
         override fun lift(error_buf: RustBuffer.ByValue): MePassaFfiException = FfiConverterTypeMePassaFfiError.lift(error_buf)
@@ -2011,10 +3530,6 @@ enum class MessageStatus {
     DELIVERED,
     READ,
     FAILED;
-
-    
-
-
     companion object
 }
 
@@ -2037,6 +3552,93 @@ public object FfiConverterTypeMessageStatus: FfiConverterRustBuffer<MessageStatu
 }
 
 
+
+
+
+
+
+public interface FfiVideoFrameCallback {
+    
+    fun `onVideoFrame`(`callId`: kotlin.String, `frameData`: List<kotlin.UByte>, `width`: kotlin.UInt, `height`: kotlin.UInt)
+    
+    companion object
+}
+
+// Magic number for the Rust proxy to call using the same mechanism as every other method,
+// to free the callback once it's dropped by Rust.
+internal const val IDX_CALLBACK_FREE = 0
+// Callback return codes
+internal const val UNIFFI_CALLBACK_SUCCESS = 0
+internal const val UNIFFI_CALLBACK_ERROR = 1
+internal const val UNIFFI_CALLBACK_UNEXPECTED_ERROR = 2
+
+/**
+ * @suppress
+ */
+public abstract class FfiConverterCallbackInterface<CallbackInterface: Any>: FfiConverter<CallbackInterface, Long> {
+    internal val handleMap = UniffiHandleMap<CallbackInterface>()
+
+    internal fun drop(handle: Long) {
+        handleMap.remove(handle)
+    }
+
+    override fun lift(value: Long): CallbackInterface {
+        return handleMap.get(value)
+    }
+
+    override fun read(buf: ByteBuffer) = lift(buf.getLong())
+
+    override fun lower(value: CallbackInterface) = handleMap.insert(value)
+
+    override fun allocationSize(value: CallbackInterface) = 8UL
+
+    override fun write(value: CallbackInterface, buf: ByteBuffer) {
+        buf.putLong(lower(value))
+    }
+}
+
+// Put the implementation in an object so we don't pollute the top-level namespace
+internal object uniffiCallbackInterfaceFfiVideoFrameCallback {
+    internal object `onVideoFrame`: UniffiCallbackInterfaceFfiVideoFrameCallbackMethod0 {
+        override fun callback(`uniffiHandle`: Long,`callId`: RustBuffer.ByValue,`frameData`: RustBuffer.ByValue,`width`: Int,`height`: Int,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeFfiVideoFrameCallback.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`onVideoFrame`(
+                    FfiConverterString.lift(`callId`),
+                    FfiConverterSequenceUByte.lift(`frameData`),
+                    FfiConverterUInt.lift(`width`),
+                    FfiConverterUInt.lift(`height`),
+                )
+            }
+            val writeReturn = { _: Unit -> Unit }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+
+    internal object uniffiFree: UniffiCallbackInterfaceFree {
+        override fun callback(handle: Long) {
+            FfiConverterTypeFfiVideoFrameCallback.handleMap.remove(handle)
+        }
+    }
+
+    internal var vtable = UniffiVTableCallbackInterfaceFfiVideoFrameCallback.UniffiByValue(
+        `onVideoFrame`,
+        uniffiFree,
+    )
+
+    // Registers the foreign callback with the Rust side.
+    // This method is generated for each callback interface.
+    internal fun register(lib: UniffiLib) {
+        lib.uniffi_mepassa_core_fn_init_callback_vtable_ffivideoframecallback(vtable)
+    }
+}
+
+/**
+ * The ffiConverter which transforms the Callbacks in to handles to pass to Rust.
+ *
+ * @suppress
+ */
+public object FfiConverterTypeFfiVideoFrameCallback: FfiConverterCallbackInterface<FfiVideoFrameCallback>()
 
 
 
@@ -2066,6 +3668,38 @@ public object FfiConverterOptionalUInt: FfiConverterRustBuffer<kotlin.UInt?> {
         } else {
             buf.put(1)
             FfiConverterUInt.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterOptionalInt: FfiConverterRustBuffer<kotlin.Int?> {
+    override fun read(buf: ByteBuffer): kotlin.Int? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterInt.read(buf)
+    }
+
+    override fun allocationSize(value: kotlin.Int?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterInt.allocationSize(value)
+        }
+    }
+
+    override fun write(value: kotlin.Int?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterInt.write(value, buf)
         }
     }
 }
@@ -2140,6 +3774,130 @@ public object FfiConverterOptionalString: FfiConverterRustBuffer<kotlin.String?>
 /**
  * @suppress
  */
+public object FfiConverterOptionalTypeFfiMediaType: FfiConverterRustBuffer<FfiMediaType?> {
+    override fun read(buf: ByteBuffer): FfiMediaType? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterTypeFfiMediaType.read(buf)
+    }
+
+    override fun allocationSize(value: FfiMediaType?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterTypeFfiMediaType.allocationSize(value)
+        }
+    }
+
+    override fun write(value: FfiMediaType?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterTypeFfiMediaType.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterOptionalTypeFfiVideoCodec: FfiConverterRustBuffer<FfiVideoCodec?> {
+    override fun read(buf: ByteBuffer): FfiVideoCodec? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterTypeFfiVideoCodec.read(buf)
+    }
+
+    override fun allocationSize(value: FfiVideoCodec?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterTypeFfiVideoCodec.allocationSize(value)
+        }
+    }
+
+    override fun write(value: FfiVideoCodec?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterTypeFfiVideoCodec.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterOptionalSequenceUByte: FfiConverterRustBuffer<List<kotlin.UByte>?> {
+    override fun read(buf: ByteBuffer): List<kotlin.UByte>? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterSequenceUByte.read(buf)
+    }
+
+    override fun allocationSize(value: List<kotlin.UByte>?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterSequenceUByte.allocationSize(value)
+        }
+    }
+
+    override fun write(value: List<kotlin.UByte>?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterSequenceUByte.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceUByte: FfiConverterRustBuffer<List<kotlin.UByte>> {
+    override fun read(buf: ByteBuffer): List<kotlin.UByte> {
+        val len = buf.getInt()
+        return List<kotlin.UByte>(len) {
+            FfiConverterUByte.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<kotlin.UByte>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterUByte.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<kotlin.UByte>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterUByte.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterSequenceTypeFfiConversation: FfiConverterRustBuffer<List<FfiConversation>> {
     override fun read(buf: ByteBuffer): List<FfiConversation> {
         val len = buf.getInt()
@@ -2168,6 +3926,62 @@ public object FfiConverterSequenceTypeFfiConversation: FfiConverterRustBuffer<Li
 /**
  * @suppress
  */
+public object FfiConverterSequenceTypeFfiGroup: FfiConverterRustBuffer<List<FfiGroup>> {
+    override fun read(buf: ByteBuffer): List<FfiGroup> {
+        val len = buf.getInt()
+        return List<FfiGroup>(len) {
+            FfiConverterTypeFfiGroup.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<FfiGroup>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeFfiGroup.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<FfiGroup>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeFfiGroup.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceTypeFfiMedia: FfiConverterRustBuffer<List<FfiMedia>> {
+    override fun read(buf: ByteBuffer): List<FfiMedia> {
+        val len = buf.getInt()
+        return List<FfiMedia>(len) {
+            FfiConverterTypeFfiMedia.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<FfiMedia>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeFfiMedia.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<FfiMedia>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeFfiMedia.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterSequenceTypeFfiMessage: FfiConverterRustBuffer<List<FfiMessage>> {
     override fun read(buf: ByteBuffer): List<FfiMessage> {
         val len = buf.getInt()
@@ -2186,6 +4000,34 @@ public object FfiConverterSequenceTypeFfiMessage: FfiConverterRustBuffer<List<Ff
         buf.putInt(value.size)
         value.iterator().forEach {
             FfiConverterTypeFfiMessage.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceTypeFfiReaction: FfiConverterRustBuffer<List<FfiReaction>> {
+    override fun read(buf: ByteBuffer): List<FfiReaction> {
+        val len = buf.getInt()
+        return List<FfiReaction>(len) {
+            FfiConverterTypeFfiReaction.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<FfiReaction>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeFfiReaction.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<FfiReaction>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeFfiReaction.write(it, buf)
         }
     }
 }

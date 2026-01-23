@@ -15,7 +15,7 @@ use crate::{
     storage::{Database, NewMessage, MessageStatus},
     utils::error::{MePassaError, Result},
 };
-#[cfg(feature = "voip")]
+#[cfg(any(feature = "voip", feature = "video"))]
 use crate::voip::{CallManager, VoIPIntegration};
 
 /// MePassa Client
@@ -35,10 +35,10 @@ pub struct Client {
     /// Data directory
     data_dir: PathBuf,
     /// Call manager (VoIP)
-    #[cfg(feature = "voip")]
+    #[cfg(any(feature = "voip", feature = "video"))]
     call_manager: Arc<CallManager>,
     /// VoIP integration (network ↔ calls)
-    #[cfg(feature = "voip")]
+    #[cfg(any(feature = "voip", feature = "video"))]
     voip_integration: Arc<VoIPIntegration>,
     /// Group manager (FASE 15)
     group_manager: Arc<crate::group::GroupManager>,
@@ -52,9 +52,9 @@ impl Client {
         network: Arc<RwLock<NetworkManager>>,
         database: Database,
         data_dir: PathBuf,
-        #[cfg(feature = "voip")]
+        #[cfg(any(feature = "voip", feature = "video"))]
         call_manager: Arc<CallManager>,
-        #[cfg(feature = "voip")]
+        #[cfg(any(feature = "voip", feature = "video"))]
         voip_integration: Arc<VoIPIntegration>,
         group_manager: Arc<crate::group::GroupManager>,
     ) -> Self {
@@ -65,9 +65,9 @@ impl Client {
             database,
             callbacks: Arc::new(RwLock::new(Vec::new())),
             data_dir,
-            #[cfg(feature = "voip")]
+            #[cfg(any(feature = "voip", feature = "video"))]
             call_manager,
-            #[cfg(feature = "voip")]
+            #[cfg(any(feature = "voip", feature = "video"))]
             voip_integration,
             group_manager,
         }
@@ -669,7 +669,7 @@ impl Client {
 
     // ========== Video Methods (FASE 14) ==========
 
-    #[cfg(feature = "voip")]
+    #[cfg(any(feature = "voip", feature = "video"))]
     /// Enable video for an active call
     pub async fn enable_video(
         &self,
@@ -682,7 +682,7 @@ impl Client {
             .map_err(|e| MePassaError::Other(format!("Failed to enable video: {}", e)))
     }
 
-    #[cfg(feature = "voip")]
+    #[cfg(any(feature = "voip", feature = "video"))]
     /// Disable video for an active call
     pub async fn disable_video(&self, call_id: String) -> Result<()> {
         self.call_manager
@@ -691,7 +691,7 @@ impl Client {
             .map_err(|e| MePassaError::Other(format!("Failed to disable video: {}", e)))
     }
 
-    #[cfg(feature = "voip")]
+    #[cfg(any(feature = "voip", feature = "video"))]
     /// Send video frame to remote peer
     ///
     /// Frame data should be pre-encoded (H.264 NALUs or VP8/VP9 frames)
@@ -708,7 +708,7 @@ impl Client {
             .map_err(|e| MePassaError::Other(format!("Failed to send video frame: {}", e)))
     }
 
-    #[cfg(feature = "voip")]
+    #[cfg(any(feature = "voip", feature = "video"))]
     /// Switch camera (front/back) during video call
     ///
     /// Only applicable on mobile devices. Platform-specific camera manager
@@ -720,7 +720,7 @@ impl Client {
             .map_err(|e| MePassaError::Other(format!("Failed to switch camera: {}", e)))
     }
 
-    #[cfg(feature = "voip")]
+    #[cfg(any(feature = "voip", feature = "video"))]
     /// Register callback for receiving remote video frames (FASE 14)
     ///
     /// The callback will be invoked on a background thread whenever a remote

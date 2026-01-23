@@ -46,7 +46,27 @@
       "Bash(git reset:*)",
       "Bash(test:*)",
       "Bash(git log:*)",
-      "Bash(killall cargo)"
+      "Bash(killall cargo)",
+      "Bash(./ios/pre-build-check.sh:*)",
+      "Bash(bash pre-build-check.sh:*)",
+      "Bash(./check.sh)",
+      "Bash(open:*)",
+      "Bash(./build-rust.sh:*)",
+      "Bash(xcrun simctl:*)",
+      "Bash(security find-identity:*)",
+      "Bash(xcrun --find simctl:*)",
+      "Bash(xcrun notarytool:*)",
+      "Bash(security find-certificate:*)",
+      "Bash(openssl x509:*)",
+      "Bash(xcrun devicectl device install app:*)",
+      "Bash(curl:*)",
+      "Bash(gradle assembleDebug:*)",
+      "Bash(npm cache clean:*)",
+      "Bash(npm run tauri:dev:*)",
+      "Bash(pkill:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)",
+      "Bash(./gradlew compileDebugKotlin:*)"
     ]
   }
 }

@@ -12,8 +12,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material.icons.filled.Search
@@ -111,7 +111,7 @@ fun ChatScreen(
             val reactionsMap = mutableMapOf<String, List<com.mepassa.ui.components.ReactionCount>>()
             messages.forEach { message ->
                 try {
-                    val reactions = MePassaClientWrapper.client?.getMessageReactions(message.messageId) ?: emptyList()
+                    val reactions = MePassaClientWrapper.getMessageReactions(message.messageId)
 
                     // Aggregate reactions by emoji
                     val reactionCounts = reactions
@@ -143,15 +143,15 @@ fun ChatScreen(
 
                 if (hasReacted) {
                     // Remove reaction
-                    MePassaClientWrapper.client?.removeReaction(messageId, emoji)
+                    MePassaClientWrapper.removeReaction(messageId, emoji)
                 } else {
                     // Add reaction
-                    MePassaClientWrapper.client?.addReaction(messageId, emoji)
+                    MePassaClientWrapper.addReaction(messageId, emoji)
                     haptic.medium()  // Haptic feedback on reaction
                 }
 
                 // Reload reactions for this message
-                val reactions = MePassaClientWrapper.client?.getMessageReactions(messageId) ?: emptyList()
+                val reactions = MePassaClientWrapper.getMessageReactions(messageId)
                 val reactionCounts = reactions
                     .groupBy { it.emoji }
                     .map { (emoji, reactionList) ->
@@ -196,7 +196,7 @@ fun ChatScreen(
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
+                            Icons.Filled.ArrowBack,
                             contentDescription = "Voltar"
                         )
                     }
@@ -262,7 +262,7 @@ fun ChatScreen(
                                             val fileName = uri.lastPathSegment ?: "image_${System.currentTimeMillis()}.jpg"
 
                                             // Call FFI to send image with compression
-                                            MePassaClientWrapper.client?.sendImageMessage(
+                                            MePassaClientWrapper.sendImageMessage(
                                                 toPeerId = peerId,
                                                 imageData = imageBytes.toUByteArray().toList(),
                                                 fileName = fileName,
@@ -324,7 +324,7 @@ fun ChatScreen(
                                 val durationSeconds = (audioFile.length() / 16000).toInt() // Rough estimate
 
                                 // Call FFI to send voice message
-                                MePassaClientWrapper.client?.sendVoiceMessage(
+                                MePassaClientWrapper.sendVoiceMessage(
                                     toPeerId = peerId,
                                     audioData = audioBytes.toUByteArray().toList(),
                                     fileName = audioFile.name,
@@ -341,6 +341,47 @@ fun ChatScreen(
                                 println("Error sending voice message: ${e.message}")
                             }
                         }
+                    },
+                    onFilePicked = { uri ->
+                        scope.launch {
+                            try {
+                                // Read file data
+                                val inputStream = context.contentResolver.openInputStream(uri)
+                                if (inputStream != null) {
+                                    val fileBytes = inputStream.use { it.readBytes() }
+
+                                    // Get file info
+                                    val cursor = context.contentResolver.query(uri, null, null, null, null)
+                                    val fileName = cursor?.use {
+                                        if (it.moveToFirst()) {
+                                            val nameIndex = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                                            if (nameIndex >= 0) it.getString(nameIndex) else "file"
+                                        } else "file"
+                                    } ?: "file"
+
+                                    val mimeType = context.contentResolver.getType(uri) ?: "application/octet-stream"
+
+                                    // Send via FFI
+                                    MePassaClientWrapper.sendDocumentMessage(
+                                        toPeerId = peerId,
+                                        fileData = fileBytes.toUByteArray().toList(),
+                                        fileName = fileName,
+                                        mimeType = mimeType
+                                    )
+
+                                    // Reload messages
+                                    messages = MePassaClientWrapper.getConversationMessages(peerId)
+                                    if (messages.isNotEmpty()) {
+                                        listState.animateScrollToItem(messages.lastIndex)
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                println("Error sending file: ${e.message}")
+                            }
+                        }
+                    },
+                    onVideoPicked = { uri ->
+                        // TODO: Implement video sending
                     },
                     voiceRecorderViewModel = voiceRecorderViewModel,
                     isSending = isSending
@@ -423,7 +464,7 @@ fun ChatScreen(
                     onClick = {
                         scope.launch {
                             try {
-                                MePassaClientWrapper.client?.deleteMessage(selectedMessage!!.messageId)
+                                MePassaClientWrapper.deleteMessage(selectedMessage!!.messageId)
                                 // Reload messages
                                 messages = MePassaClientWrapper.getConversationMessages(peerId)
                             } catch (e: Exception) {
@@ -455,7 +496,7 @@ fun ChatScreen(
                 TextButton(
                     onClick = {
                         // TODO: Show conversation selector, then:
-                        // MePassaClientWrapper.client?.forwardMessage(
+                        // MePassaClientWrapper.forwardMessage(
                         //     selectedMessage!!.messageId,
                         //     targetPeerId
                         // )
@@ -493,6 +534,8 @@ fun MessageInputBar(
     onSendClick: () -> Unit,
     onSelectImages: (List<Uri>) -> Unit,
     onVoiceMessageRecorded: (java.io.File) -> Unit,
+    onFilePicked: (Uri) -> Unit,
+    onVideoPicked: (Uri) -> Unit,
     voiceRecorderViewModel: VoiceRecorderViewModel,
     isSending: Boolean
 ) {
@@ -516,82 +559,16 @@ fun MessageInputBar(
 
             // File picker button
             com.mepassa.ui.components.FilePickerButton(
-                onFilePicked = { uri ->
-                    scope.launch {
-                        try {
-                            // Read file data
-                            val inputStream = context.contentResolver.openInputStream(uri)
-                            if (inputStream != null) {
-                                val fileBytes = inputStream.use { it.readBytes() }
-
-                                // Get file info
-                                val cursor = context.contentResolver.query(uri, null, null, null, null)
-                                val fileName = cursor?.use {
-                                    if (it.moveToFirst()) {
-                                        val nameIndex = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-                                        if (nameIndex >= 0) it.getString(nameIndex) else "file"
-                                    } else "file"
-                                } ?: "file"
-
-                                val mimeType = context.contentResolver.getType(uri) ?: "application/octet-stream"
-
-                                // Send via FFI
-                                MePassaClientWrapper.client?.sendDocumentMessage(
-                                    toPeerId = peerId,
-                                    fileData = fileBytes.toUByteArray().toList(),
-                                    fileName = fileName,
-                                    mimeType = mimeType
-                                )
-
-                                // Reload messages
-                                messages = MePassaClientWrapper.getConversationMessages(peerId)
-                                if (messages.isNotEmpty()) {
-                                    listState.animateScrollToItem(messages.lastIndex)
-                                }
-                            }
-                        } catch (e: Exception) {
-                            println("Error sending file: ${e.message}")
-                        }
-                    }
-                },
+                onFilePicked = onFilePicked,
                 enabled = !isSending
             )
 
-            // Video picker button
-            com.mepassa.ui.components.VideoPickerButton(
-                onVideoPicked = { videoInfo ->
-                    scope.launch {
-                        try {
-                            // Read video file data
-                            val inputStream = context.contentResolver.openInputStream(videoInfo.uri)
-                            if (inputStream != null) {
-                                val videoBytes = inputStream.use { it.readBytes() }
-
-                                // Send via FFI
-                                MePassaClientWrapper.client?.sendVideoMessage(
-                                    toPeerId = peerId,
-                                    videoData = videoBytes.toUByteArray().toList(),
-                                    fileName = videoInfo.fileName,
-                                    width = videoInfo.width,
-                                    height = videoInfo.height,
-                                    durationSeconds = videoInfo.durationSeconds,
-                                    thumbnailData = videoInfo.thumbnailData?.toUByteArray()?.toList()
-                                )
-
-                                // Reload messages
-                                messages = MePassaClientWrapper.getConversationMessages(peerId)
-                                if (messages.isNotEmpty()) {
-                                    listState.animateScrollToItem(messages.lastIndex)
-                                }
-                            }
-                        } catch (e: Exception) {
-                            println("Error sending video: ${e.message}")
-                        }
-                    }
-                },
-                enabled = !isSending,
-                context = context
-            )
+            // Video picker button (placeholder - will be implemented later)
+            // TODO: Implement VideoPicker component
+            // com.mepassa.ui.components.VideoPickerButton(
+            //     onVideoPicked = onVideoPicked,
+            //     enabled = !isSending
+            // )
 
             OutlinedTextField(
                 value = messageInput,
@@ -618,7 +595,7 @@ fun MessageInputBar(
                         )
                     } else {
                         Icon(
-                            Icons.AutoMirrored.Filled.Send,
+                            Icons.Filled.Send,
                             contentDescription = stringResource(R.string.chat_send),
                             tint = MaterialTheme.colorScheme.primary
                         )
@@ -721,15 +698,14 @@ fun MessageBubble(
             }
         }
 
-            // Reaction bar
-            if (reactions.isNotEmpty()) {
-                com.mepassa.ui.components.ReactionBar(
-                    reactions = reactions,
-                    onReactionClick = onReactionClick,
-                    onAddReactionClick = onAddReactionClick,
-                    modifier = Modifier.widthIn(max = 280.dp)
-                )
-            }
+        // Reaction bar
+        if (reactions.isNotEmpty()) {
+            com.mepassa.ui.components.ReactionBar(
+                reactions = reactions,
+                onReactionClick = onReactionClick,
+                onAddReactionClick = onAddReactionClick,
+                modifier = Modifier.widthIn(max = 280.dp)
+            )
         }
     }
 }

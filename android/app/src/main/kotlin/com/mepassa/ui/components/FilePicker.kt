@@ -14,7 +14,7 @@ import androidx.compose.ui.Modifier
  * FilePicker component - Allows user to select files from device storage
  *
  * Uses ActivityResultContracts.OpenDocument for file selection.
- * Supports all file types (MIME type: */*).
+ * Supports all file types (MIME type: star/star).
  */
 @Composable
 fun FilePickerButton(

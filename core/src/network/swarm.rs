@@ -229,7 +229,7 @@ impl NetworkManager {
         Ok(())
     }
 
-    #[cfg(feature = "voip")]
+    #[cfg(any(feature = "voip", feature = "video"))]
     /// Send a VoIP signaling message to a peer
     pub fn send_voip_signal(
         &mut self,
@@ -516,6 +516,13 @@ impl NetworkManager {
 
                 // If this is a successful upgrade event, we'd update connection type to HolePunch
                 // self.connection_manager.record_success(peer_id, ConnectionType::HolePunch);
+            }
+            #[cfg(any(feature = "voip", feature = "video"))]
+            MePassaBehaviourEvent::VoipSignaling(voip_event) => {
+                // VoIP signaling events (WebRTC SDP/ICE)
+                // These are handled by the VoIPIntegration component
+                tracing::debug!("📞 VoIP signaling event: {:?}", voip_event);
+                // Events are forwarded to VoIPIntegration via callback in voip_integration.rs
             }
         }
 

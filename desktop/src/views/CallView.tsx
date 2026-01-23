@@ -7,7 +7,7 @@ interface CallViewProps {
   localPeerId: string | null
 }
 
-export default function CallView({ localPeerId }: CallViewProps) {
+export default function CallView({ localPeerId: _localPeerId }: CallViewProps) {
   const { callId, remotePeerId } = useParams<{ callId: string; remotePeerId: string }>()
   const navigate = useNavigate()
 
