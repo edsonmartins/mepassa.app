@@ -8,6 +8,7 @@ import ChatView from './views/ChatView'
 import CallView from './views/CallView'
 import GroupListView from './views/GroupListView'
 import GroupChatView from './views/GroupChatView'
+import ProfileView from './views/ProfileView'
 
 function App() {
   console.log('🔵 App component mounted')
@@ -112,6 +113,7 @@ function App() {
       <Route path="/call/:callId/:remotePeerId" element={<CallView localPeerId={localPeerId} />} />
       <Route path="/groups" element={<GroupListView localPeerId={localPeerId} />} />
       <Route path="/group/:groupId" element={<GroupChatView />} />
+      <Route path="/profile" element={<ProfileView localPeerId={localPeerId!} />} />
       <Route path="*" element={<Navigate to={isInitialized ? "/conversations" : "/onboarding"} replace />} />
     </Routes>
   )
