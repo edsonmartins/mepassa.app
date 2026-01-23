@@ -1,4 +1,4 @@
-use mepassa_core::api::client::MePassaClient;
+use mepassa_core::ffi::MePassaClient;
 use std::sync::{Arc, Mutex};
 use tauri::State;
 
