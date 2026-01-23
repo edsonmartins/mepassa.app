@@ -163,6 +163,18 @@ impl CallManager {
         let ice_servers = self.get_ice_servers().await;
         let mut peer = WebRTCPeer::new(ice_servers).await?;
 
+        // Register callback for remote video frames
+        let event_tx = self.event_tx.clone();
+        let call_id_for_callback = call_id.clone();
+        peer.on_remote_video_frame(move |frame_data, width, height| {
+            let _ = event_tx.send(CallEvent::VideoFrameReceived {
+                call_id: call_id_for_callback.clone(),
+                frame_data,
+                width,
+                height,
+            });
+        }).await?;
+
         // Add audio track
         peer.add_audio_track().await?;
 
@@ -208,7 +220,20 @@ impl CallManager {
 
         // Create WebRTC peer connection
         let ice_servers = self.get_ice_servers().await;
-        let peer = WebRTCPeer::new(ice_servers).await?;
+        let mut peer = WebRTCPeer::new(ice_servers).await?;
+
+        // Register callback for remote video frames
+        let event_tx = self.event_tx.clone();
+        let call_id_for_callback = call_id.clone();
+        peer.on_remote_video_frame(move |frame_data, width, height| {
+            let _ = event_tx.send(CallEvent::VideoFrameReceived {
+                call_id: call_id_for_callback.clone(),
+                frame_data,
+                width,
+                height,
+            });
+        })
+        .await?;
 
         // Set remote offer
         peer.set_remote_description(offer_sdp, "offer").await?;

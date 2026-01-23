@@ -35,7 +35,7 @@ pub use ffi::{
 // Re-export VoIP FFI types (always available - stubs when voip feature is disabled)
 pub use ffi::{
     FfiCall, FfiCallDirection, FfiCallEndReason, FfiCallState, FfiCallStats, FfiCameraPosition,
-    FfiVideoCodec, FfiVideoResolution, FfiVideoStats,
+    FfiVideoCodec, FfiVideoFrameCallback, FfiVideoResolution, FfiVideoStats,
 };
 
 // Public modules

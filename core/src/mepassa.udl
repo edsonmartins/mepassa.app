@@ -59,6 +59,11 @@ enum FfiCameraPosition {
     "External",
 };
 
+// Video frame callback interface (FASE 14 - Remote video rendering)
+callback interface FfiVideoFrameCallback {
+    void on_video_frame(string call_id, sequence<u8> frame_data, u32 width, u32 height);
+};
+
 // Message record
 dictionary FfiMessage {
     string message_id;
@@ -242,6 +247,9 @@ interface MePassaClient {
 
     [Throws=MePassaFfiError, Async]
     void switch_camera(string call_id);
+
+    [Throws=MePassaFfiError, Async]
+    void register_video_frame_callback(FfiVideoFrameCallback callback);
 
     // Group methods (FASE 15)
     [Throws=MePassaFfiError, Async]

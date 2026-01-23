@@ -78,6 +78,44 @@ impl WebRTCPeer {
         })
     }
 
+    /// Register callback for remote video frames
+    ///
+    /// This should be called after creating the peer but before starting the call
+    pub async fn on_remote_video_frame<F>(&self, callback: F) -> Result<()>
+    where
+        F: Fn(Vec<u8>, u32, u32) + Send + Sync + 'static,
+    {
+        let pc = Arc::clone(&self.peer_connection);
+        let callback = Arc::new(callback);
+
+        // Register handler for when remote track is added
+        pc.on_track(Box::new(move |track, _receiver, _transceiver| {
+            let callback = Arc::clone(&callback);
+
+            // Check if this is a video track
+            if track.kind() == webrtc::rtp_transceiver::rtp_codec::RTPCodecType::Video {
+                tracing::info!("📹 Remote video track received");
+
+                Box::pin(async move {
+                    // Read RTP packets from the track
+                    while let Ok((rtp_packet, _)) = track.read_rtp().await {
+                        // Extract payload (video frame data)
+                        let payload = rtp_packet.payload.to_vec();
+
+                        // For now, we'll pass the raw RTP payload
+                        // In production, this should be decoded first
+                        // Assuming VGA resolution for now (should be extracted from SDP)
+                        callback(payload, 640, 480);
+                    }
+                })
+            } else {
+                Box::pin(async {})
+            }
+        }));
+
+        Ok(())
+    }
+
     /// Add audio track to the peer connection
     pub async fn add_audio_track(&mut self) -> Result<()> {
         // Create an audio track (Opus codec)

@@ -454,6 +454,32 @@ pub struct FfiVideoStats {
     pub frames_dropped: u64,
 }
 
+// ========== Video Frame Callback (FASE 14) ==========
+
+/// Callback interface for receiving remote video frames
+///
+/// Platform code should implement this trait to receive and render remote video frames.
+/// This callback is called on a background thread, so implementations should handle
+/// thread safety appropriately.
+#[cfg(feature = "voip")]
+pub trait FfiVideoFrameCallback: Send + Sync {
+    /// Called when a remote video frame is received
+    ///
+    /// # Parameters
+    /// - `call_id`: The call identifier
+    /// - `frame_data`: Raw video frame data (H.264 NALUs or VP8/VP9 frames)
+    /// - `width`: Frame width in pixels
+    /// - `height`: Frame height in pixels
+    fn on_video_frame(&self, call_id: String, frame_data: Vec<u8>, width: u32, height: u32);
+}
+
+/// Callback interface for receiving remote video frames (stub when voip feature is disabled)
+#[cfg(not(feature = "voip"))]
+pub trait FfiVideoFrameCallback: Send + Sync {
+    /// Called when a remote video frame is received (stub)
+    fn on_video_frame(&self, call_id: String, frame_data: Vec<u8>, width: u32, height: u32);
+}
+
 // ========== Group Types (FASE 15) ==========
 
 use crate::group::{Group as InternalGroup, GroupRole as InternalGroupRole};
