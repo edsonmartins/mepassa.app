@@ -411,6 +411,76 @@ object MePassaClientWrapper {
         }
     }
 
+    // ========== Video Methods (FASE 14) ==========
+
+    /**
+     * Enable video for an active call
+     *
+     * @param callId Call identifier
+     * @param codec Video codec to use (H264, VP8, VP9)
+     */
+    suspend fun enableVideo(callId: String, codec: FfiVideoCodec = FfiVideoCodec.H264) = withContext(Dispatchers.IO) {
+        try {
+            getClient().enableVideo(callId, codec)
+            Log.i(TAG, "Video enabled for call: $callId with codec: $codec")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to enable video for call: $callId", e)
+            throw e
+        }
+    }
+
+    /**
+     * Disable video for an active call
+     *
+     * @param callId Call identifier
+     */
+    suspend fun disableVideo(callId: String) = withContext(Dispatchers.IO) {
+        try {
+            getClient().disableVideo(callId)
+            Log.i(TAG, "Video disabled for call: $callId")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to disable video for call: $callId", e)
+            throw e
+        }
+    }
+
+    /**
+     * Send video frame to remote peer
+     *
+     * @param callId Call identifier
+     * @param frameData Raw frame data (pre-encoded H.264/VP8 NALUs)
+     * @param width Frame width in pixels
+     * @param height Frame height in pixels
+     */
+    suspend fun sendVideoFrame(
+        callId: String,
+        frameData: ByteArray,
+        width: UInt,
+        height: UInt
+    ) = withContext(Dispatchers.IO) {
+        try {
+            getClient().sendVideoFrame(callId, frameData.toList(), width, height)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to send video frame for call: $callId", e)
+            // Don't throw - frame drops are acceptable
+        }
+    }
+
+    /**
+     * Switch camera (front/back) during video call
+     *
+     * @param callId Call identifier
+     */
+    suspend fun switchCamera(callId: String) = withContext(Dispatchers.IO) {
+        try {
+            getClient().switchCamera(callId)
+            Log.i(TAG, "Camera switched for call: $callId")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to switch camera for call: $callId", e)
+            throw e
+        }
+    }
+
     /**
      * Shutdown do client (chame no onDestroy da Application)
      */

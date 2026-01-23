@@ -124,15 +124,27 @@ struct VideoCallScreen: View {
     
     private func toggleVideo() {
         videoEnabled.toggle()
-        
+
         if videoEnabled {
             startVideo()
-            // TODO: Call FFI enable_video
-            // try? MePassaCore.shared.enableVideo(callId: callId, codec: .h264)
+            // Enable video track on WebRTC
+            Task {
+                do {
+                    try await MePassaCore.shared.enableVideo(callId: callId, codec: .h264)
+                } catch {
+                    print("❌ Failed to enable video: \(error)")
+                }
+            }
         } else {
             stopVideo()
-            // TODO: Call FFI disable_video
-            // try? MePassaCore.shared.disableVideo(callId: callId)
+            // Disable video track on WebRTC
+            Task {
+                do {
+                    try await MePassaCore.shared.disableVideo(callId: callId)
+                } catch {
+                    print("❌ Failed to disable video: \(error)")
+                }
+            }
         }
     }
     
@@ -144,8 +156,14 @@ struct VideoCallScreen: View {
     
     private func switchCamera() {
         cameraManager.switchCamera()
-        // TODO: Call FFI switch_camera
-        // try? MePassaCore.shared.switchCamera(callId: callId)
+        // Notify FFI about camera switch
+        Task {
+            do {
+                try await MePassaCore.shared.switchCamera(callId: callId)
+            } catch {
+                print("❌ Failed to switch camera: \(error)")
+            }
+        }
     }
     
     private func hangup() {
@@ -154,12 +172,57 @@ struct VideoCallScreen: View {
     }
     
     private func startVideo() {
-        cameraManager.startCapture { sampleBuffer in
-            // TODO: Send frame to WebRTC via FFI
-            // Example:
-            // guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
-            // let data = convertToByteArray(pixelBuffer)
-            // try? MePassaCore.shared.sendVideoFrame(callId: callId, data: data, width: width, height: height)
+        cameraManager.startCapture { [weak self] sampleBuffer in
+            guard let self = self else { return }
+
+            // Extract pixel buffer from sample buffer
+            guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+                return
+            }
+
+            // Get frame dimensions
+            let width = CVPixelBufferGetWidth(pixelBuffer)
+            let height = CVPixelBufferGetHeight(pixelBuffer)
+
+            // Lock the pixel buffer for reading
+            CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
+            defer {
+                CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly)
+            }
+
+            // Get raw pixel data
+            guard let baseAddress = CVPixelBufferGetBaseAddress(pixelBuffer) else {
+                return
+            }
+
+            let bytesPerRow = CVPixelBufferGetBytesPerRow(pixelBuffer)
+            let dataSize = bytesPerRow * height
+            let data = Data(bytes: baseAddress, count: dataSize)
+
+            // Convert to UInt8 array and send via FFI
+            let frameData = [UInt8](data)
+
+            Task {
+                do {
+                    try await MePassaCore.shared.sendVideoFrame(
+                        callId: self.callId,
+                        frameData: frameData,
+                        width: UInt32(width),
+                        height: UInt32(height)
+                    )
+                } catch {
+                    // Frame drop is acceptable
+                }
+            }
+        }
+
+        // Enable video track on WebRTC
+        Task {
+            do {
+                try await MePassaCore.shared.enableVideo(callId: callId, codec: .h264)
+            } catch {
+                print("❌ Failed to enable video: \(error)")
+            }
         }
     }
     

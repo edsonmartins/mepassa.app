@@ -13,6 +13,13 @@ import mepassa
 
 /// Swift wrapper for MePassa Core FFI
 class MePassaCore: ObservableObject {
+    // Shared singleton instance
+    static let shared: MePassaCore = {
+        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let dataDir = documentsPath.appendingPathComponent("mepassa_data").path
+        return MePassaCore(dataDir: dataDir)
+    }()
+
     private var client: MePassaClient?
 
     private let dataDir: String
@@ -248,6 +255,58 @@ class MePassaCore: ObservableObject {
         let messageId = UUID().uuidString
         print("📨 Sent group message to \(groupId): \(content)")
         return messageId
+    }
+
+    // MARK: - Video Methods (FASE 14)
+
+    /// Enable video for an active call
+    /// - Parameters:
+    ///   - callId: Call identifier
+    ///   - codec: Video codec to use (H264, VP8, VP9)
+    func enableVideo(callId: String, codec: FfiVideoCodec = .h264) async throws {
+        guard let client = client else {
+            throw MePassaCoreError.notInitialized
+        }
+
+        try await client.enableVideo(callId: callId, codec: codec)
+        print("📹 Video enabled for call: \(callId) with codec: \(codec)")
+    }
+
+    /// Disable video for an active call
+    /// - Parameter callId: Call identifier
+    func disableVideo(callId: String) async throws {
+        guard let client = client else {
+            throw MePassaCoreError.notInitialized
+        }
+
+        try await client.disableVideo(callId: callId)
+        print("🚫 Video disabled for call: \(callId)")
+    }
+
+    /// Send video frame to remote peer
+    /// - Parameters:
+    ///   - callId: Call identifier
+    ///   - frameData: Raw frame data (pre-encoded H.264/VP8 NALUs)
+    ///   - width: Frame width in pixels
+    ///   - height: Frame height in pixels
+    func sendVideoFrame(callId: String, frameData: [UInt8], width: UInt32, height: UInt32) async throws {
+        guard let client = client else {
+            throw MePassaCoreError.notInitialized
+        }
+
+        try await client.sendVideoFrame(callId: callId, frameData: frameData, width: width, height: height)
+        // Don't log every frame - too noisy
+    }
+
+    /// Switch camera (front/back) during video call
+    /// - Parameter callId: Call identifier
+    func switchCamera(callId: String) async throws {
+        guard let client = client else {
+            throw MePassaCoreError.notInitialized
+        }
+
+        try await client.switchCamera(callId: callId)
+        print("📷 Camera switched for call: \(callId)")
     }
 }
 

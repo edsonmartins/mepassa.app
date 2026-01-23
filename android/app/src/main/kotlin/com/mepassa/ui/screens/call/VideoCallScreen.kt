@@ -1,5 +1,6 @@
 package com.mepassa.ui.screens.call
 
+import android.util.Log
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -19,12 +20,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberPermissionState
+import com.mepassa.core.MePassaClientWrapper
 import com.mepassa.voip.CameraManager
 import kotlinx.coroutines.launch
+import uniffi.mepassa.FfiVideoCodec
 
 /**
  * VideoCallScreen - UI for video call with local preview and remote video
  */
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun VideoCallScreen(
     callId: String,
@@ -35,31 +42,61 @@ fun VideoCallScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
-    
+
+    // Camera permission
+    val cameraPermissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
+
+    // Request permission on first composition
+    LaunchedEffect(Unit) {
+        if (!cameraPermissionState.status.isGranted) {
+            cameraPermissionState.launchPermissionRequest()
+        }
+    }
+
     // State
     var videoEnabled by remember { mutableStateOf(true) }
     var isMuted by remember { mutableStateOf(false) }
     var callDuration by remember { mutableStateOf(0) }
-    
+
     // Camera manager
     val cameraManager = remember { CameraManager(context) }
-    
+
     // Preview views
     var localPreviewView by remember { mutableStateOf<PreviewView?>(null) }
     
-    DisposableEffect(Unit) {
-        // Start camera when screen appears
-        if (videoEnabled && localPreviewView != null) {
+    DisposableEffect(cameraPermissionState.status.isGranted, videoEnabled, localPreviewView) {
+        // Start camera when screen appears and permission is granted
+        if (cameraPermissionState.status.isGranted && videoEnabled && localPreviewView != null) {
             cameraManager.startCamera(
                 lifecycleOwner = lifecycleOwner,
                 previewView = localPreviewView!!,
                 onFrameCallback = { data, width, height ->
-                    // TODO: Send frame to WebRTC via FFI
-                    // MePassaClientWrapper.sendVideoFrame(callId, data, width, height)
+                    // Send frame to WebRTC via FFI
+                    scope.launch {
+                        try {
+                            MePassaClientWrapper.sendVideoFrame(
+                                callId = callId,
+                                frameData = data,
+                                width = width.toUInt(),
+                                height = height.toUInt()
+                            )
+                        } catch (e: Exception) {
+                            // Frame drop is acceptable
+                        }
+                    }
                 }
             )
+
+            // Enable video track on WebRTC
+            scope.launch {
+                try {
+                    MePassaClientWrapper.enableVideo(callId, FfiVideoCodec.H264)
+                } catch (e: Exception) {
+                    Log.e("VideoCallScreen", "Failed to enable video", e)
+                }
+            }
         }
-        
+
         onDispose {
             cameraManager.stopCamera()
             cameraManager.release()
@@ -89,12 +126,23 @@ fun VideoCallScreen(
                     factory = { ctx ->
                         PreviewView(ctx).also { preview ->
                             localPreviewView = preview
-                            if (videoEnabled) {
+                            if (cameraPermissionState.status.isGranted && videoEnabled) {
                                 cameraManager.startCamera(
                                     lifecycleOwner = lifecycleOwner,
                                     previewView = preview,
                                     onFrameCallback = { data, width, height ->
-                                        // TODO: Send frame to WebRTC
+                                        scope.launch {
+                                            try {
+                                                MePassaClientWrapper.sendVideoFrame(
+                                                    callId = callId,
+                                                    frameData = data,
+                                                    width = width.toUInt(),
+                                                    height = height.toUInt()
+                                                )
+                                            } catch (e: Exception) {
+                                                // Frame drop is acceptable
+                                            }
+                                        }
                                     }
                                 )
                             }
@@ -138,21 +186,50 @@ fun VideoCallScreen(
                 // Video toggle
                 IconButton(
                     onClick = {
+                        if (!cameraPermissionState.status.isGranted) {
+                            // Request permission if not granted
+                            cameraPermissionState.launchPermissionRequest()
+                            return@IconButton
+                        }
+
                         videoEnabled = !videoEnabled
                         if (videoEnabled && localPreviewView != null) {
                             cameraManager.startCamera(
                                 lifecycleOwner = lifecycleOwner,
                                 previewView = localPreviewView!!,
                                 onFrameCallback = { data, width, height ->
-                                    // TODO: Send frame to WebRTC
+                                    scope.launch {
+                                        try {
+                                            MePassaClientWrapper.sendVideoFrame(
+                                                callId = callId,
+                                                frameData = data,
+                                                width = width.toUInt(),
+                                                height = height.toUInt()
+                                            )
+                                        } catch (e: Exception) {
+                                            // Frame drop is acceptable
+                                        }
+                                    }
                                 }
                             )
-                            // TODO: Call FFI enable_video
-                            // MePassaClientWrapper.enableVideo(callId, FfiVideoCodec.H264)
+                            // Enable video track on WebRTC
+                            scope.launch {
+                                try {
+                                    MePassaClientWrapper.enableVideo(callId, FfiVideoCodec.H264)
+                                } catch (e: Exception) {
+                                    Log.e("VideoCallScreen", "Failed to enable video", e)
+                                }
+                            }
                         } else {
                             cameraManager.stopCamera()
-                            // TODO: Call FFI disable_video
-                            // MePassaClientWrapper.disableVideo(callId)
+                            // Disable video track on WebRTC
+                            scope.launch {
+                                try {
+                                    MePassaClientWrapper.disableVideo(callId)
+                                } catch (e: Exception) {
+                                    Log.e("VideoCallScreen", "Failed to disable video", e)
+                                }
+                            }
                         }
                     },
                     modifier = Modifier
@@ -197,16 +274,39 @@ fun VideoCallScreen(
                 // Switch camera
                 IconButton(
                     onClick = {
+                        if (!cameraPermissionState.status.isGranted) {
+                            // Request permission if not granted
+                            cameraPermissionState.launchPermissionRequest()
+                            return@IconButton
+                        }
+
                         if (localPreviewView != null) {
                             cameraManager.switchCamera(
                                 lifecycleOwner = lifecycleOwner,
                                 previewView = localPreviewView!!,
                                 onFrameCallback = { data, width, height ->
-                                    // TODO: Send frame to WebRTC
+                                    scope.launch {
+                                        try {
+                                            MePassaClientWrapper.sendVideoFrame(
+                                                callId = callId,
+                                                frameData = data,
+                                                width = width.toUInt(),
+                                                height = height.toUInt()
+                                            )
+                                        } catch (e: Exception) {
+                                            // Frame drop is acceptable
+                                        }
+                                    }
                                 }
                             )
-                            // TODO: Call FFI switch_camera
-                            // MePassaClientWrapper.switchCamera(callId)
+                            // Notify FFI about camera switch
+                            scope.launch {
+                                try {
+                                    MePassaClientWrapper.switchCamera(callId)
+                                } catch (e: Exception) {
+                                    Log.e("VideoCallScreen", "Failed to switch camera", e)
+                                }
+                            }
                         }
                     },
                     modifier = Modifier
