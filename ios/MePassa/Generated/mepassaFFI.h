@@ -50,9 +50,9 @@ typedef void (*UniffiRustFutureContinuationCallback)(uint64_t, int8_t
     );
 
 #endif
-#ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_FREE
-#define UNIFFI_FFIDEF_FOREIGN_FUTURE_FREE
-typedef void (*UniffiForeignFutureFree)(uint64_t
+#ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_DROPPED_CALLBACK
+#define UNIFFI_FFIDEF_FOREIGN_FUTURE_DROPPED_CALLBACK
+typedef void (*UniffiForeignFutureDroppedCallback)(uint64_t
     );
 
 #endif
@@ -62,192 +62,184 @@ typedef void (*UniffiCallbackInterfaceFree)(uint64_t
     );
 
 #endif
-#ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE
-#define UNIFFI_FFIDEF_FOREIGN_FUTURE
-typedef struct UniffiForeignFuture {
-    uint64_t handle;
-    UniffiForeignFutureFree _Nonnull free;
-} UniffiForeignFuture;
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_CLONE
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_CLONE
+typedef uint64_t (*UniffiCallbackInterfaceClone)(uint64_t
+    );
 
 #endif
-#ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_STRUCT_U8
-#define UNIFFI_FFIDEF_FOREIGN_FUTURE_STRUCT_U8
-typedef struct UniffiForeignFutureStructU8 {
+#ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_DROPPED_CALLBACK_STRUCT
+#define UNIFFI_FFIDEF_FOREIGN_FUTURE_DROPPED_CALLBACK_STRUCT
+typedef struct UniffiForeignFutureDroppedCallbackStruct {
+    uint64_t handle;
+    UniffiForeignFutureDroppedCallback _Nonnull free;
+} UniffiForeignFutureDroppedCallbackStruct;
+
+#endif
+#ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_RESULT_U8
+#define UNIFFI_FFIDEF_FOREIGN_FUTURE_RESULT_U8
+typedef struct UniffiForeignFutureResultU8 {
     uint8_t returnValue;
     RustCallStatus callStatus;
-} UniffiForeignFutureStructU8;
+} UniffiForeignFutureResultU8;
 
 #endif
 #ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_COMPLETE_U8
 #define UNIFFI_FFIDEF_FOREIGN_FUTURE_COMPLETE_U8
-typedef void (*UniffiForeignFutureCompleteU8)(uint64_t, UniffiForeignFutureStructU8
+typedef void (*UniffiForeignFutureCompleteU8)(uint64_t, UniffiForeignFutureResultU8
     );
 
 #endif
-#ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_STRUCT_I8
-#define UNIFFI_FFIDEF_FOREIGN_FUTURE_STRUCT_I8
-typedef struct UniffiForeignFutureStructI8 {
+#ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_RESULT_I8
+#define UNIFFI_FFIDEF_FOREIGN_FUTURE_RESULT_I8
+typedef struct UniffiForeignFutureResultI8 {
     int8_t returnValue;
     RustCallStatus callStatus;
-} UniffiForeignFutureStructI8;
+} UniffiForeignFutureResultI8;
 
 #endif
 #ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_COMPLETE_I8
 #define UNIFFI_FFIDEF_FOREIGN_FUTURE_COMPLETE_I8
-typedef void (*UniffiForeignFutureCompleteI8)(uint64_t, UniffiForeignFutureStructI8
+typedef void (*UniffiForeignFutureCompleteI8)(uint64_t, UniffiForeignFutureResultI8
     );
 
 #endif
-#ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_STRUCT_U16
-#define UNIFFI_FFIDEF_FOREIGN_FUTURE_STRUCT_U16
-typedef struct UniffiForeignFutureStructU16 {
+#ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_RESULT_U16
+#define UNIFFI_FFIDEF_FOREIGN_FUTURE_RESULT_U16
+typedef struct UniffiForeignFutureResultU16 {
     uint16_t returnValue;
     RustCallStatus callStatus;
-} UniffiForeignFutureStructU16;
+} UniffiForeignFutureResultU16;
 
 #endif
 #ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_COMPLETE_U16
 #define UNIFFI_FFIDEF_FOREIGN_FUTURE_COMPLETE_U16
-typedef void (*UniffiForeignFutureCompleteU16)(uint64_t, UniffiForeignFutureStructU16
+typedef void (*UniffiForeignFutureCompleteU16)(uint64_t, UniffiForeignFutureResultU16
     );
 
 #endif
-#ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_STRUCT_I16
-#define UNIFFI_FFIDEF_FOREIGN_FUTURE_STRUCT_I16
-typedef struct UniffiForeignFutureStructI16 {
+#ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_RESULT_I16
+#define UNIFFI_FFIDEF_FOREIGN_FUTURE_RESULT_I16
+typedef struct UniffiForeignFutureResultI16 {
     int16_t returnValue;
     RustCallStatus callStatus;
-} UniffiForeignFutureStructI16;
+} UniffiForeignFutureResultI16;
 
 #endif
 #ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_COMPLETE_I16
 #define UNIFFI_FFIDEF_FOREIGN_FUTURE_COMPLETE_I16
-typedef void (*UniffiForeignFutureCompleteI16)(uint64_t, UniffiForeignFutureStructI16
+typedef void (*UniffiForeignFutureCompleteI16)(uint64_t, UniffiForeignFutureResultI16
     );
 
 #endif
-#ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_STRUCT_U32
-#define UNIFFI_FFIDEF_FOREIGN_FUTURE_STRUCT_U32
-typedef struct UniffiForeignFutureStructU32 {
+#ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_RESULT_U32
+#define UNIFFI_FFIDEF_FOREIGN_FUTURE_RESULT_U32
+typedef struct UniffiForeignFutureResultU32 {
     uint32_t returnValue;
     RustCallStatus callStatus;
-} UniffiForeignFutureStructU32;
+} UniffiForeignFutureResultU32;
 
 #endif
 #ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_COMPLETE_U32
 #define UNIFFI_FFIDEF_FOREIGN_FUTURE_COMPLETE_U32
-typedef void (*UniffiForeignFutureCompleteU32)(uint64_t, UniffiForeignFutureStructU32
+typedef void (*UniffiForeignFutureCompleteU32)(uint64_t, UniffiForeignFutureResultU32
     );
 
 #endif
-#ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_STRUCT_I32
-#define UNIFFI_FFIDEF_FOREIGN_FUTURE_STRUCT_I32
-typedef struct UniffiForeignFutureStructI32 {
+#ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_RESULT_I32
+#define UNIFFI_FFIDEF_FOREIGN_FUTURE_RESULT_I32
+typedef struct UniffiForeignFutureResultI32 {
     int32_t returnValue;
     RustCallStatus callStatus;
-} UniffiForeignFutureStructI32;
+} UniffiForeignFutureResultI32;
 
 #endif
 #ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_COMPLETE_I32
 #define UNIFFI_FFIDEF_FOREIGN_FUTURE_COMPLETE_I32
-typedef void (*UniffiForeignFutureCompleteI32)(uint64_t, UniffiForeignFutureStructI32
+typedef void (*UniffiForeignFutureCompleteI32)(uint64_t, UniffiForeignFutureResultI32
     );
 
 #endif
-#ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_STRUCT_U64
-#define UNIFFI_FFIDEF_FOREIGN_FUTURE_STRUCT_U64
-typedef struct UniffiForeignFutureStructU64 {
+#ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_RESULT_U64
+#define UNIFFI_FFIDEF_FOREIGN_FUTURE_RESULT_U64
+typedef struct UniffiForeignFutureResultU64 {
     uint64_t returnValue;
     RustCallStatus callStatus;
-} UniffiForeignFutureStructU64;
+} UniffiForeignFutureResultU64;
 
 #endif
 #ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_COMPLETE_U64
 #define UNIFFI_FFIDEF_FOREIGN_FUTURE_COMPLETE_U64
-typedef void (*UniffiForeignFutureCompleteU64)(uint64_t, UniffiForeignFutureStructU64
+typedef void (*UniffiForeignFutureCompleteU64)(uint64_t, UniffiForeignFutureResultU64
     );
 
 #endif
-#ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_STRUCT_I64
-#define UNIFFI_FFIDEF_FOREIGN_FUTURE_STRUCT_I64
-typedef struct UniffiForeignFutureStructI64 {
+#ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_RESULT_I64
+#define UNIFFI_FFIDEF_FOREIGN_FUTURE_RESULT_I64
+typedef struct UniffiForeignFutureResultI64 {
     int64_t returnValue;
     RustCallStatus callStatus;
-} UniffiForeignFutureStructI64;
+} UniffiForeignFutureResultI64;
 
 #endif
 #ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_COMPLETE_I64
 #define UNIFFI_FFIDEF_FOREIGN_FUTURE_COMPLETE_I64
-typedef void (*UniffiForeignFutureCompleteI64)(uint64_t, UniffiForeignFutureStructI64
+typedef void (*UniffiForeignFutureCompleteI64)(uint64_t, UniffiForeignFutureResultI64
     );
 
 #endif
-#ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_STRUCT_F32
-#define UNIFFI_FFIDEF_FOREIGN_FUTURE_STRUCT_F32
-typedef struct UniffiForeignFutureStructF32 {
+#ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_RESULT_F32
+#define UNIFFI_FFIDEF_FOREIGN_FUTURE_RESULT_F32
+typedef struct UniffiForeignFutureResultF32 {
     float returnValue;
     RustCallStatus callStatus;
-} UniffiForeignFutureStructF32;
+} UniffiForeignFutureResultF32;
 
 #endif
 #ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_COMPLETE_F32
 #define UNIFFI_FFIDEF_FOREIGN_FUTURE_COMPLETE_F32
-typedef void (*UniffiForeignFutureCompleteF32)(uint64_t, UniffiForeignFutureStructF32
+typedef void (*UniffiForeignFutureCompleteF32)(uint64_t, UniffiForeignFutureResultF32
     );
 
 #endif
-#ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_STRUCT_F64
-#define UNIFFI_FFIDEF_FOREIGN_FUTURE_STRUCT_F64
-typedef struct UniffiForeignFutureStructF64 {
+#ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_RESULT_F64
+#define UNIFFI_FFIDEF_FOREIGN_FUTURE_RESULT_F64
+typedef struct UniffiForeignFutureResultF64 {
     double returnValue;
     RustCallStatus callStatus;
-} UniffiForeignFutureStructF64;
+} UniffiForeignFutureResultF64;
 
 #endif
 #ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_COMPLETE_F64
 #define UNIFFI_FFIDEF_FOREIGN_FUTURE_COMPLETE_F64
-typedef void (*UniffiForeignFutureCompleteF64)(uint64_t, UniffiForeignFutureStructF64
+typedef void (*UniffiForeignFutureCompleteF64)(uint64_t, UniffiForeignFutureResultF64
     );
 
 #endif
-#ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_STRUCT_POINTER
-#define UNIFFI_FFIDEF_FOREIGN_FUTURE_STRUCT_POINTER
-typedef struct UniffiForeignFutureStructPointer {
-    void*_Nonnull returnValue;
-    RustCallStatus callStatus;
-} UniffiForeignFutureStructPointer;
-
-#endif
-#ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_COMPLETE_POINTER
-#define UNIFFI_FFIDEF_FOREIGN_FUTURE_COMPLETE_POINTER
-typedef void (*UniffiForeignFutureCompletePointer)(uint64_t, UniffiForeignFutureStructPointer
-    );
-
-#endif
-#ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_STRUCT_RUST_BUFFER
-#define UNIFFI_FFIDEF_FOREIGN_FUTURE_STRUCT_RUST_BUFFER
-typedef struct UniffiForeignFutureStructRustBuffer {
+#ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_RESULT_RUST_BUFFER
+#define UNIFFI_FFIDEF_FOREIGN_FUTURE_RESULT_RUST_BUFFER
+typedef struct UniffiForeignFutureResultRustBuffer {
     RustBuffer returnValue;
     RustCallStatus callStatus;
-} UniffiForeignFutureStructRustBuffer;
+} UniffiForeignFutureResultRustBuffer;
 
 #endif
 #ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_COMPLETE_RUST_BUFFER
 #define UNIFFI_FFIDEF_FOREIGN_FUTURE_COMPLETE_RUST_BUFFER
-typedef void (*UniffiForeignFutureCompleteRustBuffer)(uint64_t, UniffiForeignFutureStructRustBuffer
+typedef void (*UniffiForeignFutureCompleteRustBuffer)(uint64_t, UniffiForeignFutureResultRustBuffer
     );
 
 #endif
-#ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_STRUCT_VOID
-#define UNIFFI_FFIDEF_FOREIGN_FUTURE_STRUCT_VOID
-typedef struct UniffiForeignFutureStructVoid {
+#ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_RESULT_VOID
+#define UNIFFI_FFIDEF_FOREIGN_FUTURE_RESULT_VOID
+typedef struct UniffiForeignFutureResultVoid {
     RustCallStatus callStatus;
-} UniffiForeignFutureStructVoid;
+} UniffiForeignFutureResultVoid;
 
 #endif
 #ifndef UNIFFI_FFIDEF_FOREIGN_FUTURE_COMPLETE_VOID
 #define UNIFFI_FFIDEF_FOREIGN_FUTURE_COMPLETE_VOID
-typedef void (*UniffiForeignFutureCompleteVoid)(uint64_t, UniffiForeignFutureStructVoid
+typedef void (*UniffiForeignFutureCompleteVoid)(uint64_t, UniffiForeignFutureResultVoid
     );
 
 #endif
@@ -261,219 +253,225 @@ typedef void (*UniffiCallbackInterfaceFfiVideoFrameCallbackMethod0)(uint64_t, Ru
 #ifndef UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_FFI_VIDEO_FRAME_CALLBACK
 #define UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_FFI_VIDEO_FRAME_CALLBACK
 typedef struct UniffiVTableCallbackInterfaceFfiVideoFrameCallback {
-    UniffiCallbackInterfaceFfiVideoFrameCallbackMethod0 _Nonnull onVideoFrame;
     UniffiCallbackInterfaceFree _Nonnull uniffiFree;
+    UniffiCallbackInterfaceClone _Nonnull uniffiClone;
+    UniffiCallbackInterfaceFfiVideoFrameCallbackMethod0 _Nonnull onVideoFrame;
 } UniffiVTableCallbackInterfaceFfiVideoFrameCallback;
 
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_CLONE_MEPASSACLIENT
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_CLONE_MEPASSACLIENT
-void*_Nonnull uniffi_mepassa_core_fn_clone_mepassaclient(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+uint64_t uniffi_mepassa_core_fn_clone_mepassaclient(uint64_t handle, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_FREE_MEPASSACLIENT
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_FREE_MEPASSACLIENT
-void uniffi_mepassa_core_fn_free_mepassaclient(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+void uniffi_mepassa_core_fn_free_mepassaclient(uint64_t handle, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_CONSTRUCTOR_MEPASSACLIENT_NEW
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_CONSTRUCTOR_MEPASSACLIENT_NEW
-void*_Nonnull uniffi_mepassa_core_fn_constructor_mepassaclient_new(RustBuffer data_dir, RustCallStatus *_Nonnull out_status
+uint64_t uniffi_mepassa_core_fn_constructor_mepassaclient_new(RustBuffer data_dir, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_ACCEPT_CALL
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_ACCEPT_CALL
-uint64_t uniffi_mepassa_core_fn_method_mepassaclient_accept_call(void*_Nonnull ptr, RustBuffer call_id
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_accept_call(uint64_t ptr, RustBuffer call_id
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_ADD_GROUP_MEMBER
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_ADD_GROUP_MEMBER
-uint64_t uniffi_mepassa_core_fn_method_mepassaclient_add_group_member(void*_Nonnull ptr, RustBuffer group_id, RustBuffer peer_id
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_add_group_member(uint64_t ptr, RustBuffer group_id, RustBuffer peer_id
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_ADD_REACTION
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_ADD_REACTION
-void uniffi_mepassa_core_fn_method_mepassaclient_add_reaction(void*_Nonnull ptr, RustBuffer message_id, RustBuffer emoji, RustCallStatus *_Nonnull out_status
+void uniffi_mepassa_core_fn_method_mepassaclient_add_reaction(uint64_t ptr, RustBuffer message_id, RustBuffer emoji, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_BOOTSTRAP
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_BOOTSTRAP
-uint64_t uniffi_mepassa_core_fn_method_mepassaclient_bootstrap(void*_Nonnull ptr
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_bootstrap(uint64_t ptr
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_CONNECT_TO_PEER
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_CONNECT_TO_PEER
-uint64_t uniffi_mepassa_core_fn_method_mepassaclient_connect_to_peer(void*_Nonnull ptr, RustBuffer peer_id, RustBuffer multiaddr
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_connect_to_peer(uint64_t ptr, RustBuffer peer_id, RustBuffer multiaddr
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_CONNECTED_PEERS_COUNT
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_CONNECTED_PEERS_COUNT
-uint64_t uniffi_mepassa_core_fn_method_mepassaclient_connected_peers_count(void*_Nonnull ptr
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_connected_peers_count(uint64_t ptr
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_CREATE_GROUP
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_CREATE_GROUP
-uint64_t uniffi_mepassa_core_fn_method_mepassaclient_create_group(void*_Nonnull ptr, RustBuffer name, RustBuffer description
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_create_group(uint64_t ptr, RustBuffer name, RustBuffer description
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_DELETE_MESSAGE
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_DELETE_MESSAGE
-void uniffi_mepassa_core_fn_method_mepassaclient_delete_message(void*_Nonnull ptr, RustBuffer message_id, RustCallStatus *_Nonnull out_status
+void uniffi_mepassa_core_fn_method_mepassaclient_delete_message(uint64_t ptr, RustBuffer message_id, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_DISABLE_VIDEO
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_DISABLE_VIDEO
-uint64_t uniffi_mepassa_core_fn_method_mepassaclient_disable_video(void*_Nonnull ptr, RustBuffer call_id
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_disable_video(uint64_t ptr, RustBuffer call_id
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_DOWNLOAD_MEDIA
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_DOWNLOAD_MEDIA
-uint64_t uniffi_mepassa_core_fn_method_mepassaclient_download_media(void*_Nonnull ptr, RustBuffer media_hash
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_download_media(uint64_t ptr, RustBuffer media_hash
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_ENABLE_VIDEO
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_ENABLE_VIDEO
-uint64_t uniffi_mepassa_core_fn_method_mepassaclient_enable_video(void*_Nonnull ptr, RustBuffer call_id, RustBuffer codec
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_enable_video(uint64_t ptr, RustBuffer call_id, RustBuffer codec
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_FORWARD_MESSAGE
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_FORWARD_MESSAGE
-uint64_t uniffi_mepassa_core_fn_method_mepassaclient_forward_message(void*_Nonnull ptr, RustBuffer message_id, RustBuffer to_peer_id
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_forward_message(uint64_t ptr, RustBuffer message_id, RustBuffer to_peer_id
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_GET_CONVERSATION_MEDIA
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_GET_CONVERSATION_MEDIA
-RustBuffer uniffi_mepassa_core_fn_method_mepassaclient_get_conversation_media(void*_Nonnull ptr, RustBuffer conversation_id, RustBuffer media_type, RustBuffer limit, RustCallStatus *_Nonnull out_status
+RustBuffer uniffi_mepassa_core_fn_method_mepassaclient_get_conversation_media(uint64_t ptr, RustBuffer conversation_id, RustBuffer media_type, RustBuffer limit, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_GET_CONVERSATION_MESSAGES
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_GET_CONVERSATION_MESSAGES
-RustBuffer uniffi_mepassa_core_fn_method_mepassaclient_get_conversation_messages(void*_Nonnull ptr, RustBuffer peer_id, RustBuffer limit, RustBuffer offset, RustCallStatus *_Nonnull out_status
+RustBuffer uniffi_mepassa_core_fn_method_mepassaclient_get_conversation_messages(uint64_t ptr, RustBuffer peer_id, RustBuffer limit, RustBuffer offset, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_GET_GROUPS
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_GET_GROUPS
-uint64_t uniffi_mepassa_core_fn_method_mepassaclient_get_groups(void*_Nonnull ptr
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_get_groups(uint64_t ptr
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_GET_MESSAGE_REACTIONS
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_GET_MESSAGE_REACTIONS
-RustBuffer uniffi_mepassa_core_fn_method_mepassaclient_get_message_reactions(void*_Nonnull ptr, RustBuffer message_id, RustCallStatus *_Nonnull out_status
+RustBuffer uniffi_mepassa_core_fn_method_mepassaclient_get_message_reactions(uint64_t ptr, RustBuffer message_id, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_HANGUP_CALL
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_HANGUP_CALL
-uint64_t uniffi_mepassa_core_fn_method_mepassaclient_hangup_call(void*_Nonnull ptr, RustBuffer call_id
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_hangup_call(uint64_t ptr, RustBuffer call_id
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_JOIN_GROUP
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_JOIN_GROUP
-uint64_t uniffi_mepassa_core_fn_method_mepassaclient_join_group(void*_Nonnull ptr, RustBuffer group_id, RustBuffer group_name
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_join_group(uint64_t ptr, RustBuffer group_id, RustBuffer group_name
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_LEAVE_GROUP
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_LEAVE_GROUP
-uint64_t uniffi_mepassa_core_fn_method_mepassaclient_leave_group(void*_Nonnull ptr, RustBuffer group_id
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_leave_group(uint64_t ptr, RustBuffer group_id
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_LIST_CONVERSATIONS
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_LIST_CONVERSATIONS
-RustBuffer uniffi_mepassa_core_fn_method_mepassaclient_list_conversations(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+RustBuffer uniffi_mepassa_core_fn_method_mepassaclient_list_conversations(uint64_t ptr, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_LISTEN_ON
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_LISTEN_ON
-uint64_t uniffi_mepassa_core_fn_method_mepassaclient_listen_on(void*_Nonnull ptr, RustBuffer multiaddr
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_listen_on(uint64_t ptr, RustBuffer multiaddr
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_LISTENING_ADDRESSES
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_LISTENING_ADDRESSES
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_listening_addresses(uint64_t ptr
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_LOCAL_PEER_ID
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_LOCAL_PEER_ID
-RustBuffer uniffi_mepassa_core_fn_method_mepassaclient_local_peer_id(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+RustBuffer uniffi_mepassa_core_fn_method_mepassaclient_local_peer_id(uint64_t ptr, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_MARK_CONVERSATION_READ
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_MARK_CONVERSATION_READ
-void uniffi_mepassa_core_fn_method_mepassaclient_mark_conversation_read(void*_Nonnull ptr, RustBuffer peer_id, RustCallStatus *_Nonnull out_status
+void uniffi_mepassa_core_fn_method_mepassaclient_mark_conversation_read(uint64_t ptr, RustBuffer peer_id, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_REGISTER_VIDEO_FRAME_CALLBACK
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_REGISTER_VIDEO_FRAME_CALLBACK
-uint64_t uniffi_mepassa_core_fn_method_mepassaclient_register_video_frame_callback(void*_Nonnull ptr, uint64_t callback
+void uniffi_mepassa_core_fn_method_mepassaclient_register_video_frame_callback(uint64_t ptr, uint64_t callback, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_REJECT_CALL
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_REJECT_CALL
-uint64_t uniffi_mepassa_core_fn_method_mepassaclient_reject_call(void*_Nonnull ptr, RustBuffer call_id, RustBuffer reason
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_reject_call(uint64_t ptr, RustBuffer call_id, RustBuffer reason
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_REMOVE_GROUP_MEMBER
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_REMOVE_GROUP_MEMBER
-uint64_t uniffi_mepassa_core_fn_method_mepassaclient_remove_group_member(void*_Nonnull ptr, RustBuffer group_id, RustBuffer peer_id
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_remove_group_member(uint64_t ptr, RustBuffer group_id, RustBuffer peer_id
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_REMOVE_REACTION
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_REMOVE_REACTION
-void uniffi_mepassa_core_fn_method_mepassaclient_remove_reaction(void*_Nonnull ptr, RustBuffer message_id, RustBuffer emoji, RustCallStatus *_Nonnull out_status
+void uniffi_mepassa_core_fn_method_mepassaclient_remove_reaction(uint64_t ptr, RustBuffer message_id, RustBuffer emoji, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_SEARCH_MESSAGES
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_SEARCH_MESSAGES
-RustBuffer uniffi_mepassa_core_fn_method_mepassaclient_search_messages(void*_Nonnull ptr, RustBuffer query, RustBuffer limit, RustCallStatus *_Nonnull out_status
+RustBuffer uniffi_mepassa_core_fn_method_mepassaclient_search_messages(uint64_t ptr, RustBuffer query, RustBuffer limit, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_SEND_DOCUMENT_MESSAGE
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_SEND_DOCUMENT_MESSAGE
-uint64_t uniffi_mepassa_core_fn_method_mepassaclient_send_document_message(void*_Nonnull ptr, RustBuffer to_peer_id, RustBuffer file_data, RustBuffer file_name, RustBuffer mime_type
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_send_document_message(uint64_t ptr, RustBuffer to_peer_id, RustBuffer file_data, RustBuffer file_name, RustBuffer mime_type
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_SEND_IMAGE_MESSAGE
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_SEND_IMAGE_MESSAGE
-uint64_t uniffi_mepassa_core_fn_method_mepassaclient_send_image_message(void*_Nonnull ptr, RustBuffer to_peer_id, RustBuffer image_data, RustBuffer file_name, uint32_t quality
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_send_image_message(uint64_t ptr, RustBuffer to_peer_id, RustBuffer image_data, RustBuffer file_name, uint32_t quality
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_SEND_TEXT_MESSAGE
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_SEND_TEXT_MESSAGE
-uint64_t uniffi_mepassa_core_fn_method_mepassaclient_send_text_message(void*_Nonnull ptr, RustBuffer to_peer_id, RustBuffer content
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_send_text_message(uint64_t ptr, RustBuffer to_peer_id, RustBuffer content
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_SEND_VIDEO_FRAME
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_SEND_VIDEO_FRAME
-uint64_t uniffi_mepassa_core_fn_method_mepassaclient_send_video_frame(void*_Nonnull ptr, RustBuffer call_id, RustBuffer frame_data, uint32_t width, uint32_t height
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_send_video_frame(uint64_t ptr, RustBuffer call_id, RustBuffer frame_data, uint32_t width, uint32_t height
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_SEND_VIDEO_MESSAGE
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_SEND_VIDEO_MESSAGE
-uint64_t uniffi_mepassa_core_fn_method_mepassaclient_send_video_message(void*_Nonnull ptr, RustBuffer to_peer_id, RustBuffer video_data, RustBuffer file_name, RustBuffer width, RustBuffer height, int32_t duration_seconds, RustBuffer thumbnail_data
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_send_video_message(uint64_t ptr, RustBuffer to_peer_id, RustBuffer video_data, RustBuffer file_name, RustBuffer width, RustBuffer height, int32_t duration_seconds, RustBuffer thumbnail_data
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_SEND_VOICE_MESSAGE
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_SEND_VOICE_MESSAGE
-uint64_t uniffi_mepassa_core_fn_method_mepassaclient_send_voice_message(void*_Nonnull ptr, RustBuffer to_peer_id, RustBuffer audio_data, RustBuffer file_name, int32_t duration_seconds
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_send_voice_message(uint64_t ptr, RustBuffer to_peer_id, RustBuffer audio_data, RustBuffer file_name, int32_t duration_seconds
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_START_CALL
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_START_CALL
-uint64_t uniffi_mepassa_core_fn_method_mepassaclient_start_call(void*_Nonnull ptr, RustBuffer to_peer_id
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_start_call(uint64_t ptr, RustBuffer to_peer_id
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_SWITCH_CAMERA
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_SWITCH_CAMERA
-uint64_t uniffi_mepassa_core_fn_method_mepassaclient_switch_camera(void*_Nonnull ptr, RustBuffer call_id
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_switch_camera(uint64_t ptr, RustBuffer call_id
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_TOGGLE_MUTE
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_TOGGLE_MUTE
-uint64_t uniffi_mepassa_core_fn_method_mepassaclient_toggle_mute(void*_Nonnull ptr, RustBuffer call_id
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_toggle_mute(uint64_t ptr, RustBuffer call_id
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_TOGGLE_SPEAKERPHONE
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_TOGGLE_SPEAKERPHONE
-uint64_t uniffi_mepassa_core_fn_method_mepassaclient_toggle_speakerphone(void*_Nonnull ptr, RustBuffer call_id
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_toggle_speakerphone(uint64_t ptr, RustBuffer call_id
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_INIT_CALLBACK_VTABLE_FFIVIDEOFRAMECALLBACK
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_INIT_CALLBACK_VTABLE_FFIVIDEOFRAMECALLBACK
-void uniffi_mepassa_core_fn_init_callback_vtable_ffivideoframecallback(UniffiVTableCallbackInterfaceFfiVideoFrameCallback* _Nonnull vtable
+void uniffi_mepassa_core_fn_init_callback_vtable_ffivideoframecallback(const UniffiVTableCallbackInterfaceFfiVideoFrameCallback* _Nonnull vtable
 );
 #endif
 #ifndef UNIFFI_FFIDEF_FFI_MEPASSA_CORE_RUSTBUFFER_ALLOC
@@ -696,26 +694,6 @@ void ffi_mepassa_core_rust_future_free_f64(uint64_t handle
 double ffi_mepassa_core_rust_future_complete_f64(uint64_t handle, RustCallStatus *_Nonnull out_status
 );
 #endif
-#ifndef UNIFFI_FFIDEF_FFI_MEPASSA_CORE_RUST_FUTURE_POLL_POINTER
-#define UNIFFI_FFIDEF_FFI_MEPASSA_CORE_RUST_FUTURE_POLL_POINTER
-void ffi_mepassa_core_rust_future_poll_pointer(uint64_t handle, UniffiRustFutureContinuationCallback _Nonnull callback, uint64_t callback_data
-);
-#endif
-#ifndef UNIFFI_FFIDEF_FFI_MEPASSA_CORE_RUST_FUTURE_CANCEL_POINTER
-#define UNIFFI_FFIDEF_FFI_MEPASSA_CORE_RUST_FUTURE_CANCEL_POINTER
-void ffi_mepassa_core_rust_future_cancel_pointer(uint64_t handle
-);
-#endif
-#ifndef UNIFFI_FFIDEF_FFI_MEPASSA_CORE_RUST_FUTURE_FREE_POINTER
-#define UNIFFI_FFIDEF_FFI_MEPASSA_CORE_RUST_FUTURE_FREE_POINTER
-void ffi_mepassa_core_rust_future_free_pointer(uint64_t handle
-);
-#endif
-#ifndef UNIFFI_FFIDEF_FFI_MEPASSA_CORE_RUST_FUTURE_COMPLETE_POINTER
-#define UNIFFI_FFIDEF_FFI_MEPASSA_CORE_RUST_FUTURE_COMPLETE_POINTER
-void*_Nonnull ffi_mepassa_core_rust_future_complete_pointer(uint64_t handle, RustCallStatus *_Nonnull out_status
-);
-#endif
 #ifndef UNIFFI_FFIDEF_FFI_MEPASSA_CORE_RUST_FUTURE_POLL_RUST_BUFFER
 #define UNIFFI_FFIDEF_FFI_MEPASSA_CORE_RUST_FUTURE_POLL_RUST_BUFFER
 void ffi_mepassa_core_rust_future_poll_rust_buffer(uint64_t handle, UniffiRustFutureContinuationCallback _Nonnull callback, uint64_t callback_data
@@ -879,6 +857,12 @@ uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_list_conversations(vo
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_LISTEN_ON
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_LISTEN_ON
 uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_listen_on(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_LISTENING_ADDRESSES
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_LISTENING_ADDRESSES
+uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_listening_addresses(void
     
 );
 #endif

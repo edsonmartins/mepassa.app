@@ -214,6 +214,9 @@ interface MePassaClient {
     u32 connected_peers_count();
 
     [Throws=MePassaFfiError, Async]
+    sequence<string> listening_addresses();
+
+    [Throws=MePassaFfiError, Async]
     void bootstrap();
 
     // VoIP methods (FASE 12 - VoIP Audio)

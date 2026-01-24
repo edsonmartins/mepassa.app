@@ -260,6 +260,24 @@ pub async fn get_connected_peers_count(state: State<'_, ClientState>) -> Result<
 }
 
 #[tauri::command]
+pub async fn get_listening_addresses(state: State<'_, ClientState>) -> Result<Vec<String>, String> {
+    tracing::info!("🔵 get_listening_addresses CALLED");
+
+    let client = {
+        let client_guard = state.lock().map_err(|e| e.to_string())?;
+        client_guard
+            .as_ref()
+            .ok_or_else(|| "Client not initialized".to_string())?
+            .clone()
+    };
+
+    // listening_addresses() is async and returns Vec<String>
+    let addresses = client.listening_addresses().await.map_err(|e| e.to_string())?;
+    tracing::info!("📍 Returning {} listening addresses: {:?}", addresses.len(), addresses);
+    Ok(addresses)
+}
+
+#[tauri::command]
 pub async fn bootstrap(state: State<'_, ClientState>) -> Result<(), String> {
     tracing::info!("Bootstrapping DHT...");
 

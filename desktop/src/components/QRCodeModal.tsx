@@ -1,6 +1,7 @@
 import { QRCodeSVG } from 'qrcode.react'
-import { X, Copy, Share2, Check } from 'lucide-react'
-import { useState } from 'react'
+import { X, Copy, Share2, Check, RefreshCw } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { invoke } from '@tauri-apps/api/core'
 
 interface QRCodeModalProps {
   localPeerId: string
@@ -9,6 +10,47 @@ interface QRCodeModalProps {
 
 export default function QRCodeModal({ localPeerId, onClose }: QRCodeModalProps) {
   const [copied, setCopied] = useState(false)
+  const [listeningAddresses, setListeningAddresses] = useState<string[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Fetch listening addresses on mount
+  useEffect(() => {
+    const fetchAddresses = async () => {
+      try {
+        const addresses = await invoke<string[]>('get_listening_addresses')
+        console.log('📍 Listening addresses:', addresses)
+        setListeningAddresses(addresses)
+      } catch (error) {
+        console.error('Failed to get listening addresses:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchAddresses()
+  }, [])
+
+  // Build QR code data: peer_id@address (iOS will parse this)
+  // Filter to only include routable addresses (not localhost)
+  const getRoutableAddress = () => {
+    // Prefer non-localhost TCP addresses
+    const tcpAddrs = listeningAddresses.filter(addr =>
+      addr.includes('/tcp/') &&
+      !addr.includes('/127.0.0.1/') &&
+      !addr.includes('/::1/')
+    )
+    if (tcpAddrs.length > 0) return tcpAddrs[0]
+
+    // Fall back to any TCP address
+    const anyTcp = listeningAddresses.find(addr => addr.includes('/tcp/'))
+    if (anyTcp) return anyTcp
+
+    // Fall back to any address
+    return listeningAddresses[0] || ''
+  }
+
+  const routeAddr = getRoutableAddress()
+  // Format: peerId@multiaddr - iOS will split on @ to get both parts
+  const qrCodeData = routeAddr ? `${localPeerId}@${routeAddr}` : localPeerId
 
   const handleCopyPeerId = async () => {
     try {
@@ -70,14 +112,28 @@ export default function QRCodeModal({ localPeerId, onClose }: QRCodeModalProps) 
           {/* QR Code */}
           <div className="flex justify-center">
             <div className="p-6 bg-white rounded-xl shadow-lg border-2 border-gray-100">
-              <QRCodeSVG
-                value={localPeerId}
-                size={220}
-                level="M"
-                includeMargin={true}
-              />
+              {isLoading ? (
+                <div className="w-[220px] h-[220px] flex items-center justify-center">
+                  <RefreshCw className="w-8 h-8 animate-spin text-gray-400" />
+                </div>
+              ) : (
+                <QRCodeSVG
+                  value={qrCodeData}
+                  size={220}
+                  level="M"
+                  includeMargin={true}
+                />
+              )}
             </div>
           </div>
+
+          {/* Listening Address Info */}
+          {routeAddr && (
+            <div className="text-xs text-gray-500 text-center">
+              <p className="font-medium">Endereço de escuta:</p>
+              <p className="font-mono break-all">{routeAddr}</p>
+            </div>
+          )}
 
           {/* Peer ID Display */}
           <div className="space-y-2">

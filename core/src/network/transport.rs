@@ -16,8 +16,8 @@ use crate::utils::error::{MePassaError, Result};
 /// - Noise encryption
 /// - Yamux multiplexing
 pub fn build_transport(keypair: &Keypair) -> Result<Boxed<(PeerId, StreamMuxerBox)>> {
-    // TCP transport with Noise + Yamux
-    let tcp_transport = tcp::async_io::Transport::new(tcp::Config::default().nodelay(true))
+    // TCP transport with Noise + Yamux (using tokio runtime)
+    let tcp_transport = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true))
         .upgrade(upgrade::Version::V1Lazy)
         .authenticate(noise::Config::new(keypair).map_err(|e| {
             MePassaError::Network(format!("Failed to create Noise config: {}", e))
@@ -26,8 +26,8 @@ pub fn build_transport(keypair: &Keypair) -> Result<Boxed<(PeerId, StreamMuxerBo
         .timeout(Duration::from_secs(20))
         .boxed();
 
-    // QUIC transport (built-in encryption + multiplexing)
-    let quic_transport = quic::async_std::Transport::new(quic::Config::new(keypair))
+    // QUIC transport (built-in encryption + multiplexing, using tokio runtime)
+    let quic_transport = quic::tokio::Transport::new(quic::Config::new(keypair))
         .map(|(peer_id, muxer), _| (peer_id, StreamMuxerBox::new(muxer)))
         .boxed();
 

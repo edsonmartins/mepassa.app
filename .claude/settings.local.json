@@ -66,7 +66,19 @@
       "Bash(pkill:*)",
       "Bash(lsof:*)",
       "Bash(xargs kill:*)",
-      "Bash(./gradlew compileDebugKotlin:*)"
+      "Bash(./gradlew compileDebugKotlin:*)",
+      "Bash(./build-all.sh:*)",
+      "Bash(source:*)",
+      "Bash(pip show:*)",
+      "Bash(./ios/build-rust.sh:*)",
+      "Bash(otool:*)",
+      "Bash(log show --predicate 'process == \"\"\"\"launchd_sim\"\"\"\" AND eventMessage contains \"\"\"\"com.integralltech.mepassa\"\"\"\"' --last 5m)",
+      "Bash(log show --predicate 'eventMessage contains \"\"\"\"mepassa\"\"\"\"' --last 5m)",
+      "Bash(log show:*)",
+      "Bash(plutil:*)",
+      "Bash(npm run tauri:*)",
+      "Bash(./build-ios.sh)",
+      "Bash(nc:*)"
     ]
   }
 }

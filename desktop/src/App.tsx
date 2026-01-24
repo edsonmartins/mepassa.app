@@ -35,14 +35,23 @@ function App() {
         setLocalPeerId(peerId)
         setIsInitialized(true)
 
-        // Listen on default address (skip for now - runtime conflict)
-        // console.log('🔵 Calling listen_on...')
-        // await invoke('listen_on', { multiaddr: '/ip4/0.0.0.0/tcp/0' })
+        // Listen on TCP for incoming connections
+        console.log('🔵 Calling listen_on for TCP...')
+        try {
+          await invoke('listen_on', { multiaddr: '/ip4/0.0.0.0/tcp/0' })
+          console.log('✅ Listening on TCP')
+        } catch (e) {
+          console.warn('⚠️ Failed to listen on TCP:', e)
+        }
 
-        // Bootstrap to DHT (skip for now due to runtime conflict)
-        // TODO: Fix bootstrap runtime issue
-        // console.log('🔵 Calling bootstrap...')
-        // await invoke('bootstrap')
+        // Also listen on QUIC for better NAT traversal
+        console.log('🔵 Calling listen_on for QUIC...')
+        try {
+          await invoke('listen_on', { multiaddr: '/ip4/0.0.0.0/udp/0/quic-v1' })
+          console.log('✅ Listening on QUIC')
+        } catch (e) {
+          console.warn('⚠️ Failed to listen on QUIC:', e)
+        }
 
         console.log('✅ MePassa initialized successfully. Peer ID:', peerId)
       } catch (error) {

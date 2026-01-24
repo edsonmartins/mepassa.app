@@ -245,6 +245,9 @@ impl Database {
             .unwrap_or(false);
 
         if !exists {
+            // Ensure contact exists before creating conversation (due to FOREIGN KEY constraint)
+            self.ensure_contact_exists(peer_id)?;
+
             // Create new conversation
             self.conn().execute(
                 r#"
@@ -256,6 +259,33 @@ impl Database {
         }
 
         Ok(conversation_id)
+    }
+
+    /// Ensure a contact exists in the database (create placeholder if not)
+    fn ensure_contact_exists(&self, peer_id: &str) -> Result<()> {
+        // Check if contact already exists
+        let exists: bool = self
+            .conn()
+            .query_row(
+                "SELECT 1 FROM contacts WHERE peer_id = ?1",
+                params![peer_id],
+                |_| Ok(true),
+            )
+            .unwrap_or(false);
+
+        if !exists {
+            // Create a placeholder contact with minimal info
+            // The public_key is empty but will be updated when we receive messages
+            self.conn().execute(
+                r#"
+                INSERT INTO contacts (peer_id, public_key)
+                VALUES (?1, ?2)
+                "#,
+                params![peer_id, Vec::<u8>::new()],
+            )?;
+        }
+
+        Ok(())
     }
 
     /// Get conversation by ID

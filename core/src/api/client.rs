@@ -28,7 +28,7 @@ pub struct Client {
     identity: Identity,
     /// Network manager (P2P networking)
     network: Arc<RwLock<NetworkManager>>,
-    /// Local storage (SQLite)
+    /// Local storage (SQLite) - shares connection with MessageHandler via Database::clone()
     database: Database,
     /// Event callbacks
     callbacks: Arc<RwLock<Vec<Box<dyn EventCallback>>>>,
@@ -606,6 +606,15 @@ impl Client {
         network.connected_peers()
     }
 
+    /// Get current listening addresses
+    pub async fn listening_addresses(&self) -> Vec<String> {
+        let network = self.network.read().await;
+        network.listening_addresses()
+            .into_iter()
+            .map(|addr| addr.to_string())
+            .collect()
+    }
+
     /// Bootstrap DHT
     pub async fn bootstrap(&self) -> Result<()> {
         let mut network = self.network.write().await;
@@ -800,11 +809,28 @@ impl Client {
             .collect())
     }
 
-    // /// Run event loop (blocking)
-    // pub async fn run(&self) -> Result<()> {
-    //     let mut network = self.network.write().await;
-    //     network.run().await
-    // }
+    /// Run network event loop (blocking)
+    ///
+    /// This should be spawned as a separate task to process incoming P2P messages.
+    pub async fn run_network(&self) -> Result<()> {
+        let mut network = self.network.write().await;
+        network.run().await
+    }
+
+    /// Poll network for one event (non-blocking)
+    ///
+    /// Returns true if an event was processed, false if no events pending.
+    /// This method acquires and releases the lock quickly, allowing other
+    /// operations to proceed.
+    pub async fn poll_network_once(&self) -> Result<bool> {
+        let mut network = self.network.write().await;
+        network.poll_once().await
+    }
+
+    /// Get a clone of the network Arc for spawning the event loop
+    pub fn network_arc(&self) -> Arc<RwLock<NetworkManager>> {
+        Arc::clone(&self.network)
+    }
 }
 
 #[cfg(test)]

@@ -22,11 +22,9 @@ GENERATED_DIR="$IOS_DIR/MePassa/Generated"
 
 # Files
 UDL_FILE="$CORE_DIR/src/mepassa.udl"
-LIB_FILE="$PROJECT_ROOT/target/release/libmepassa_core.dylib"
 
 echo -e "${BLUE}Project root:${NC} $PROJECT_ROOT"
 echo -e "${BLUE}UDL file:${NC} $UDL_FILE"
-echo -e "${BLUE}Library:${NC} $LIB_FILE"
 echo -e "${BLUE}Output directory:${NC} $GENERATED_DIR"
 echo ""
 
@@ -36,43 +34,34 @@ if [ ! -f "$UDL_FILE" ]; then
     exit 1
 fi
 
-# Check if library exists
-if [ ! -f "$LIB_FILE" ]; then
-    echo -e "${YELLOW}⚠️  Library not found, building...${NC}"
-    cd "$CORE_DIR"
-    cargo build --release --features video -p mepassa-core
-    echo ""
-fi
-
 # Create output directory
 mkdir -p "$GENERATED_DIR"
 
-# Activate virtual environment if it exists
-if [ -d "$IOS_DIR/venv" ]; then
-    echo -e "${GREEN}Activating Python virtual environment...${NC}"
-    source "$IOS_DIR/venv/bin/activate"
-fi
-
-# Check if uniffi-bindgen is available
+# Check if uniffi-bindgen is available (prefer cargo version)
 if ! command -v uniffi-bindgen &> /dev/null; then
     echo -e "${RED}❌ Error: uniffi-bindgen not found${NC}"
     echo ""
     echo "Install with:"
-    echo "  pip install uniffi-bindgen==0.28.3"
-    echo ""
-    echo "Or create a virtual environment:"
-    echo "  cd ios && python3 -m venv venv"
-    echo "  source venv/bin/activate"
-    echo "  pip install uniffi-bindgen==0.28.3"
+    echo "  cargo install uniffi --version '^0.31' --features cli"
     exit 1
 fi
 
-# Generate bindings
-echo -e "${GREEN}Generating Swift bindings...${NC}"
+# Verify uniffi-bindgen version matches Rust uniffi version (0.31.x)
+BINDGEN_VERSION=$(uniffi-bindgen --version | grep -oE '[0-9]+\.[0-9]+')
+if [ "$BINDGEN_VERSION" != "0.31" ]; then
+    echo -e "${YELLOW}⚠️  Warning: uniffi-bindgen version mismatch${NC}"
+    echo "  Expected: 0.31.x"
+    echo "  Found: $BINDGEN_VERSION"
+    echo ""
+    echo "To fix, reinstall uniffi-bindgen:"
+    echo "  cargo install uniffi --version '^0.31' --features cli --force"
+fi
+
+# Generate bindings (uniffi 0.31+ syntax)
+echo -e "${GREEN}Generating Swift bindings with uniffi-bindgen $(uniffi-bindgen --version)...${NC}"
 uniffi-bindgen generate "$UDL_FILE" \
   --language swift \
-  --out-dir "$GENERATED_DIR" \
-  --lib-file "$LIB_FILE"
+  --out-dir "$GENERATED_DIR"
 
 # Check if generation was successful
 if [ $? -eq 0 ]; then

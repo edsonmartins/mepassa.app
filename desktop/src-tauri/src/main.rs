@@ -32,6 +32,7 @@ fn main() {
             commands::search_messages,
             commands::mark_conversation_read,
             commands::get_connected_peers_count,
+            commands::get_listening_addresses,
             commands::bootstrap,
             commands::show_notification,
             // VoIP commands (FASE 12)

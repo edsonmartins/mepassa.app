@@ -47,6 +47,10 @@ struct MePassaApp: App {
             do {
                 try await MePassaCore.shared.initialize()
                 print("✅ MePassa Core initialized successfully")
+
+                // Start listening for incoming P2P connections
+                try await MePassaCore.shared.startListening()
+                print("✅ MePassa Core listening for connections")
             } catch {
                 print("❌ Failed to initialize MePassa Core: \(error)")
             }

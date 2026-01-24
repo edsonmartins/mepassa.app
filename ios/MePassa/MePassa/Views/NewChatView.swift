@@ -12,9 +12,27 @@ struct NewChatView: View {
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var appState: AppState
     @State private var peerId = ""
+    @State private var multiaddr: String? = nil
     @State private var showingQRScanner = false
     @State private var isStartingChat = false
     @State private var errorMessage: String?
+
+    /// Parse QR data in format "peerId@multiaddr" or just "peerId"
+    private func parseQRData(_ data: String) {
+        if data.contains("@") {
+            let parts = data.split(separator: "@", maxSplits: 1)
+            if parts.count == 2 {
+                peerId = String(parts[0])
+                multiaddr = String(parts[1])
+                print("📱 Parsed QR: peerId=\(peerId), multiaddr=\(multiaddr ?? "nil")")
+                return
+            }
+        }
+        // Fallback: just peer ID
+        peerId = data
+        multiaddr = nil
+        print("📱 Parsed QR: peerId=\(peerId) (no address)")
+    }
 
     var body: some View {
         NavigationView {
@@ -100,8 +118,9 @@ struct NewChatView: View {
                 }
             }
             .sheet(isPresented: $showingQRScanner) {
-                QRScannerView { scannedPeerId in
-                    peerId = scannedPeerId
+                QRScannerView { scannedData in
+                    // Parse QR data: format is "peerId@multiaddr" or just "peerId"
+                    parseQRData(scannedData)
                     showingQRScanner = false
                     // Automatically start chat after scanning
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -126,8 +145,17 @@ struct NewChatView: View {
 
         Task {
             do {
-                // Send a test message to establish connection
-                // This will create the conversation if it doesn't exist
+                // First, connect to the peer if we have an address
+                if let addr = multiaddr {
+                    print("🔗 Connecting to peer \(peerId) at \(addr)...")
+                    try await MePassaCore.shared.connectToPeer(peerId: peerId, multiaddr: addr)
+                    print("✅ Connected to peer!")
+
+                    // Wait a bit for the connection to stabilize
+                    try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+                }
+
+                // Send a test message to establish conversation
                 let testMessage = "👋 Olá! Conectado via QR Code"
 
                 try await MePassaCore.shared.sendMessage(

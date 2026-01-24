@@ -94,6 +94,9 @@ enum ClientCommand {
     ConnectedPeersCount {
         response: oneshot::Sender<Result<u32, MePassaFfiError>>,
     },
+    ListeningAddresses {
+        response: oneshot::Sender<Result<Vec<String>, MePassaFfiError>>,
+    },
     Bootstrap {
         response: oneshot::Sender<Result<(), MePassaFfiError>>,
     },
@@ -255,10 +258,18 @@ enum ClientCommand {
     },
 }
 
-/// Run the client task (processes commands)
+/// Run the client task (processes commands) - takes owned Client
 async fn run_client_task(
-    mut receiver: mpsc::UnboundedReceiver<ClientCommand>,
+    receiver: mpsc::UnboundedReceiver<ClientCommand>,
     client: Client,
+) {
+    run_client_task_arc(receiver, std::sync::Arc::new(client)).await
+}
+
+/// Run the client task with Arc<Client> (processes commands)
+async fn run_client_task_arc(
+    mut receiver: mpsc::UnboundedReceiver<ClientCommand>,
+    client: std::sync::Arc<Client>,
 ) {
     while let Some(cmd) = receiver.recv().await {
         match cmd {
@@ -331,6 +342,10 @@ async fn run_client_task(
             }
             ClientCommand::ConnectedPeersCount { response } => {
                 let result = Ok(client.connected_peers_count().await as u32);
+                let _ = response.send(result);
+            }
+            ClientCommand::ListeningAddresses { response } => {
+                let result = Ok(client.listening_addresses().await);
                 let _ = response.send(result);
             }
             ClientCommand::Bootstrap { response } => {
@@ -721,9 +736,48 @@ impl MePassaClient {
                         }
                     }
 
-                    let client = builder.build().await.expect("Failed to build client");
+                    let client = std::sync::Arc::new(builder.build().await.expect("Failed to build client"));
+                    let client_for_network = std::sync::Arc::clone(&client);
 
-                    run_client_task(receiver, client).await;
+                    // Spawn network event loop task using non-blocking polling
+                    // This releases the lock between iterations, allowing commands to proceed
+                    let network_handle = tokio::task::spawn_local(async move {
+                        tracing::info!("🌐 Starting network event loop (non-blocking)...");
+                        let mut poll_count: u64 = 0;
+                        loop {
+                            poll_count += 1;
+                            // Log every 1000 polls (~10 seconds) to confirm loop is running
+                            if poll_count % 1000 == 0 {
+                                tracing::debug!("🔄 Network poll #{}", poll_count);
+                            }
+                            // Poll for one event at a time, releasing lock between polls
+                            match client_for_network.poll_network_once().await {
+                                Ok(true) => {
+                                    tracing::info!("📡 Network event processed (poll #{})", poll_count);
+                                }
+                                Ok(false) => {
+                                    // No events, yield to allow other tasks
+                                    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+                                }
+                                Err(e) => {
+                                    tracing::error!("Network poll error: {:?}", e);
+                                    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                                }
+                            }
+                        }
+                    });
+
+                    // Run client command task (processes API commands)
+                    // Note: We use Arc<Client> but run_client_task expects Client
+                    // We need to keep client alive for the network task
+                    tokio::select! {
+                        _ = run_client_task_arc(receiver, client) => {
+                            tracing::info!("Client task completed");
+                        }
+                        _ = network_handle => {
+                            tracing::info!("Network event loop completed");
+                        }
+                    }
                 });
             });
 
@@ -920,6 +974,21 @@ impl MePassaClient {
         self.handle()
             .sender
             .send(ClientCommand::ConnectedPeersCount { response: tx })
+            .map_err(|_| MePassaFfiError::Other {
+                message: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| MePassaFfiError::Other {
+            message: "Failed to receive response".to_string(),
+        })?
+    }
+
+    /// Get current listening addresses
+    pub async fn listening_addresses(&self) -> Result<Vec<String>, MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::ListeningAddresses { response: tx })
             .map_err(|_| MePassaFfiError::Other {
                 message: "Failed to send command".to_string(),
             })?;

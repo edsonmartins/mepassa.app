@@ -25,7 +25,7 @@ pub struct MePassaBehaviour {
     /// Kademlia DHT for peer discovery and routing
     pub kademlia: kad::Behaviour<kad::store::MemoryStore>,
     /// mDNS for local network discovery
-    pub mdns: mdns::async_io::Behaviour,
+    pub mdns: mdns::tokio::Behaviour,
     /// Identify protocol for peer information exchange
     pub identify: identify::Behaviour,
     /// Ping for connection keep-alive
@@ -51,8 +51,8 @@ impl MePassaBehaviour {
         let store = kad::store::MemoryStore::new(local_peer_id);
         let kademlia = kad::Behaviour::with_config(local_peer_id, store, kad_config);
 
-        // mDNS for local discovery
-        let mdns = mdns::async_io::Behaviour::new(mdns::Config::default(), local_peer_id).map_err(|e| {
+        // mDNS for local discovery (using tokio runtime)
+        let mdns = mdns::tokio::Behaviour::new(mdns::Config::default(), local_peer_id).map_err(|e| {
             MePassaError::Network(format!("Failed to create mDNS behaviour: {}", e))
         })?;
 

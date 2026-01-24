@@ -39,6 +39,7 @@
 		7749CA32B4FFA3D64EC75D2D /* ReactionBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 216CA68B29D66D1A9429EA1A /* ReactionBar.swift */; };
 		7C06BD52F2E1902D521F45F3 /* SelectedImagesPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EB6F74C6CF0E30C836AC23A /* SelectedImagesPreview.swift */; };
 		7C51150F519C4ADB1DCE10AA /* SkeletonLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03AB283A501D288A8EB8077E /* SkeletonLoader.swift */; };
+		81965459A26640A877D0590A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6B5023ED289C17530A67014A /* Assets.xcassets */; };
 		819D6641F21F3F8A104862CA /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D373AA779D55C7DA27CBEA63 /* SwiftUI.framework */; };
 		90846B03E60CA26B31A60A0E /* MediaViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30F32EF40C8CE8CAE728AD1F /* MediaViewerView.swift */; };
 		9562758745B3EDC488C7EA74 /* MediaGalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CCA9B73498EF9DC4888F632 /* MediaGalleryView.swift */; };
@@ -95,6 +96,7 @@
 		5B50CC90605463C028220F6E /* CallManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallManager.swift; sourceTree = "<group>"; };
 		5E1B4AE36E48637D6A731140 /* CallKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = CallKit.framework; sourceTree = "<group>"; };
 		664577EECF2F85A1B1C6FD0D /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = Foundation.framework; sourceTree = "<group>"; };
+		6B5023ED289C17530A67014A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		6E5CCC74D5177EEF2F6A9821 /* CameraManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraManager.swift; sourceTree = "<group>"; };
 		6F9F72B7132A0AB8C5032D00 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = SystemConfiguration.framework; sourceTree = "<group>"; };
 		76C910F948CD813E2B0D8AC3 /* MePassaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MePassaApp.swift; sourceTree = "<group>"; };
@@ -155,6 +157,7 @@
 		2C7BF185363C6E54C6E018C2 /* MePassa */ = {
 			isa = PBXGroup;
 			children = (
+				6B5023ED289C17530A67014A /* Assets.xcassets */,
 				2D623CBBB8C2C5D88DA12769 /* ContentView.swift */,
 				76C910F948CD813E2B0D8AC3 /* MePassaApp.swift */,
 				5A2F7049134FDFFE5B20567C /* Components */,
@@ -301,6 +304,7 @@
 			buildConfigurationList = 184DAB19F0326C8544EC2FE4 /* Build configuration list for PBXNativeTarget "MePassa" */;
 			buildPhases = (
 				A12C76D8FBF33853EAC9F352 /* Sources */,
+				06DAA54ED4C6116500B2FCD5 /* Resources */,
 				92406F346B23732419CB0057 /* Frameworks */,
 			);
 			buildRules = (
@@ -355,6 +359,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		06DAA54ED4C6116500B2FCD5 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				81965459A26640A877D0590A /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		A12C76D8FBF33853EAC9F352 /* Sources */ = {

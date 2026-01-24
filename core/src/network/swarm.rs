@@ -96,6 +96,11 @@ impl NetworkManager {
         Ok(())
     }
 
+    /// Get all current listening addresses
+    pub fn listening_addresses(&self) -> Vec<Multiaddr> {
+        self.swarm.listeners().cloned().collect()
+    }
+
     /// Dial a peer with automatic relay fallback
     pub fn dial(&mut self, peer_id: PeerId, addr: Multiaddr) -> Result<()> {
         // Check if we should try relay based on connection history
@@ -273,6 +278,28 @@ impl NetworkManager {
         }
     }
 
+    /// Poll for one event and process it (non-blocking)
+    /// Returns true if an event was processed, false if no events pending
+    pub async fn poll_once(&mut self) -> Result<bool> {
+        use futures::future::poll_fn;
+        use std::task::Poll;
+
+        let event = poll_fn(|cx| {
+            match self.swarm.poll_next_unpin(cx) {
+                Poll::Ready(Some(event)) => Poll::Ready(Some(event)),
+                Poll::Ready(None) => Poll::Ready(None),
+                Poll::Pending => Poll::Ready(None), // Return immediately if no events
+            }
+        }).await;
+
+        if let Some(event) = event {
+            self.handle_event(event).await?;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
     /// Handle swarm events
     async fn handle_event(&mut self, event: SwarmEvent<MePassaBehaviourEvent>) -> Result<()> {
         match event {
@@ -304,7 +331,21 @@ impl NetworkManager {
             SwarmEvent::Behaviour(event) => {
                 self.handle_behaviour_event(event).await?;
             }
-            _ => {}
+            SwarmEvent::IncomingConnection { local_addr, send_back_addr, .. } => {
+                tracing::info!("🔗 Incoming connection from {} to {}", send_back_addr, local_addr);
+            }
+            SwarmEvent::IncomingConnectionError { local_addr, send_back_addr, error, .. } => {
+                tracing::warn!("⚠️ Incoming connection error from {} to {}: {:?}", send_back_addr, local_addr, error);
+            }
+            SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
+                tracing::warn!("⚠️ Outgoing connection error to {:?}: {:?}", peer_id, error);
+            }
+            SwarmEvent::Dialing { peer_id, .. } => {
+                tracing::info!("📞 Dialing peer: {:?}", peer_id);
+            }
+            _ => {
+                tracing::trace!("Other swarm event received");
+            }
         }
 
         Ok(())

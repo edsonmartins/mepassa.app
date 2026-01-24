@@ -9,7 +9,6 @@
 
 use libp2p::PeerId;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 use crate::{
     protocol::{
@@ -27,8 +26,8 @@ pub struct MessageHandler {
     /// Local peer ID
     local_peer_id: String,
 
-    /// Database for storing messages
-    database: Arc<RwLock<Database>>,
+    /// Database for storing messages (thread-safe via internal Mutex)
+    database: Arc<Database>,
 
     /// Event callback for notifying UI
     event_tx: Option<tokio::sync::mpsc::UnboundedSender<MessageEvent>>,
@@ -38,7 +37,7 @@ impl MessageHandler {
     /// Create a new message handler
     pub fn new(
         local_peer_id: String,
-        database: Arc<RwLock<Database>>,
+        database: Arc<Database>,
         event_tx: Option<tokio::sync::mpsc::UnboundedSender<MessageEvent>>,
     ) -> Self {
         Self {
@@ -116,12 +115,11 @@ impl MessageHandler {
         };
 
         {
-            let db = self.database.write().await;
             let update = UpdateMessage {
                 status: Some(status),
                 ..Default::default()
             };
-            if let Err(e) = db.update_message(&ack.message_id, &update) {
+            if let Err(e) = self.database.update_message(&ack.message_id, &update) {
                 tracing::warn!("Failed to update message status: {}", e);
             }
         }
@@ -173,9 +171,8 @@ impl MessageHandler {
     async fn handle_text_message(&self, message: &Message, text: &TextMessage) -> Result<()> {
         tracing::debug!("📝 Received text: \"{}\"", text.content);
 
-        // Get or create conversation
-        let db = self.database.read().await;
-        let conversation_id = db.get_or_create_conversation(&message.sender_peer_id)?;
+        // Get or create conversation (Database has internal Mutex for thread-safety)
+        let conversation_id = self.database.get_or_create_conversation(&message.sender_peer_id)?;
 
         // Store message in database
         let new_msg = NewMessage {
@@ -194,10 +191,10 @@ impl MessageHandler {
             },
         };
 
-        db.insert_message(&new_msg)?;
+        self.database.insert_message(&new_msg)?;
 
         // Update conversation last message
-        db.update_conversation_last_message(&conversation_id, &message.id)?;
+        self.database.update_conversation_last_message(&conversation_id, &message.id)?;
 
         tracing::info!("💾 Stored message {} in conversation {}", message.id, conversation_id);
 
@@ -249,13 +246,12 @@ impl MessageHandler {
 
         // Update message status in database
         {
-            let db = self.database.write().await;
             let update = UpdateMessage {
                 status: Some(MessageStatus::Read),
                 read_at: Some(read.read_at),
                 ..Default::default()
             };
-            if let Err(e) = db.update_message(&read.message_id, &update) {
+            if let Err(e) = self.database.update_message(&read.message_id, &update) {
                 tracing::warn!("Failed to update message read status: {}", e);
             }
         }
@@ -346,7 +342,7 @@ mod tests {
         };
         db.insert_contact(&contact).unwrap();
 
-        let db_arc = Arc::new(RwLock::new(db));
+        let db_arc = Arc::new(db);
 
         let (event_tx, mut event_rx) = tokio::sync::mpsc::unbounded_channel();
 
@@ -441,11 +437,11 @@ mod tests {
         };
         db.insert_message(&new_msg).unwrap();
 
-        let db_arc = Arc::new(RwLock::new(db));
+        let db_arc = Arc::new(db);
 
         let handler = MessageHandler::new(
             local_peer_id,
-            db_arc.clone(),
+            Arc::clone(&db_arc),
             None,
         );
 
@@ -461,8 +457,7 @@ mod tests {
 
         // Verify message status updated
         {
-            let db = db_arc.read().await;
-            let message = db.get_message("msg-456").unwrap();
+            let message = db_arc.get_message("msg-456").unwrap();
             assert_eq!(message.status, MessageStatus::Delivered);
         }
     }

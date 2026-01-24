@@ -102,20 +102,22 @@ impl ClientBuilder {
             migrate(&database)?;
         }
 
-        // Create Arc for shared database access
-        let database_arc = Arc::new(database);
-
         // Get peer ID from libp2p keypair
         let peer_id = libp2p::PeerId::from(keypair.public());
+
+        // Ensure local peer exists as contact (required for FOREIGN KEY constraints)
+        ensure_local_contact_exists(&database, &peer_id.to_string(), &keypair)?;
 
         // Create network manager
         let network = NetworkManager::new(keypair)?;
         let network_arc = Arc::new(RwLock::new(network));
 
         // Create message handler for processing incoming messages
+        // IMPORTANT: database.clone() shares the same SQLite connection (via internal Arc<Mutex>)
+        // This ensures messages stored by MessageHandler are visible to Client
         let message_handler = Arc::new(crate::network::MessageHandler::new(
             peer_id.to_string(),
-            Arc::new(RwLock::new(database_arc.as_ref().clone())),
+            Arc::new(database.clone()), // Shares the same SQLite connection!
             None, // No event channel for now (TODO: add event system)
         ));
 
@@ -144,10 +146,11 @@ impl ClientBuilder {
         );
 
         // Create Group Manager (FASE 15)
+        // database.clone() shares the same SQLite connection
         let group_manager = Arc::new(
             crate::group::GroupManager::new(
                 peer_id.to_string(),
-                Arc::clone(&database_arc),
+                Arc::new(database.clone()),
             )
             .map_err(|e| MePassaError::Other(format!("Failed to create group manager: {}", e)))?
         );
@@ -158,12 +161,12 @@ impl ClientBuilder {
         })?;
 
         // Create client (keep network as Arc since it's shared with VoIPIntegration)
-        // Note: Client takes ownership of database Arc
+        // Note: database.clone() shares the same SQLite connection with MessageHandler
         let client = Client::new(
             peer_id,
             identity,
             network_arc,
-            Arc::try_unwrap(database_arc).unwrap_or_else(|arc| (*arc).clone()),
+            database, // Client owns the database (shares connection via internal Arc<Mutex>)
             data_dir,
             #[cfg(any(feature = "voip", feature = "video"))]
             call_manager,
@@ -203,6 +206,36 @@ impl Default for ClientBuilder {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Ensure the local peer exists as a contact in the database
+/// This is required due to FOREIGN KEY constraints on messages.sender_peer_id
+fn ensure_local_contact_exists(database: &Database, peer_id: &str, keypair: &Keypair) -> Result<()> {
+    use crate::storage::NewContact;
+
+    // Check if contact already exists
+    if database.get_contact_by_peer_id(peer_id).is_ok() {
+        return Ok(());
+    }
+
+    // Get public key bytes from keypair
+    let public_key_bytes = keypair.public().encode_protobuf();
+
+    // Create local peer as contact
+    let local_contact = NewContact {
+        peer_id: peer_id.to_string(),
+        username: None,
+        display_name: Some("Me".to_string()),
+        public_key: public_key_bytes,
+        prekey_bundle_json: None,
+    };
+
+    database.insert_contact(&local_contact).map_err(|e| {
+        MePassaError::Other(format!("Failed to create local contact: {}", e))
+    })?;
+
+    tracing::info!("Created local contact for peer: {}", peer_id);
+    Ok(())
 }
 
 #[cfg(test)]
