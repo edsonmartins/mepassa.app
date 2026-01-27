@@ -37,6 +37,7 @@ struct ChatView: View {
 
     // Search state
     @State private var showSearch = false
+    @State private var refreshTimer: Timer?
 
     private var messagesList: some View {
         ScrollViewReader { proxy in
@@ -177,6 +178,10 @@ struct ChatView: View {
         .onAppear {
             loadMessages()
             loadReactions()
+            startAutoRefresh()
+        }
+        .onDisappear {
+            stopAutoRefresh()
         }
     }
 
@@ -368,6 +373,18 @@ struct ChatView: View {
                 print("❌ Error loading messages: \(error)")
             }
         }
+    }
+
+    private func startAutoRefresh() {
+        refreshTimer?.invalidate()
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { _ in
+            loadMessages()
+        }
+    }
+
+    private func stopAutoRefresh() {
+        refreshTimer?.invalidate()
+        refreshTimer = nil
     }
 
     private func startVoiceCall() {
