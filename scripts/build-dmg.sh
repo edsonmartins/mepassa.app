@@ -10,13 +10,13 @@ APP_PATH="$DESKTOP_DIR/src-tauri/target/release/bundle/macos/MePassa.app"
 
 read_version_from_tauri() {
   if [[ -f "$TAURI_CONF" ]]; then
-    rg -n "\"version\"" "$TAURI_CONF" | head -n 1 | sed -E 's/.*"version"\s*:\s*"([^"]+)".*/\1/'
+    rg --no-line-number '"version"' "$TAURI_CONF" | head -n 1 | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/'
   fi
 }
 
 read_version_from_package() {
   if [[ -f "$PACKAGE_JSON" ]]; then
-    rg -n "\"version\"" "$PACKAGE_JSON" | head -n 1 | sed -E 's/.*"version\"\s*:\s*\"([^\"]+)\".*/\1/'
+    rg --no-line-number '"version"' "$PACKAGE_JSON" | head -n 1 | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/'
   fi
 }
 
