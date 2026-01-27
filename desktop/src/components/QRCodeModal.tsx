@@ -30,17 +30,30 @@ export default function QRCodeModal({ localPeerId, onClose }: QRCodeModalProps) 
   }, [])
 
   // Build QR code data: peer_id@address (iOS will parse this)
-  // Filter to only include routable addresses (not localhost)
+  // Filter to only include routable addresses (not localhost / wildcard)
   const getRoutableAddress = () => {
-    // Prefer non-localhost TCP addresses
+    const isWildcard = (addr: string) =>
+      addr.includes('/ip4/0.0.0.0/') || addr.includes('/ip6/::/')
+
+    const isLoopback = (addr: string) =>
+      addr.includes('/127.0.0.1/') || addr.includes('/::1/')
+
+    const isPrivateV4 = (addr: string) =>
+      addr.includes('/ip4/10.') ||
+      addr.includes('/ip4/192.168.') ||
+      addr.match(/\/ip4\/172\.(1[6-9]|2[0-9]|3[0-1])\./) !== null
+
+    // Prefer non-localhost, non-wildcard TCP addresses (private LAN first)
     const tcpAddrs = listeningAddresses.filter(addr =>
       addr.includes('/tcp/') &&
-      !addr.includes('/127.0.0.1/') &&
-      !addr.includes('/::1/')
+      !isLoopback(addr) &&
+      !isWildcard(addr)
     )
+    const privateTcp = tcpAddrs.find(isPrivateV4)
+    if (privateTcp) return privateTcp
     if (tcpAddrs.length > 0) return tcpAddrs[0]
 
-    // Fall back to any TCP address
+    // Fall back to any TCP address (even if wildcard/loopback)
     const anyTcp = listeningAddresses.find(addr => addr.includes('/tcp/'))
     if (anyTcp) return anyTcp
 
@@ -51,6 +64,16 @@ export default function QRCodeModal({ localPeerId, onClose }: QRCodeModalProps) 
   const routeAddr = getRoutableAddress()
   // Format: peerId@multiaddr - iOS will split on @ to get both parts
   const qrCodeData = routeAddr ? `${localPeerId}@${routeAddr}` : localPeerId
+  
+  useEffect(() => {
+    if (isLoading) return
+    console.log('📦 QR data:', {
+      localPeerId,
+      routeAddr,
+      qrCodeData,
+      listeningAddresses
+    })
+  }, [isLoading, localPeerId, routeAddr, qrCodeData, listeningAddresses])
 
   const handleCopyPeerId = async () => {
     try {
@@ -59,6 +82,19 @@ export default function QRCodeModal({ localPeerId, onClose }: QRCodeModalProps) 
       setTimeout(() => setCopied(false), 2000)
     } catch (error) {
       console.error('Failed to copy peer ID:', error)
+    }
+  }
+
+  const handleRefreshAddresses = async () => {
+    setIsLoading(true)
+    try {
+      const addresses = await invoke<string[]>('get_listening_addresses')
+      console.log('📍 Listening addresses (refresh):', addresses)
+      setListeningAddresses(addresses)
+    } catch (error) {
+      console.error('Failed to refresh listening addresses:', error)
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -134,6 +170,11 @@ export default function QRCodeModal({ localPeerId, onClose }: QRCodeModalProps) 
               <p className="font-mono break-all">{routeAddr}</p>
             </div>
           )}
+          {!routeAddr && !isLoading && (
+            <div className="text-xs text-amber-700 text-center bg-amber-50 border border-amber-100 rounded-lg p-2">
+              Nenhum endereço roteável encontrado. Clique em “Atualizar” ou tente novamente após alguns segundos.
+            </div>
+          )}
 
           {/* Peer ID Display */}
           <div className="space-y-2">
@@ -165,6 +206,13 @@ export default function QRCodeModal({ localPeerId, onClose }: QRCodeModalProps) 
 
           {/* Action Buttons */}
           <div className="space-y-3">
+            <button
+              onClick={handleRefreshAddresses}
+              className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-colors"
+            >
+              <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+              Atualizar endereço
+            </button>
             <button
               onClick={handleShare}
               className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary-500 text-white font-semibold rounded-xl hover:bg-primary-600 transition-colors shadow-sm"

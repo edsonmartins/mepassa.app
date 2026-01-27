@@ -37,7 +37,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["dmg", "appimage", "msi"],
+    "targets": ["app", "dmg"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -47,7 +47,7 @@
     ],
     "publisher": "IntegrallTech",
     "copyright": "Copyright © 2025 IntegrallTech",
-    "category": "Network",
+    "category": "public.app-category.social-networking",
     "shortDescription": "Hybrid P2P messaging app",
     "longDescription": "MePassa is a hybrid P2P + Server messaging platform with E2E encryption, VoIP calls, and self-hosting support.",
     "resources": [],

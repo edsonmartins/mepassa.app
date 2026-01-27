@@ -4,11 +4,11 @@ import { invoke } from '@tauri-apps/api/core'
 
 interface Message {
   id: string
-  from_peer_id: string
-  to_peer_id: string
-  content: string
-  timestamp: number
-  is_read: boolean
+  sender_peer_id: string
+  recipient_peer_id: string
+  content: string | null
+  created_at: number
+  status: string
 }
 
 interface ChatViewProps {
@@ -56,11 +56,11 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
         const newMessages = msgs.slice(previousMessageCount.current)
         for (const msg of newMessages) {
           // Only notify for received messages (not sent by me)
-          if (msg.from_peer_id !== localPeerId) {
+          if (msg.sender_peer_id !== localPeerId) {
             try {
               await invoke('show_notification', {
-                title: `Nova mensagem de ${msg.from_peer_id.substring(0, 8)}...`,
-                body: msg.content.substring(0, 100)
+                title: `Nova mensagem de ${msg.sender_peer_id.substring(0, 8)}...`,
+                body: (msg.content || '').substring(0, 100)
               })
             } catch (error) {
               console.error('Failed to show notification:', error)
@@ -120,7 +120,7 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
   }
 
   const isSentByMe = (msg: Message): boolean => {
-    return msg.from_peer_id === localPeerId
+    return msg.sender_peer_id === localPeerId
   }
 
   const handleStartCall = async () => {
@@ -208,13 +208,13 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
                 className={`flex ${isSentByMe(msg) ? 'justify-end' : 'justify-start'}`}
               >
                 <div className={isSentByMe(msg) ? 'message-sent' : 'message-received'}>
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                  <p className="whitespace-pre-wrap">{msg.content || ''}</p>
                   <p
                     className={`text-xs mt-1 ${
                       isSentByMe(msg) ? 'text-primary-100' : 'text-gray-500'
                     }`}
                   >
-                    {formatTime(msg.timestamp)}
+                    {formatTime(msg.created_at)}
                   </p>
                 </div>
               </div>

@@ -269,6 +269,10 @@ cd desktop
 npm install
 npm run tauri dev
 
+# DMG (macOS)
+cd ..
+make dmg
+
 # Servidores (Bootstrap + TURN + Store)
 cd server
 docker-compose up -d
@@ -289,6 +293,8 @@ cargo bench
 ```
 
 **Documentação completa:** [BUILD_AND_TEST.md](BUILD_AND_TEST.md)
+
+**DMG macOS:** veja `scripts/build-dmg.md` para instruções detalhadas.
 
 ---
 

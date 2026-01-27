@@ -115,6 +115,14 @@ npm run tauri build
 # src-tauri/target/release/mepassa-desktop.exe (Windows)
 ```
 
+**DMG note (macOS):** If the `.app` builds but the `.dmg` fails with `hdiutil create failed - Dispositivo não configurado`, use the helper script from the repo root:
+
+```bash
+./scripts/build-dmg.sh
+```
+
+See `scripts/build-dmg.md` for more details.
+
 ---
 
 ## 🧪 Testes VoIP (FASE 12)

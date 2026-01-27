@@ -1,7 +1,7 @@
 # MePassa Makefile
 # Quick commands for development
 
-.PHONY: help setup up down logs clean build test fmt lint
+.PHONY: help setup up down logs clean build test fmt lint dmg
 
 help: ## Show this help
 	@echo "MePassa Development Commands:"
@@ -78,6 +78,11 @@ fmt: ## Format code
 	@echo "Formatting code..."
 	@cargo fmt --all
 	@echo "Format complete!"
+
+dmg: ## Build DMG do desktop (macOS)
+	@echo "Building macOS DMG..."
+	@./scripts/build-dmg.sh
+	@echo "DMG build complete!"
 
 lint: ## Run clippy
 	@echo "Running clippy..."

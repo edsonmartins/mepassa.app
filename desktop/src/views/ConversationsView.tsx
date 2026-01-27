@@ -4,9 +4,11 @@ import { invoke } from '@tauri-apps/api/core'
 import QRCodeModal from '../components/QRCodeModal'
 
 interface Conversation {
-  peer_id: string
-  last_message: string | null
-  last_message_timestamp: number
+  id: string
+  peer_id: string | null
+  display_name: string | null
+  last_message_id: string | null
+  last_message_at: number | null
   unread_count: number
 }
 
@@ -50,9 +52,10 @@ export default function ConversationsView({ localPeerId }: ConversationsViewProp
           if (!oldConv || (newConv.unread_count > 0 && newConv.unread_count > oldConv.unread_count)) {
             // Show notification
             try {
+              const label = newConv.display_name || newConv.peer_id || 'Contato'
               await invoke('show_notification', {
                 title: 'Nova mensagem',
-                body: newConv.last_message || `Mensagem de ${newConv.peer_id.substring(0, 8)}...`
+                body: `Mensagem de ${label.substring(0, 16)}...`
               })
             } catch (error) {
               console.error('Failed to show notification:', error)
@@ -93,7 +96,8 @@ export default function ConversationsView({ localPeerId }: ConversationsViewProp
     }
   }
 
-  const formatTimestamp = (timestamp: number): string => {
+  const formatTimestamp = (timestamp: number | null): string => {
+    if (!timestamp) return '—'
     const date = new Date(timestamp * 1000)
     const now = new Date()
     const diffMs = now.getTime() - date.getTime()
@@ -189,22 +193,22 @@ export default function ConversationsView({ localPeerId }: ConversationsViewProp
           <div className="divide-y divide-gray-200">
             {conversations.map((conv) => (
               <div
-                key={conv.peer_id}
-                onClick={() => navigate(`/chat/${conv.peer_id}`)}
-                className="px-6 py-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                key={conv.peer_id || conv.id}
+                onClick={() => conv.peer_id && navigate(`/chat/${conv.peer_id}`)}
+                className={`px-6 py-4 hover:bg-gray-50 transition-colors ${conv.peer_id ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
                       <p className="text-sm font-semibold text-gray-900 truncate">
-                        {conv.peer_id.substring(0, 16)}...
+                        {(conv.display_name || conv.peer_id || 'Contato').substring(0, 16)}...
                       </p>
                       <p className="text-xs text-gray-500 ml-2">
-                        {formatTimestamp(conv.last_message_timestamp)}
+                        {formatTimestamp(conv.last_message_at)}
                       </p>
                     </div>
                     <p className="text-sm text-gray-600 truncate">
-                      {conv.last_message || 'No messages yet'}
+                      {conv.last_message_id ? 'Última mensagem disponível' : 'No messages yet'}
                     </p>
                   </div>
                   {conv.unread_count > 0 && (

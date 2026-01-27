@@ -54,6 +54,46 @@ Artifacts will be created in `src-tauri/target/release/bundle/`:
 - **Windows:** `.msi` and `.exe`
 - **Linux:** `.AppImage` and `.deb`
 
+You can also build the macOS DMG from the repo root:
+
+```bash
+make dmg
+```
+
+**macOS DMG note:** On some machines, `hdiutil create` fails with “Dispositivo não configurado” when running in restricted environments. If the `.app` builds but the `.dmg` fails, rerun the build with elevated permissions or run the DMG script manually. See the DMG troubleshooting section below.
+
+```bash
+# Option A: rebuild with elevated permissions
+sudo npm run tauri:build
+
+# Option B: run the DMG script directly
+bash desktop/src-tauri/target/release/bundle/dmg/bundle_dmg.sh \
+  desktop/src-tauri/target/release/bundle/dmg/MePassa_0.1.0_x64.dmg \
+  desktop/src-tauri/target/release/bundle/macos/MePassa.app
+```
+
+Alternatively, use the helper script from the repo root (it reads the version from `tauri.conf.json` and falls back to `package.json`):
+
+```bash
+./scripts/build-dmg.sh
+```
+
+Example output:
+
+```text
+Building DMG for version 0.1.0
+Source: /path/to/desktop/src-tauri/target/release/bundle/macos/MePassa.app
+Output: /path/to/desktop/src-tauri/target/release/bundle/dmg/MePassa_0.1.0_x64.dmg
+DMG created at: /path/to/desktop/src-tauri/target/release/bundle/dmg/MePassa_0.1.0_x64.dmg
+```
+
+### DMG troubleshooting (macOS)
+
+- **`hdiutil create failed - Dispositivo não configurado`:** rerun with elevated permissions (`sudo npm run tauri:build`) or run `./scripts/build-dmg.sh` with elevated permissions.
+- **`Failed to create app icon` / `No matching IconType`:** regenerate icons with `npm run tauri icon -- <path-to-1024.png>` and re-run the build.
+
+For a step-by-step guide, see `scripts/build-dmg.md` from the repo root.
+
 ## 📁 Project Structure
 
 ```
