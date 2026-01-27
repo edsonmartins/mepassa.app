@@ -357,7 +357,8 @@ struct ChatView: View {
                 let localPeerId = MePassaCore.shared.localPeerId ?? ""
 
                 await MainActor.run {
-                    messages = ffiMessages.map { ffiMsg in
+                    let ordered = ffiMessages.sorted { $0.createdAt < $1.createdAt }
+                    messages = ordered.map { ffiMsg in
                         Message(
                             id: ffiMsg.id,
                             content: ffiMsg.content ?? "",

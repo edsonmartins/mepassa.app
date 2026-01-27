@@ -69,8 +69,9 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
         }
       }
 
-      previousMessageCount.current = msgs.length
-      setMessages(msgs)
+      const ordered = [...msgs].sort((a, b) => a.created_at - b.created_at)
+      previousMessageCount.current = ordered.length
+      setMessages(ordered)
     } catch (error) {
       console.error('Failed to load messages:', error)
     } finally {
