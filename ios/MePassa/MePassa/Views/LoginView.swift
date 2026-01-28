@@ -14,6 +14,8 @@ struct LoginView: View {
     @State private var isGeneratingId = false
     @State private var showError = false
     @State private var errorMessage = ""
+    @State private var showImportSheet = false
+    @State private var importText = ""
 
     var body: some View {
         NavigationView {
@@ -72,9 +74,7 @@ struct LoginView: View {
 
                     // Import existing identity
                     Button(action: {
-                        // TODO: Show QR scanner or peer ID input
-                        showError = true
-                        errorMessage = "Importação de identidade em desenvolvimento"
+                        showImportSheet = true
                     }) {
                         HStack {
                             Image(systemName: "qrcode.viewfinder")
@@ -107,6 +107,46 @@ struct LoginView: View {
             } message: {
                 Text(errorMessage)
             }
+            .sheet(isPresented: $showImportSheet) {
+                NavigationView {
+                    VStack(spacing: 16) {
+                        Text("Cole o backup da identidade (Base64)")
+                            .font(.headline)
+                            .multilineTextAlignment(.center)
+                            .padding(.top, 12)
+
+                        TextEditor(text: $importText)
+                            .font(.system(.body, design: .monospaced))
+                            .frame(minHeight: 200)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.secondary.opacity(0.4))
+                            )
+                            .padding(.horizontal)
+
+                        Button(action: importIdentity) {
+                            Text("Importar identidade")
+                                .fontWeight(.semibold)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.blue)
+                                .foregroundColor(.white)
+                                .cornerRadius(12)
+                        }
+                        .disabled(importText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .padding(.horizontal)
+
+                        Spacer()
+                    }
+                    .navigationTitle("Importar Identidade")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Fechar") { showImportSheet = false }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -137,6 +177,36 @@ struct LoginView: View {
                     isGeneratingId = false
                     showError = true
                     errorMessage = "Falha ao inicializar identidade: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    private func importIdentity() {
+        isGeneratingId = true
+
+        Task {
+            do {
+                try await MePassaCore.shared.importIdentity(backup: importText)
+                showImportSheet = false
+                importText = ""
+
+                if !MePassaCore.shared.isInitialized {
+                    try await MePassaCore.shared.initialize()
+                    try await MePassaCore.shared.startListening()
+                }
+
+                if let id = MePassaCore.shared.localPeerId {
+                    await MainActor.run {
+                        appState.login(peerId: id)
+                        isGeneratingId = false
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    isGeneratingId = false
+                    showError = true
+                    errorMessage = error.localizedDescription
                 }
             }
         }

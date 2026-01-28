@@ -58,14 +58,28 @@ class MePassaCore: ObservableObject {
 
     /// Import existing identity from backup
     func importIdentity(backup: String) async throws {
-        // TODO: Implement identity import
-        throw MePassaCoreError.notImplemented("Identity import not yet implemented")
+        if client != nil {
+            throw MePassaCoreError.storageError("Import requires app restart")
+        }
+
+        guard let data = Data(base64Encoded: backup.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            throw MePassaCoreError.storageError("Invalid backup data")
+        }
+
+        let keyPath = identityKeyPath()
+        try data.write(to: URL(fileURLWithPath: keyPath), options: .atomic)
+
+        let dbPath = databasePath()
+        if FileManager.default.fileExists(atPath: dbPath) {
+            try FileManager.default.removeItem(atPath: dbPath)
+        }
     }
 
     /// Export current identity for backup
     func exportIdentity() async throws -> String {
-        // TODO: Export keypair securely
-        throw MePassaCoreError.notImplemented("Identity export not yet implemented")
+        let keyPath = identityKeyPath()
+        let data = try Data(contentsOf: URL(fileURLWithPath: keyPath))
+        return data.base64EncodedString()
     }
 
     // MARK: - Networking
@@ -75,6 +89,18 @@ class MePassaCore: ObservableObject {
         try await client?.listenOn(multiaddr: "/ip4/0.0.0.0/tcp/0")
         try await client?.listenOn(multiaddr: "/ip6/::/tcp/0")
         print("📡 Started listening on P2P network")
+    }
+
+    private func identityKeyPath() -> String {
+        return URL(fileURLWithPath: dataDir)
+            .appendingPathComponent("identity.key")
+            .path
+    }
+
+    private func databasePath() -> String {
+        return URL(fileURLWithPath: dataDir)
+            .appendingPathComponent("mepassa.db")
+            .path
     }
 
     /// Connect to bootstrap nodes

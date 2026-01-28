@@ -13,6 +13,12 @@
     <string name="onboarding_subtitle">Mensagens privadas e seguras via P2P</string>
     <string name="onboarding_button">Começar</string>
     <string name="onboarding_generating">Gerando identidade…</string>
+    <string name="onboarding_import_button">Importar identidade</string>
+    <string name="onboarding_import_title">Importar identidade</string>
+    <string name="onboarding_import_hint">Cole o backup Base64 da sua identidade.</string>
+    <string name="onboarding_import_confirm">Importar</string>
+    <string name="onboarding_import_cancel">Cancelar</string>
+    <string name="onboarding_import_failed">Falha ao importar identidade. Verifique o backup ou reinicie o app.</string>
 
     <!-- Conversations -->
     <string name="conversations_title">Conversas</string>

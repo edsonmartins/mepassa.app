@@ -31,6 +31,9 @@ fun OnboardingScreen(
 
     var isInitializing by remember { mutableStateOf(false) }
     var localPeerId by remember { mutableStateOf<String?>(null) }
+    var showImportDialog by remember { mutableStateOf(false) }
+    var importText by remember { mutableStateOf("") }
+    var importError by remember { mutableStateOf<String?>(null) }
 
     // Observar estado de inicialização
     val isInitialized by MePassaClientWrapper.isInitialized.collectAsState()
@@ -156,7 +159,75 @@ fun OnboardingScreen(
                         style = MaterialTheme.typography.labelLarge
                     )
                 }
+
+                OutlinedButton(
+                    onClick = { showImportDialog = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    enabled = !isInitializing && !isInitialized
+                ) {
+                    Text(
+                        text = stringResource(R.string.onboarding_import_button),
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                }
             }
         }
+    }
+
+    if (showImportDialog) {
+        AlertDialog(
+            onDismissRequest = { showImportDialog = false },
+            title = { Text(text = stringResource(R.string.onboarding_import_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(text = stringResource(R.string.onboarding_import_hint))
+                    OutlinedTextField(
+                        value = importText,
+                        onValueChange = { importText = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 4
+                    )
+                    if (importError != null) {
+                        Text(
+                            text = importError ?: "",
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = importText.trim().isNotEmpty(),
+                    onClick = {
+                        isInitializing = true
+                        importError = null
+                        scope.launch {
+                            val ok = MePassaClientWrapper.importIdentity(context, importText)
+                            if (!ok) {
+                                importError = context.getString(R.string.onboarding_import_failed)
+                                isInitializing = false
+                                return@launch
+                            }
+                            val success = MePassaClientWrapper.initialize(context)
+                            if (!success) {
+                                importError = context.getString(R.string.onboarding_import_failed)
+                                isInitializing = false
+                            } else {
+                                showImportDialog = false
+                            }
+                        }
+                    }
+                ) {
+                    Text(text = stringResource(R.string.onboarding_import_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showImportDialog = false }) {
+                    Text(text = stringResource(R.string.onboarding_import_cancel))
+                }
+            }
+        )
     }
 }

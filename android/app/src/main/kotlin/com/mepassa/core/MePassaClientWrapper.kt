@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import uniffi.mepassa.*
 import java.io.File
+import android.util.Base64
 
 /**
  * Wrapper Singleton para MePassaClient do UniFFI
@@ -66,6 +67,52 @@ object MePassaClientWrapper {
             _isInitialized.value = false
             false
         }
+    }
+
+    /**
+     * Export identity keypair as Base64 string.
+     * Returns null if the key does not exist.
+     */
+    suspend fun exportIdentity(context: Context): String? = withContext(Dispatchers.IO) {
+        val keyFile = File(context.filesDir, "mepassa_data/identity.key")
+        if (!keyFile.exists()) {
+            return@withContext null
+        }
+        val data = keyFile.readBytes()
+        Base64.encodeToString(data, Base64.NO_WRAP)
+    }
+
+    /**
+     * Import identity keypair from Base64 string.
+     * Must be called before initialize(); requires app restart if already initialized.
+     */
+    suspend fun importIdentity(context: Context, backup: String): Boolean = withContext(Dispatchers.IO) {
+        if (client != null) {
+            Log.w(TAG, "Import requires app restart (client already initialized)")
+            return@withContext false
+        }
+
+        val data = try {
+            Base64.decode(backup.trim(), Base64.DEFAULT)
+        } catch (e: IllegalArgumentException) {
+            Log.e(TAG, "Invalid backup data", e)
+            return@withContext false
+        }
+
+        val dataDir = File(context.filesDir, "mepassa_data").apply {
+            if (!exists()) {
+                mkdirs()
+            }
+        }
+        val keyFile = File(dataDir, "identity.key")
+        keyFile.writeBytes(data)
+
+        val dbFile = File(dataDir, "mepassa.db")
+        if (dbFile.exists()) {
+            dbFile.delete()
+        }
+
+        true
     }
 
     /**
