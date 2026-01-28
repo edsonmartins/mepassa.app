@@ -41,6 +41,10 @@ fun ProfileScreen(
     var userName by remember { mutableStateOf("Usuário MePassa") }
     var isEditingName by remember { mutableStateOf(false) }
     val localPeerId by MePassaClientWrapper.localPeerId.collectAsState()
+    var showExportDialog by remember { mutableStateOf(false) }
+    var exportData by remember { mutableStateOf("") }
+    var exportError by remember { mutableStateOf<String?>(null) }
+    var showExportErrorDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -207,6 +211,26 @@ fun ProfileScreen(
                 )
             }
 
+            Button(
+                onClick = {
+                    scope.launch {
+                        val data = MePassaClientWrapper.exportIdentity(context)
+                        if (data == null) {
+                            exportError = "Backup não encontrado"
+                            showExportErrorDialog = true
+                        } else {
+                            exportData = data
+                            showExportDialog = true
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+            ) {
+                Text("Exportar identidade")
+            }
+
             // QR Code placeholder
             Surface(
                 modifier = Modifier
@@ -232,5 +256,41 @@ fun ProfileScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+
+    if (showExportDialog) {
+        AlertDialog(
+            onDismissRequest = { showExportDialog = false },
+            title = { Text("Backup da identidade") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = exportData,
+                        onValueChange = {},
+                        modifier = Modifier.fillMaxWidth(),
+                        readOnly = true,
+                        minLines = 4
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showExportDialog = false }) {
+                    Text("Fechar")
+                }
+            }
+        )
+    }
+
+    if (showExportErrorDialog) {
+        AlertDialog(
+            onDismissRequest = { showExportErrorDialog = false },
+            title = { Text("Erro") },
+            text = { Text(exportError ?: "") },
+            confirmButton = {
+                TextButton(onClick = { showExportErrorDialog = false }) {
+                    Text("OK")
+                }
+            }
+        )
     }
 }

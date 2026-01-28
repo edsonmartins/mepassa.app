@@ -16,6 +16,10 @@ struct ProfileView: View {
     @State private var isEditingName = false
     @State private var localPeerId = ""
     @State private var showCopiedAlert = false
+    @State private var showExportSheet = false
+    @State private var exportData = ""
+    @State private var showExportError = false
+    @State private var exportErrorMessage = ""
 
     var body: some View {
         NavigationView {
@@ -112,6 +116,20 @@ struct ProfileView: View {
                     }
                     .padding(.horizontal)
 
+                    Button(action: exportIdentity) {
+                        HStack {
+                            Image(systemName: "arrow.up.doc")
+                            Text("Exportar identidade")
+                                .fontWeight(.semibold)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                    }
+                    .padding(.horizontal)
+
                     // QR Code placeholder
                     VStack(spacing: 8) {
                         RoundedRectangle(cornerRadius: 8)
@@ -159,10 +177,67 @@ struct ProfileView: View {
         .alert("ID copiado!", isPresented: $showCopiedAlert) {
             Button("OK", role: .cancel) { }
         }
+        .alert("Erro", isPresented: $showExportError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(exportErrorMessage)
+        }
+        .sheet(isPresented: $showExportSheet) {
+            NavigationView {
+                VStack(spacing: 16) {
+                    Text("Backup da identidade (Base64)")
+                        .font(.headline)
+
+                    TextEditor(text: $exportData)
+                        .font(.system(.body, design: .monospaced))
+                        .frame(minHeight: 220)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.secondary.opacity(0.4))
+                        )
+                        .padding(.horizontal)
+
+                    Button(action: {
+                        UIPasteboard.general.string = exportData
+                    }) {
+                        Text("Copiar")
+                            .fontWeight(.semibold)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(12)
+                    }
+                    .padding(.horizontal)
+
+                    Spacer()
+                }
+                .padding(.top, 12)
+                .navigationTitle("Exportar Identidade")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Fechar") { showExportSheet = false }
+                    }
+                }
+            }
+        }
     }
 
     private func loadPeerId() {
         localPeerId = MePassaCore.shared.localPeerId ?? ""
+    }
+
+    private func exportIdentity() {
+        Task {
+            do {
+                exportData = try await MePassaCore.shared.exportIdentity()
+                showExportSheet = true
+            } catch {
+                exportErrorMessage = error.localizedDescription
+                showExportError = true
+            }
+        }
     }
 }
 
