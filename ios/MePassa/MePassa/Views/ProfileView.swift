@@ -130,6 +130,20 @@ struct ProfileView: View {
                     }
                     .padding(.horizontal)
 
+                    Button(action: exportPrekeyBundle) {
+                        HStack {
+                            Image(systemName: "key.horizontal")
+                            Text("Exportar prekeys")
+                                .fontWeight(.semibold)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.secondary.opacity(0.2))
+                        .foregroundColor(.primary)
+                        .cornerRadius(12)
+                    }
+                    .padding(.horizontal)
+
                     // QR Code placeholder
                     VStack(spacing: 8) {
                         RoundedRectangle(cornerRadius: 8)
@@ -232,6 +246,18 @@ struct ProfileView: View {
         Task {
             do {
                 exportData = try await MePassaCore.shared.exportIdentity()
+                showExportSheet = true
+            } catch {
+                exportErrorMessage = error.localizedDescription
+                showExportError = true
+            }
+        }
+    }
+
+    private func exportPrekeyBundle() {
+        Task {
+            do {
+                exportData = try await MePassaCore.shared.exportPrekeyBundle()
                 showExportSheet = true
             } catch {
                 exportErrorMessage = error.localizedDescription

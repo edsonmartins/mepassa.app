@@ -36,6 +36,8 @@ fun SettingsScreen(
     var exportData by remember { mutableStateOf("") }
     var exportError by remember { mutableStateOf<String?>(null) }
     var showExportErrorDialog by remember { mutableStateOf(false) }
+    var showPrekeyDialog by remember { mutableStateOf(false) }
+    var prekeyData by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -142,6 +144,25 @@ fun SettingsScreen(
                             } else {
                                 exportData = data
                                 showExportDialog = true
+                            }
+                        }
+                    }
+                )
+            }
+
+            item {
+                SettingsClickableItem(
+                    title = "Exportar prekeys",
+                    description = "Compartilhar chaves para E2E",
+                    onClick = {
+                        scope.launch {
+                            val data = MePassaClientWrapper.exportPrekeyBundleJson()
+                            if (data == null) {
+                                exportError = "Prekeys não disponíveis"
+                                showExportErrorDialog = true
+                            } else {
+                                prekeyData = data
+                                showPrekeyDialog = true
                             }
                         }
                     }
@@ -308,6 +329,29 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(onClick = { showExportErrorDialog = false }) {
                     Text("OK")
+                }
+            }
+        )
+    }
+
+    if (showPrekeyDialog) {
+        AlertDialog(
+            onDismissRequest = { showPrekeyDialog = false },
+            title = { Text("Prekeys (JSON)") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = prekeyData,
+                        onValueChange = {},
+                        modifier = Modifier.fillMaxWidth(),
+                        readOnly = true,
+                        minLines = 4
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showPrekeyDialog = false }) {
+                    Text("Fechar")
                 }
             }
         )

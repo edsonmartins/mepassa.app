@@ -604,6 +604,8 @@ public protocol MePassaClientProtocol: AnyObject, Sendable {
     
     func getMessageReactions(messageId: String) throws  -> [FfiReaction]
     
+    func getPrekeyBundleJson() async throws  -> String
+    
     func hangupCall(callId: String) async throws 
     
     func joinGroup(groupId: String, groupName: String) async throws 
@@ -641,6 +643,8 @@ public protocol MePassaClientProtocol: AnyObject, Sendable {
     func sendVideoMessage(toPeerId: String, videoData: [UInt8], fileName: String, width: Int32?, height: Int32?, durationSeconds: Int32, thumbnailData: [UInt8]?) async throws  -> String
     
     func sendVoiceMessage(toPeerId: String, audioData: [UInt8], fileName: String, durationSeconds: Int32) async throws  -> String
+    
+    func setContactPrekeyBundle(peerId: String, prekeyBundleJson: String) throws 
     
     func startCall(toPeerId: String) async throws  -> String
     
@@ -947,6 +951,23 @@ open func getMessageReactions(messageId: String)throws  -> [FfiReaction]  {
 })
 }
     
+open func getPrekeyBundleJson()async throws  -> String  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_mepassa_core_fn_method_mepassaclient_get_prekey_bundle_json(
+                    self.uniffiCloneHandle()
+                    
+                )
+            },
+            pollFunc: ffi_mepassa_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_mepassa_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_mepassa_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterString.lift,
+            errorHandler: FfiConverterTypeMePassaFfiError_lift
+        )
+}
+    
 open func hangupCall(callId: String)async throws   {
     return
         try  await uniffiRustCallAsync(
@@ -1217,6 +1238,15 @@ open func sendVoiceMessage(toPeerId: String, audioData: [UInt8], fileName: Strin
             liftFunc: FfiConverterString.lift,
             errorHandler: FfiConverterTypeMePassaFfiError_lift
         )
+}
+    
+open func setContactPrekeyBundle(peerId: String, prekeyBundleJson: String)throws   {try rustCallWithError(FfiConverterTypeMePassaFfiError_lift) {
+    uniffi_mepassa_core_fn_method_mepassaclient_set_contact_prekey_bundle(
+            self.uniffiCloneHandle(),
+        FfiConverterString.lower(peerId),
+        FfiConverterString.lower(prekeyBundleJson),$0
+    )
+}
 }
     
 open func startCall(toPeerId: String)async throws  -> String  {
@@ -3346,6 +3376,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_mepassa_core_checksum_method_mepassaclient_get_message_reactions() != 40153) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_get_prekey_bundle_json() != 21074) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_mepassa_core_checksum_method_mepassaclient_hangup_call() != 14432) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -3401,6 +3434,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_mepassa_core_checksum_method_mepassaclient_send_voice_message() != 39503) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_set_contact_prekey_bundle() != 13644) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_mepassa_core_checksum_method_mepassaclient_start_call() != 30816) {

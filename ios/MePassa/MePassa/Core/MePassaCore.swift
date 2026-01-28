@@ -82,6 +82,16 @@ class MePassaCore: ObservableObject {
         return data.base64EncodedString()
     }
 
+    /// Export prekey bundle (JSON) for sharing with peers
+    func exportPrekeyBundle() async throws -> String {
+        return try await client?.getPrekeyBundleJson() ?? ""
+    }
+
+    /// Store a peer's prekey bundle (JSON) for E2E encryption
+    func storePeerPrekeyBundle(peerId: String, bundleJson: String) throws {
+        try client?.setContactPrekeyBundle(peerId: peerId, prekeyBundleJson: bundleJson)
+    }
+
     // MARK: - Networking
 
     /// Start listening on default multiaddrs

@@ -45,6 +45,8 @@ fun ProfileScreen(
     var exportData by remember { mutableStateOf("") }
     var exportError by remember { mutableStateOf<String?>(null) }
     var showExportErrorDialog by remember { mutableStateOf(false) }
+    var showPrekeyDialog by remember { mutableStateOf(false) }
+    var prekeyData by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -231,6 +233,26 @@ fun ProfileScreen(
                 Text("Exportar identidade")
             }
 
+            OutlinedButton(
+                onClick = {
+                    scope.launch {
+                        val data = MePassaClientWrapper.exportPrekeyBundleJson()
+                        if (data == null) {
+                            exportError = "Prekeys não disponíveis"
+                            showExportErrorDialog = true
+                        } else {
+                            prekeyData = data
+                            showPrekeyDialog = true
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+            ) {
+                Text("Exportar prekeys")
+            }
+
             // QR Code placeholder
             Surface(
                 modifier = Modifier
@@ -289,6 +311,29 @@ fun ProfileScreen(
             confirmButton = {
                 TextButton(onClick = { showExportErrorDialog = false }) {
                     Text("OK")
+                }
+            }
+        )
+    }
+
+    if (showPrekeyDialog) {
+        AlertDialog(
+            onDismissRequest = { showPrekeyDialog = false },
+            title = { Text("Prekeys (JSON)") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = prekeyData,
+                        onValueChange = {},
+                        modifier = Modifier.fillMaxWidth(),
+                        readOnly = true,
+                        minLines = 4
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showPrekeyDialog = false }) {
+                    Text("Fechar")
                 }
             }
         )

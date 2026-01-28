@@ -54,6 +54,18 @@ struct SettingsView: View {
                         }
                     }
                 }
+
+                Button("Exportar prekeys") {
+                    Task {
+                        do {
+                            exportData = try await MePassaCore.shared.exportPrekeyBundle()
+                            showExportSheet = true
+                        } catch {
+                            exportErrorMessage = error.localizedDescription
+                            showExportError = true
+                        }
+                    }
+                }
             }
 
             // Storage section

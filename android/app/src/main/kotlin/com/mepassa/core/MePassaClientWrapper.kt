@@ -116,6 +116,31 @@ object MePassaClientWrapper {
     }
 
     /**
+     * Export prekey bundle JSON for E2E setup.
+     */
+    suspend fun exportPrekeyBundleJson(): String? = withContext(Dispatchers.IO) {
+        try {
+            getClient().getPrekeyBundleJson()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to export prekey bundle", e)
+            null
+        }
+    }
+
+    /**
+     * Store a peer's prekey bundle for E2E.
+     */
+    suspend fun storePeerPrekeyBundle(peerId: String, bundleJson: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            getClient().setContactPrekeyBundle(peerId, bundleJson)
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to store prekey bundle", e)
+            false
+        }
+    }
+
+    /**
      * Obtém o client (deve ser inicializado primeiro)
      */
     fun getClient(): MePassaClient {
