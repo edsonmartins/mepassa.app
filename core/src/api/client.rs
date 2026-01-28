@@ -6,6 +6,7 @@ use libp2p::{Multiaddr, PeerId};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tokio::time::{timeout, Duration};
 
 use super::events::{ClientEvent, EventCallback};
 use crate::{
@@ -128,6 +129,8 @@ impl Client {
 
     /// Send a text message to a peer
     pub async fn send_text_message(&self, to: PeerId, content: String) -> Result<String> {
+        self.ensure_peer_connected(to).await;
+
         // Generate message ID
         let message_id = uuid::Uuid::new_v4().to_string();
         let timestamp = chrono::Utc::now().timestamp_millis();
@@ -177,6 +180,32 @@ impl Client {
         .await;
 
         Ok(message_id)
+    }
+
+    async fn ensure_peer_connected(&self, peer_id: PeerId) {
+        let rx = {
+            let mut network = self.network.write().await;
+            if network.is_connected(&peer_id) {
+                None
+            } else {
+                Some(network.resolve_peer_address(peer_id))
+            }
+        };
+
+        let Some(rx) = rx else { return };
+
+        let resolved = match timeout(Duration::from_secs(5), rx).await {
+            Ok(Ok(Some(addr))) => Some(addr),
+            _ => None,
+        };
+
+        if let Some(addr) = resolved {
+            let mut network = self.network.write().await;
+            if !network.is_connected(&peer_id) {
+                network.add_peer_to_dht(peer_id, addr.clone());
+                let _ = network.dial(peer_id, addr);
+            }
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

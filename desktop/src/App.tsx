@@ -53,6 +53,14 @@ function App() {
           console.warn('⚠️ Failed to listen on QUIC:', e)
         }
 
+        // Bootstrap the DHT for address discovery
+        try {
+          await invoke('bootstrap')
+          console.log('🌐 Bootstrapped DHT')
+        } catch (e) {
+          console.warn('⚠️ Failed to bootstrap DHT:', e)
+        }
+
         console.log('✅ MePassa initialized successfully. Peer ID:', peerId)
       } catch (error) {
         console.error('❌ Failed to initialize MePassa:', error)

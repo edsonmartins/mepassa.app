@@ -52,6 +52,10 @@ struct MePassaApp: App {
                 try await MePassaCore.shared.startListening()
                 print("✅ MePassa Core listening for connections")
 
+                // Bootstrap DHT for address discovery
+                try await MePassaCore.shared.bootstrap()
+                print("✅ MePassa Core bootstrapped")
+
                 if let peerId = MePassaCore.shared.localPeerId {
                     await MainActor.run {
                         appState.login(peerId: peerId)

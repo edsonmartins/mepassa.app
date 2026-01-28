@@ -4,12 +4,14 @@
 
 use libp2p::{
     identity::Keypair,
+    kad::{self, record, Quorum, QueryId},
     swarm::{Config as SwarmConfig, Swarm, SwarmEvent},
     Multiaddr, PeerId,
 };
 use futures::stream::StreamExt;
-use std::{sync::Arc, time::Duration};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::select;
+use tokio::sync::oneshot;
 
 use super::{
     behaviour::MePassaBehaviour,
@@ -31,6 +33,8 @@ pub struct NetworkManager {
     connection_manager: ConnectionManager,
     relay_manager: RelayManager,
     message_handler: Option<std::sync::Arc<MessageHandler>>,
+    pending_kad_get: HashMap<QueryId, oneshot::Sender<Option<Multiaddr>>>,
+    last_published_addr: Option<Multiaddr>,
 }
 
 impl NetworkManager {
@@ -74,6 +78,8 @@ impl NetworkManager {
             connection_manager,
             relay_manager,
             message_handler: None,
+            pending_kad_get: HashMap::new(),
+            last_published_addr: None,
         })
     }
 
@@ -99,6 +105,11 @@ impl NetworkManager {
     /// Get all current listening addresses
     pub fn listening_addresses(&self) -> Vec<Multiaddr> {
         self.swarm.listeners().cloned().collect()
+    }
+
+    /// Check if a peer is connected
+    pub fn is_connected(&self, peer_id: &PeerId) -> bool {
+        self.swarm.is_connected(peer_id)
     }
 
     /// Dial a peer with automatic relay fallback
@@ -152,6 +163,57 @@ impl NetworkManager {
             .behaviour_mut()
             .kademlia
             .add_address(&peer_id, addr);
+    }
+
+    /// Publish our reachable address in the DHT
+    pub fn publish_own_address(&mut self, addr: Multiaddr) {
+        if self.last_published_addr.as_ref() == Some(&addr) {
+            return;
+        }
+
+        let key = Self::addr_record_key(&self.local_peer_id);
+        let record = record::Record {
+            key,
+            value: addr.to_string().into_bytes(),
+            publisher: Some(self.local_peer_id),
+            expires: None,
+        };
+
+        match self
+            .swarm
+            .behaviour_mut()
+            .kademlia
+            .put_record(record, Quorum::One)
+        {
+            Ok(query_id) => {
+                tracing::info!("📌 Published address in DHT (query_id: {:?})", query_id);
+                self.last_published_addr = Some(addr);
+            }
+            Err(e) => {
+                tracing::warn!("⚠️ Failed to publish address in DHT: {:?}", e);
+            }
+        }
+    }
+
+    /// Resolve a peer address via DHT
+    pub fn resolve_peer_address(&mut self, peer_id: PeerId) -> oneshot::Receiver<Option<Multiaddr>> {
+        let key = Self::addr_record_key(&peer_id);
+        let query_id = self.swarm.behaviour_mut().kademlia.get_record(key);
+        let (tx, rx) = oneshot::channel();
+        self.pending_kad_get.insert(query_id, tx);
+        rx
+    }
+
+    fn addr_record_key(peer_id: &PeerId) -> record::Key {
+        record::Key::new(format!("mepassa:addr:{}", peer_id))
+    }
+
+    fn is_routable_addr(addr: &Multiaddr) -> bool {
+        let addr_str = addr.to_string();
+        !(addr_str.contains("/127.0.0.1/")
+            || addr_str.contains("/::1/")
+            || addr_str.contains("/ip4/0.0.0.0/")
+            || addr_str.contains("/ip6/::/"))
     }
 
     /// Bootstrap the DHT
@@ -305,6 +367,9 @@ impl NetworkManager {
         match event {
             SwarmEvent::NewListenAddr { address, .. } => {
                 tracing::info!("Listening on {}", address);
+                if Self::is_routable_addr(&address) {
+                    self.publish_own_address(address);
+                }
             }
             SwarmEvent::ConnectionEstablished {
                 peer_id, endpoint, ..
@@ -355,7 +420,30 @@ impl NetworkManager {
     async fn handle_behaviour_event(&mut self, event: MePassaBehaviourEvent) -> Result<()> {
         match event {
             MePassaBehaviourEvent::Kademlia(kad_event) => {
-                tracing::debug!("Kademlia event: {:?}", kad_event);
+                match kad_event {
+                    kad::Event::OutboundQueryProgressed { id, result, .. } => {
+                        if let Some(tx) = self.pending_kad_get.remove(&id) {
+                            let addr_opt = match result {
+                                kad::QueryResult::GetRecord(Ok(kad::GetRecordOk::FoundRecord(record))) => {
+                                    let value = record.record.value;
+                                    match std::str::from_utf8(&value) {
+                                        Ok(addr_str) => addr_str.parse::<Multiaddr>().ok(),
+                                        Err(_) => None,
+                                    }
+                                }
+                                kad::QueryResult::GetRecord(Ok(kad::GetRecordOk::FinishedWithNoAdditionalRecord { .. })) => None,
+                                kad::QueryResult::GetRecord(Err(_)) => None,
+                                _ => None,
+                            };
+                            let _ = tx.send(addr_opt);
+                        } else {
+                            tracing::debug!("Kademlia event: {:?}", result);
+                        }
+                    }
+                    _ => {
+                        tracing::debug!("Kademlia event: {:?}", kad_event);
+                    }
+                }
             }
             MePassaBehaviourEvent::Mdns(mdns_event) => {
                 match mdns_event {
