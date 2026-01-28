@@ -49,6 +49,18 @@
       "size" : "60x60"
     },
     {
+      "filename" : "AppIcon-76x76@2x.png",
+      "idiom" : "ipad",
+      "scale" : "2x",
+      "size" : "76x76"
+    },
+    {
+      "filename" : "AppIcon-83.5x83.5@2x.png",
+      "idiom" : "ipad",
+      "scale" : "2x",
+      "size" : "83.5x83.5"
+    },
+    {
       "filename" : "AppIcon-1024x1024.png",
       "idiom" : "ios-marketing",
       "scale" : "1x",
