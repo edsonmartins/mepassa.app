@@ -4,6 +4,7 @@
 //! which helps determine the best connection strategy.
 
 use libp2p::Multiaddr;
+use libp2p::multiaddr::Protocol;
 
 /// Types of NAT
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -54,9 +55,8 @@ impl NatDetector {
     ///
     /// Simple heuristic:
     /// - If all observed addresses match → FullCone
-    /// - If different ports → PortRestricted or Symmetric
-    ///
-    /// TODO: Implement proper STUN-like detection for production use
+    /// - If same IP but different ports → PortRestricted
+    /// - If different IPs → Symmetric
     pub fn guess_nat_type(&self) -> NatType {
         if self.observed_addrs.is_empty() {
             return NatType::Unknown;
@@ -67,16 +67,41 @@ impl NatDetector {
             return NatType::FullCone;
         }
 
-        // Check if all addresses are the same
-        let first = &self.observed_addrs[0];
-        let all_same = self.observed_addrs.iter().all(|addr| addr == first);
+        let mut first_ip: Option<String> = None;
+        let mut first_port: Option<u16> = None;
+        let mut ip_changed = false;
+        let mut port_changed = false;
 
-        if all_same {
-            NatType::FullCone
-        } else {
-            // Different addresses observed → Likely Symmetric or PortRestricted
-            // Without proper STUN probes, we conservatively assume Symmetric
+        for addr in &self.observed_addrs {
+            let (ip, port) = match Self::extract_ip_port(addr) {
+                Some(value) => value,
+                None => continue,
+            };
+
+            if first_ip.is_none() {
+                first_ip = Some(ip);
+                first_port = Some(port);
+                continue;
+            }
+
+            if let Some(ref first_ip_val) = first_ip {
+                if *first_ip_val != ip {
+                    ip_changed = true;
+                }
+            }
+            if let Some(first_port_val) = first_port {
+                if first_port_val != port {
+                    port_changed = true;
+                }
+            }
+        }
+
+        if ip_changed {
             NatType::Symmetric
+        } else if port_changed {
+            NatType::PortRestricted
+        } else {
+            NatType::FullCone
         }
     }
 
@@ -106,6 +131,26 @@ impl NatDetector {
             NatType::PortRestricted => ConnectionStrategy::HolePunchFirst,
             NatType::Symmetric => ConnectionStrategy::RelayFirst,
             NatType::Unknown => ConnectionStrategy::DirectFirst, // Optimistic default
+        }
+    }
+
+    fn extract_ip_port(addr: &Multiaddr) -> Option<(String, u16)> {
+        let mut ip: Option<String> = None;
+        let mut port: Option<u16> = None;
+
+        for protocol in addr.iter() {
+            match protocol {
+                Protocol::Ip4(v4) => ip = Some(v4.to_string()),
+                Protocol::Ip6(v6) => ip = Some(v6.to_string()),
+                Protocol::Tcp(p) => port = Some(p),
+                Protocol::Udp(p) => port = Some(p),
+                _ => {}
+            }
+        }
+
+        match (ip, port) {
+            (Some(ip_val), Some(port_val)) => Some((ip_val, port_val)),
+            _ => None,
         }
     }
 }

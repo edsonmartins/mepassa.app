@@ -20,6 +20,7 @@ use super::{
     connection::{ConnectionManager, ConnectionType},
     message_handler::MessageHandler,
     relay::RelayManager,
+    nat_detection::NatDetector,
     retry::RetryPolicy,
     transport::build_transport,
 };
@@ -37,6 +38,8 @@ pub struct NetworkManager {
     message_handler: Option<std::sync::Arc<MessageHandler>>,
     pending_kad_get: HashMap<QueryId, oneshot::Sender<Option<Multiaddr>>>,
     last_published_addr: Option<Multiaddr>,
+    nat_detector: NatDetector,
+    prefer_relay: bool,
 }
 
 impl NetworkManager {
@@ -82,6 +85,8 @@ impl NetworkManager {
             message_handler: None,
             pending_kad_get: HashMap::new(),
             last_published_addr: None,
+            nat_detector: NatDetector::new(),
+            prefer_relay: false,
         })
     }
 
@@ -116,6 +121,13 @@ impl NetworkManager {
 
     /// Dial a peer with automatic relay fallback
     pub fn dial(&mut self, peer_id: PeerId, addr: Multiaddr) -> Result<()> {
+        if self.prefer_relay {
+            tracing::info!("🔁 NAT suggests relay-first, attempting relay to {}", peer_id);
+            if let Ok(()) = self.dial_via_relay(peer_id) {
+                return Ok(());
+            }
+        }
+
         // Check if we should try relay based on connection history
         if self.connection_manager.should_try_relay(&peer_id) {
             tracing::info!("🔄 Attempting relay connection to {}", peer_id);
@@ -463,7 +475,25 @@ impl NetworkManager {
                 }
             }
             MePassaBehaviourEvent::Identify(identify_event) => {
-                tracing::debug!("Identify event: {:?}", identify_event);
+                match identify_event {
+                    libp2p::identify::Event::Received { observed_addr, .. } => {
+                        tracing::info!("🧭 Observed external address: {}", observed_addr);
+                        if Self::is_routable_addr(&observed_addr) {
+                            self.swarm.add_external_address(observed_addr.clone());
+                            self.nat_detector.add_observed_address(observed_addr.clone());
+                            self.publish_own_address(observed_addr);
+
+                            if self.nat_detector.should_use_relay() && !self.prefer_relay {
+                                tracing::info!("🌐 NAT suggests relay-first strategy");
+                                self.prefer_relay = true;
+                                let _ = self.reserve_relay_slot();
+                            }
+                        }
+                    }
+                    _ => {
+                        tracing::debug!("Identify event: {:?}", identify_event);
+                    }
+                }
             }
             MePassaBehaviourEvent::Ping(ping_event) => {
                 tracing::trace!("Ping event: {:?}", ping_event);
