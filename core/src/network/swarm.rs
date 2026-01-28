@@ -12,6 +12,8 @@ use futures::stream::StreamExt;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::select;
 use tokio::sync::oneshot;
+use uuid::Uuid;
+use chrono::Utc;
 
 use super::{
     behaviour::MePassaBehaviour,
@@ -22,7 +24,7 @@ use super::{
     transport::build_transport,
 };
 use crate::{
-    protocol::{AckMessage, Message},
+    protocol::{pb::message::Payload, AckMessage, Message, MessageType},
     utils::error::{MePassaError, Result},
 };
 
@@ -487,23 +489,25 @@ impl NetworkManager {
 
                                 // Process message through handler
                                 if let Some(ref handler) = self.message_handler {
-                                    let handler = Arc::clone(handler);
-                                    let request_clone = request.clone();
-                                    let peer_clone = peer;
-
-                                    tokio::spawn(async move {
-                                        match handler.handle_incoming_message(peer_clone, request_clone).await {
-                                            Ok(ack) => {
-                                                tracing::info!("✅ Processed message {}, sending ACK", ack.message_id);
-                                                // Send ACK response back
-                                                // TODO: Store channel and send response via channel.send()
-                                                // For now, the ACK is created but not sent back
-                                            }
-                                            Err(e) => {
-                                                tracing::error!("❌ Failed to process message: {}", e);
+                                    match handler.handle_incoming_message(peer, request).await {
+                                        Ok(ack) => {
+                                            tracing::info!("✅ Processed message {}, sending ACK", ack.message_id);
+                                            let response = Message {
+                                                id: uuid::Uuid::new_v4().to_string(),
+                                                sender_peer_id: self.local_peer_id.to_string(),
+                                                recipient_peer_id: peer.to_string(),
+                                                timestamp: chrono::Utc::now().timestamp_millis(),
+                                                r#type: MessageType::Ack as i32,
+                                                payload: Some(Payload::Ack(ack)),
+                                            };
+                                            if let Err(e) = self.send_ack(channel, response) {
+                                                tracing::error!("❌ Failed to send ACK: {}", e);
                                             }
                                         }
-                                    });
+                                        Err(e) => {
+                                            tracing::error!("❌ Failed to process message: {}", e);
+                                        }
+                                    }
                                 } else {
                                     tracing::warn!("⚠️ No message handler configured, message will be dropped");
                                 }

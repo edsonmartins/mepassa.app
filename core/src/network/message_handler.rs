@@ -124,10 +124,17 @@ impl MessageHandler {
             }
         }
 
-        // Emit event
+        // Emit event (include recipient when available)
+        let to_peer_id = self
+            .database
+            .get_message(&ack.message_id)
+            .ok()
+            .and_then(|msg| msg.recipient_peer_id);
+
         self.emit_event(MessageEvent::MessageDelivered {
             message_id: ack.message_id.clone(),
             status,
+            to_peer_id,
         });
 
         Ok(())
@@ -204,6 +211,7 @@ impl MessageHandler {
             from_peer_id: message.sender_peer_id.clone(),
             conversation_id: conversation_id.clone(),
             content: text.content.clone(),
+            message: message.clone(),
         });
 
         Ok(())
@@ -294,12 +302,14 @@ pub enum MessageEvent {
         from_peer_id: String,
         conversation_id: String,
         content: String,
+        message: Message,
     },
 
     /// Message delivered (ACK received)
     MessageDelivered {
         message_id: String,
         status: MessageStatus,
+        to_peer_id: Option<String>,
     },
 
     /// Message read by recipient
@@ -382,10 +392,12 @@ mod tests {
             MessageEvent::MessageReceived {
                 message_id,
                 content,
+                message,
                 ..
             } => {
                 assert_eq!(message_id, "msg-123");
                 assert_eq!(content, "Hello, World!");
+                assert_eq!(message.id, "msg-123");
             }
             _ => panic!("Expected MessageReceived event"),
         }

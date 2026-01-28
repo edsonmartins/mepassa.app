@@ -2,20 +2,21 @@
 //!
 //! Builder pattern for creating MePassa clients.
 
-use libp2p::identity::Keypair;
+use libp2p::{identity::Keypair, PeerId};
 use std::path::PathBuf;
+use std::str::FromStr;
 
 use super::client::Client;
 use crate::{
     identity::Identity,
-    network::NetworkManager,
+    network::{MessageEvent, NetworkManager},
     storage::{Database, migrate, needs_migration},
     utils::error::{MePassaError, Result},
 };
 #[cfg(any(feature = "voip", feature = "video"))]
 use crate::voip::{CallManager, VoIPIntegration};
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use tokio::sync::{mpsc, RwLock};
 
 /// Builder for creating a MePassa client
 pub struct ClientBuilder {
@@ -112,13 +113,19 @@ impl ClientBuilder {
         let network = NetworkManager::new(keypair)?;
         let network_arc = Arc::new(RwLock::new(network));
 
+        let callbacks: Arc<RwLock<Vec<Box<dyn super::events::EventCallback>>>> =
+            Arc::new(RwLock::new(Vec::new()));
+        let callbacks_for_events = Arc::clone(&callbacks);
+
+        let (event_tx, mut event_rx) = mpsc::unbounded_channel();
+
         // Create message handler for processing incoming messages
         // IMPORTANT: database.clone() shares the same SQLite connection (via internal Arc<Mutex>)
         // This ensures messages stored by MessageHandler are visible to Client
         let message_handler = Arc::new(crate::network::MessageHandler::new(
             peer_id.to_string(),
             Arc::new(database.clone()), // Shares the same SQLite connection!
-            None, // No event channel for now (TODO: add event system)
+            Some(event_tx),
         ));
 
         // Set message handler in network manager
@@ -168,6 +175,7 @@ impl ClientBuilder {
             network_arc,
             database, // Client owns the database (shares connection via internal Arc<Mutex>)
             data_dir,
+            Arc::clone(&callbacks),
             #[cfg(any(feature = "voip", feature = "video"))]
             call_manager,
             #[cfg(any(feature = "voip", feature = "video"))]
@@ -175,7 +183,63 @@ impl ClientBuilder {
             group_manager,
         );
 
+        tokio::spawn(async move {
+            while let Some(event) = event_rx.recv().await {
+                if let Some(client_event) = map_message_event(event) {
+                    let callbacks = callbacks_for_events.read().await;
+                    for callback in callbacks.iter() {
+                        callback.on_event(client_event.clone());
+                    }
+                }
+            }
+        });
+
         Ok(client)
+    }
+}
+
+fn map_message_event(event: MessageEvent) -> Option<super::events::ClientEvent> {
+    match event {
+        MessageEvent::MessageReceived { message_id, message, .. } => {
+            let from = PeerId::from_str(&message.sender_peer_id).ok()?;
+            Some(super::events::ClientEvent::MessageReceived {
+                message_id,
+                from,
+                message,
+            })
+        }
+        MessageEvent::MessageDelivered {
+            message_id,
+            to_peer_id,
+            ..
+        } => {
+            let to_peer_id = to_peer_id?;
+            let to = PeerId::from_str(&to_peer_id).ok()?;
+            Some(super::events::ClientEvent::MessageDelivered { message_id, to })
+        }
+        MessageEvent::MessageRead {
+            message_id,
+            by_peer_id,
+            read_at,
+        } => {
+            let by = PeerId::from_str(&by_peer_id).ok()?;
+            Some(super::events::ClientEvent::MessageRead {
+                message_id,
+                by,
+                read_at,
+            })
+        }
+        MessageEvent::TypingIndicator {
+            from_peer_id,
+            is_typing,
+        } => {
+            let peer_id = PeerId::from_str(&from_peer_id).ok()?;
+            Some(if is_typing {
+                super::events::ClientEvent::TypingStarted { peer_id }
+            } else {
+                super::events::ClientEvent::TypingStopped { peer_id }
+            })
+        }
     }
 }
 

@@ -53,6 +53,7 @@ impl Client {
         network: Arc<RwLock<NetworkManager>>,
         database: Database,
         data_dir: PathBuf,
+        callbacks: Arc<RwLock<Vec<Box<dyn EventCallback>>>>,
         #[cfg(any(feature = "voip", feature = "video"))]
         call_manager: Arc<CallManager>,
         #[cfg(any(feature = "voip", feature = "video"))]
@@ -64,7 +65,7 @@ impl Client {
             identity,
             network,
             database,
-            callbacks: Arc::new(RwLock::new(Vec::new())),
+            callbacks,
             data_dir,
             #[cfg(any(feature = "voip", feature = "video"))]
             call_manager,
