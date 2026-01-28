@@ -23,6 +23,7 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
   const [isSending, setIsSending] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
   const previousMessageCount = useRef<number>(0)
 
   useEffect(() => {
@@ -38,7 +39,14 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
   }, [peerId])
 
   useEffect(() => {
-    scrollToBottom()
+    const el = scrollContainerRef.current
+    if (!el) return
+    const threshold = 24
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    const shouldStick = distanceFromBottom <= threshold || previousMessageCount.current === 0
+    if (shouldStick) {
+      scrollToBottom()
+    }
   }, [messages])
 
   const loadMessages = async () => {
@@ -115,6 +123,10 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
+  const handleScroll = () => {
+    // no-op: reserved for future scroll indicators
+  }
+
   const formatTime = (timestamp: number): string => {
     const date = new Date(timestamp * 1000)
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -178,7 +190,11 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+      <div
+        className="flex-1 overflow-y-auto px-6 py-4 space-y-4"
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+      >
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-primary-500"></div>

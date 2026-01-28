@@ -50,8 +50,19 @@ struct ChatView: View {
                             messageRow(message)
                         }
                     }
+                    Color.clear
+                        .frame(height: 1)
+                        .id("bottom")
                 }
                 .padding()
+            }
+            .onAppear {
+                proxy.scrollTo("bottom", anchor: .bottom)
+            }
+            .onChange(of: messages.count) { _ in
+                withAnimation(.easeOut(duration: 0.2)) {
+                    proxy.scrollTo("bottom", anchor: .bottom)
+                }
             }
         }
     }
@@ -179,6 +190,7 @@ struct ChatView: View {
             loadMessages()
             loadReactions()
             startAutoRefresh()
+            Task { await connectIfPossible() }
         }
         .onDisappear {
             stopAutoRefresh()
@@ -328,6 +340,7 @@ struct ChatView: View {
 
         Task {
             do {
+                await connectIfPossible()
                 let messageId = try await MePassaCore.shared.sendMessage(
                     to: conversation.peerId,
                     content: messageText
@@ -372,6 +385,18 @@ struct ChatView: View {
                 }
             } catch {
                 print("❌ Error loading messages: \(error)")
+            }
+        }
+    }
+
+    private func connectIfPossible() async {
+        if let addr = UserDefaults.standard.string(forKey: "mepassa.multiaddr.\(conversation.peerId)") {
+            do {
+                print("🔗 Reconnecting to peer \(conversation.peerId) at \(addr)...")
+                try await MePassaCore.shared.connectToPeer(peerId: conversation.peerId, multiaddr: addr)
+                try await Task.sleep(nanoseconds: 300_000_000)
+            } catch {
+                print("⚠️ Reconnect failed: \(error)")
             }
         }
     }

@@ -24,6 +24,9 @@ struct NewChatView: View {
             if parts.count == 2 {
                 peerId = String(parts[0])
                 multiaddr = String(parts[1])
+                if let addr = multiaddr {
+                    UserDefaults.standard.set(addr, forKey: "mepassa.multiaddr.\(peerId)")
+                }
                 print("📱 Parsed QR: peerId=\(peerId), multiaddr=\(multiaddr ?? "nil")")
                 return
             }
@@ -148,6 +151,7 @@ struct NewChatView: View {
                 // First, connect to the peer if we have an address
                 if let addr = multiaddr {
                     print("🔗 Connecting to peer \(peerId) at \(addr)...")
+                    UserDefaults.standard.set(addr, forKey: "mepassa.multiaddr.\(peerId)")
                     try await MePassaCore.shared.connectToPeer(peerId: peerId, multiaddr: addr)
                     print("✅ Connected to peer!")
 

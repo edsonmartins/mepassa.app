@@ -51,6 +51,12 @@ struct MePassaApp: App {
                 // Start listening for incoming P2P connections
                 try await MePassaCore.shared.startListening()
                 print("✅ MePassa Core listening for connections")
+
+                if let peerId = MePassaCore.shared.localPeerId {
+                    await MainActor.run {
+                        appState.login(peerId: peerId)
+                    }
+                }
             } catch {
                 print("❌ Failed to initialize MePassa Core: \(error)")
             }
@@ -73,8 +79,8 @@ class AppState: ObservableObject {
     private var refreshTimer: Timer?
 
     func login(peerId: String) {
-        // TODO: Implement login with UniFFI
         self.isAuthenticated = true
+        self.currentUser = User(id: peerId, username: nil, peerId: peerId)
         print("✅ Logged in as: \(peerId)")
 
         // Start auto-refresh when logged in

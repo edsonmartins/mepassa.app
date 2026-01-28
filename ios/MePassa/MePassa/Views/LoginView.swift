@@ -113,12 +113,32 @@ struct LoginView: View {
     private func generateNewIdentity() {
         isGeneratingId = true
 
-        // TODO: Call UniFFI to generate new keypair and peer ID
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            // Temporary: simulate identity generation
-            let mockPeerId = "12D3KooW" + UUID().uuidString.prefix(8)
-            appState.login(peerId: String(mockPeerId))
-            isGeneratingId = false
+        Task {
+            do {
+                if !MePassaCore.shared.isInitialized {
+                    try await MePassaCore.shared.initialize()
+                    try await MePassaCore.shared.startListening()
+                }
+
+                if let realPeerId = MePassaCore.shared.localPeerId, !realPeerId.isEmpty {
+                    await MainActor.run {
+                        appState.login(peerId: realPeerId)
+                        isGeneratingId = false
+                    }
+                } else {
+                    await MainActor.run {
+                        isGeneratingId = false
+                        showError = true
+                        errorMessage = "Não foi possível obter o Peer ID"
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    isGeneratingId = false
+                    showError = true
+                    errorMessage = "Falha ao inicializar identidade: \(error.localizedDescription)"
+                }
+            }
         }
     }
 }
