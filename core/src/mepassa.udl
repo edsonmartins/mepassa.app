@@ -190,6 +190,12 @@ interface MePassaClient {
     string local_peer_id();
 
     [Throws=MePassaFfiError, Async]
+    string get_prekey_bundle_json();
+
+    [Throws=MePassaFfiError]
+    void set_contact_prekey_bundle(string peer_id, string prekey_bundle_json);
+
+    [Throws=MePassaFfiError, Async]
     void listen_on(string multiaddr);
 
     [Throws=MePassaFfiError, Async]

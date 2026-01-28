@@ -19,7 +19,7 @@ pub struct Message {
     #[prost(enumeration = "MessageType", tag = "5")]
     pub r#type: i32,
     /// Message payload (one of the following)
-    #[prost(oneof = "message::Payload", tags = "10, 11, 12, 13")]
+    #[prost(oneof = "message::Payload", tags = "10, 11, 12, 13, 14")]
     pub payload: ::core::option::Option<message::Payload>,
 }
 /// Nested message and enum types in `Message`.
@@ -36,6 +36,8 @@ pub mod message {
         Typing(super::TypingIndicator),
         #[prost(message, tag = "13")]
         ReadReceipt(super::ReadReceipt),
+        #[prost(message, tag = "14")]
+        Encrypted(super::EncryptedMessage),
     }
 }
 /// Text message
@@ -88,6 +90,26 @@ pub struct ReadReceipt {
     #[prost(int64, tag = "2")]
     pub read_at: i64,
 }
+/// Encrypted message payload (E2E)
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct EncryptedMessage {
+    /// Ciphertext (AES-GCM)
+    #[prost(bytes = "vec", tag = "1")]
+    pub ciphertext: ::prost::alloc::vec::Vec<u8>,
+    /// Nonce (12 bytes)
+    #[prost(bytes = "vec", tag = "2")]
+    pub nonce: ::prost::alloc::vec::Vec<u8>,
+    /// Sender ephemeral public key (X25519) for X3DH session init
+    #[prost(bytes = "vec", tag = "3")]
+    pub ephemeral_public: ::prost::alloc::vec::Vec<u8>,
+    /// Signed prekey id used for X3DH
+    #[prost(uint32, tag = "4")]
+    pub signed_prekey_id: u32,
+    /// One-time prekey id used for X3DH (0 if not used)
+    #[prost(uint32, tag = "5")]
+    pub one_time_prekey_id: u32,
+}
 /// Message type enum
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
@@ -97,6 +119,7 @@ pub enum MessageType {
     Ack = 2,
     Typing = 3,
     ReadReceipt = 4,
+    Encrypted = 5,
 }
 impl MessageType {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -110,6 +133,7 @@ impl MessageType {
             MessageType::Ack => "MESSAGE_TYPE_ACK",
             MessageType::Typing => "MESSAGE_TYPE_TYPING",
             MessageType::ReadReceipt => "MESSAGE_TYPE_READ_RECEIPT",
+            MessageType::Encrypted => "MESSAGE_TYPE_ENCRYPTED",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -120,6 +144,7 @@ impl MessageType {
             "MESSAGE_TYPE_ACK" => Some(Self::Ack),
             "MESSAGE_TYPE_TYPING" => Some(Self::Typing),
             "MESSAGE_TYPE_READ_RECEIPT" => Some(Self::ReadReceipt),
+            "MESSAGE_TYPE_ENCRYPTED" => Some(Self::Encrypted),
             _ => None,
         }
     }

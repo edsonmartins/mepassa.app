@@ -8,6 +8,7 @@ use std::str::FromStr;
 
 use super::client::Client;
 use crate::{
+    crypto::session::SessionManager,
     identity::Identity,
     network::{MessageEvent, NetworkManager},
     storage::{Database, migrate, needs_migration},
@@ -92,7 +93,9 @@ impl ClientBuilder {
 
         // Create identity (convert from libp2p keypair)
         let our_keypair = crate::identity::Keypair::from_libp2p_keypair(&keypair)?;
-        let identity = Identity::from_keypair(our_keypair);
+        let mut identity = Identity::from_keypair(our_keypair);
+        identity.init_prekey_pool(100);
+        let identity = Arc::new(RwLock::new(identity));
 
         // Open database
         let db_path = data_dir.join("mepassa.db");
@@ -122,9 +125,12 @@ impl ClientBuilder {
         // Create message handler for processing incoming messages
         // IMPORTANT: database.clone() shares the same SQLite connection (via internal Arc<Mutex>)
         // This ensures messages stored by MessageHandler are visible to Client
+        let session_manager = SessionManager::new();
         let message_handler = Arc::new(crate::network::MessageHandler::new(
             peer_id.to_string(),
             Arc::new(database.clone()), // Shares the same SQLite connection!
+            Arc::clone(&identity),
+            session_manager.clone(),
             Some(event_tx),
         ));
 
@@ -171,11 +177,12 @@ impl ClientBuilder {
         // Note: database.clone() shares the same SQLite connection with MessageHandler
         let client = Client::new(
             peer_id,
-            identity,
+            Arc::clone(&identity),
             network_arc,
             database, // Client owns the database (shares connection via internal Arc<Mutex>)
             data_dir,
             Arc::clone(&callbacks),
+            session_manager.clone(),
             #[cfg(any(feature = "voip", feature = "video"))]
             call_manager,
             #[cfg(any(feature = "voip", feature = "video"))]

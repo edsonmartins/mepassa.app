@@ -4,7 +4,7 @@
 
 use libp2p::{
     identity::Keypair,
-    kad::{self, record, Quorum, QueryId},
+    kad::{self, Quorum, QueryId, Record, RecordKey},
     swarm::{Config as SwarmConfig, Swarm, SwarmEvent},
     Multiaddr, PeerId,
 };
@@ -25,7 +25,7 @@ use super::{
     transport::build_transport,
 };
 use crate::{
-    protocol::{pb::message::Payload, AckMessage, Message, MessageType},
+    protocol::{pb::message::Payload, Message, MessageType},
     utils::error::{MePassaError, Result},
 };
 
@@ -186,7 +186,7 @@ impl NetworkManager {
         }
 
         let key = Self::addr_record_key(&self.local_peer_id);
-        let record = record::Record {
+        let record = Record {
             key,
             value: addr.to_string().into_bytes(),
             publisher: Some(self.local_peer_id),
@@ -218,8 +218,9 @@ impl NetworkManager {
         rx
     }
 
-    fn addr_record_key(peer_id: &PeerId) -> record::Key {
-        record::Key::new(format!("mepassa:addr:{}", peer_id))
+    fn addr_record_key(peer_id: &PeerId) -> RecordKey {
+        let key = format!("mepassa:addr:{}", peer_id);
+        RecordKey::new(&key)
     }
 
     fn is_routable_addr(addr: &Multiaddr) -> bool {
@@ -476,7 +477,8 @@ impl NetworkManager {
             }
             MePassaBehaviourEvent::Identify(identify_event) => {
                 match identify_event {
-                    libp2p::identify::Event::Received { observed_addr, .. } => {
+                    libp2p::identify::Event::Received { info, .. } => {
+                        let observed_addr = info.observed_addr;
                         tracing::info!("🧭 Observed external address: {}", observed_addr);
                         if Self::is_routable_addr(&observed_addr) {
                             self.swarm.add_external_address(observed_addr.clone());
@@ -523,10 +525,10 @@ impl NetworkManager {
                                         Ok(ack) => {
                                             tracing::info!("✅ Processed message {}, sending ACK", ack.message_id);
                                             let response = Message {
-                                                id: uuid::Uuid::new_v4().to_string(),
+                                                id: Uuid::new_v4().to_string(),
                                                 sender_peer_id: self.local_peer_id.to_string(),
                                                 recipient_peer_id: peer.to_string(),
-                                                timestamp: chrono::Utc::now().timestamp_millis(),
+                                                timestamp: Utc::now().timestamp_millis(),
                                                 r#type: MessageType::Ack as i32,
                                                 payload: Some(Payload::Ack(ack)),
                                             };

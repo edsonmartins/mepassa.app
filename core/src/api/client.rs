@@ -10,10 +10,11 @@ use tokio::time::{timeout, Duration};
 
 use super::events::{ClientEvent, EventCallback};
 use crate::{
+    crypto::session::SessionManager,
     identity::Identity,
     network::NetworkManager,
-    protocol::{pb::message::Payload, Message, MessageType, TextMessage},
-    storage::{Database, NewMessage, MessageStatus},
+    protocol::{pb::message::Payload, EncryptedMessage as ProtoEncryptedMessage, Message, MessageType, TextMessage},
+    storage::{contacts::{NewContact, UpdateContact}, Database, MessageStatus, NewMessage, StorageError},
     utils::error::{MePassaError, Result},
 };
 #[cfg(any(feature = "voip", feature = "video"))]
@@ -26,7 +27,7 @@ pub struct Client {
     /// Local peer ID (libp2p)
     peer_id: PeerId,
     /// Local identity (keypair + prekeys)
-    identity: Identity,
+    identity: Arc<RwLock<Identity>>,
     /// Network manager (P2P networking)
     network: Arc<RwLock<NetworkManager>>,
     /// Local storage (SQLite) - shares connection with MessageHandler via Database::clone()
@@ -43,17 +44,20 @@ pub struct Client {
     voip_integration: Arc<VoIPIntegration>,
     /// Group manager (FASE 15)
     group_manager: Arc<crate::group::GroupManager>,
+    /// E2E session manager
+    session_manager: SessionManager,
 }
 
 impl Client {
     /// Create a new client (use ClientBuilder instead)
     pub(crate) fn new(
         peer_id: PeerId,
-        identity: Identity,
+        identity: Arc<RwLock<Identity>>,
         network: Arc<RwLock<NetworkManager>>,
         database: Database,
         data_dir: PathBuf,
         callbacks: Arc<RwLock<Vec<Box<dyn EventCallback>>>>,
+        session_manager: SessionManager,
         #[cfg(any(feature = "voip", feature = "video"))]
         call_manager: Arc<CallManager>,
         #[cfg(any(feature = "voip", feature = "video"))]
@@ -67,6 +71,7 @@ impl Client {
             database,
             callbacks,
             data_dir,
+            session_manager,
             #[cfg(any(feature = "voip", feature = "video"))]
             call_manager,
             #[cfg(any(feature = "voip", feature = "video"))]
@@ -81,8 +86,47 @@ impl Client {
     }
 
     /// Get local identity
-    pub fn identity(&self) -> &Identity {
-        &self.identity
+    pub fn identity(&self) -> Arc<RwLock<Identity>> {
+        Arc::clone(&self.identity)
+    }
+
+    /// Export current prekey bundle as JSON (for sharing)
+    pub async fn get_prekey_bundle_json(&self) -> Result<String> {
+        let mut identity = self.identity.write().await;
+        identity.init_prekey_pool(100);
+        let pool = identity
+            .prekey_pool_mut()
+            .ok_or_else(|| MePassaError::Identity("Prekey pool not initialized".to_string()))?;
+        let bundle = pool.get_bundle();
+        serde_json::to_string(&bundle)
+            .map_err(|e| MePassaError::Identity(format!("Failed to serialize prekey bundle: {}", e)))
+    }
+
+    /// Store a contact's prekey bundle (JSON) for E2E encryption
+    pub fn set_contact_prekey_bundle(&self, peer_id: String, bundle_json: String) -> Result<()> {
+        let _bundle: crate::identity::PreKeyBundle = serde_json::from_str(&bundle_json)
+            .map_err(|e| MePassaError::Identity(format!("Invalid prekey bundle JSON: {}", e)))?;
+
+        let update = UpdateContact {
+            prekey_bundle_json: Some(Some(bundle_json.clone())),
+            ..Default::default()
+        };
+
+        match self.database.update_contact(&peer_id, &update) {
+            Ok(_) => Ok(()),
+            Err(StorageError::NotFound(_)) => {
+                let contact = NewContact {
+                    peer_id,
+                    username: None,
+                    display_name: None,
+                    public_key: Vec::new(),
+                    prekey_bundle_json: Some(bundle_json),
+                };
+                self.database.insert_contact(&contact)?;
+                Ok(())
+            }
+            Err(e) => Err(MePassaError::Storage(format!("Failed to update contact: {}", e))),
+        }
     }
 
     /// Get database
@@ -136,18 +180,37 @@ impl Client {
         let message_id = uuid::Uuid::new_v4().to_string();
         let timestamp = chrono::Utc::now().timestamp_millis();
 
+        let (message_type, payload) = match self.encrypt_message_for_peer(&to, content.as_bytes()) {
+            Ok(Some(encrypted_payload)) => (MessageType::Encrypted, Payload::Encrypted(encrypted_payload)),
+            Ok(None) => (
+                MessageType::Text,
+                Payload::Text(TextMessage {
+                    content: content.clone(),
+                    reply_to_id: String::new(),
+                    metadata: std::collections::HashMap::new(),
+                }),
+            ),
+            Err(e) => {
+                tracing::warn!("E2E encryption failed, sending plaintext: {}", e);
+                (
+                    MessageType::Text,
+                    Payload::Text(TextMessage {
+                        content: content.clone(),
+                        reply_to_id: String::new(),
+                        metadata: std::collections::HashMap::new(),
+                    }),
+                )
+            }
+        };
+
         // Create protocol message
         let proto_message = Message {
             id: message_id.clone(),
             sender_peer_id: self.local_peer_id().to_string(),
             recipient_peer_id: to.to_string(),
             timestamp,
-            r#type: MessageType::Text as i32,
-            payload: Some(Payload::Text(TextMessage {
-                content: content.clone(),
-                reply_to_id: String::new(),
-                metadata: std::collections::HashMap::new(),
-            })),
+            r#type: message_type as i32,
+            payload: Some(payload),
         };
 
         // Send via network
@@ -181,6 +244,47 @@ impl Client {
         .await;
 
         Ok(message_id)
+    }
+
+    fn encrypt_message_for_peer(
+        &self,
+        to: &PeerId,
+        plaintext: &[u8],
+    ) -> Result<Option<ProtoEncryptedMessage>> {
+        let contact = match self.database.get_contact_by_peer_id(&to.to_string()) {
+            Ok(contact) => contact,
+            Err(_) => return Ok(None),
+        };
+
+        let bundle_json = match contact.prekey_bundle_json {
+            Some(value) => value,
+            None => return Ok(None),
+        };
+
+        let bundle: crate::identity::PreKeyBundle = serde_json::from_str(&bundle_json)
+            .map_err(|e| MePassaError::Crypto(format!("Invalid prekey bundle: {}", e)))?;
+
+        let peer_id = to.to_string();
+        let has_session = self.session_manager.has_session(&peer_id)?;
+
+        let (encrypted, ephemeral_public, signed_prekey_id, one_time_prekey_id) = if has_session {
+            let encrypted = self.session_manager.encrypt_for(&peer_id, plaintext)?;
+            (encrypted, Vec::new(), 0, 0)
+        } else {
+            let (shared_secret, ephemeral_public) = crate::crypto::signal::X3DH::initiate(&bundle)?;
+            self.session_manager.create_session(peer_id.clone(), shared_secret)?;
+            let encrypted = self.session_manager.encrypt_for(&peer_id, plaintext)?;
+            let one_time_prekey_id = bundle.one_time_prekey.as_ref().map(|pk| pk.id).unwrap_or(0);
+            (encrypted, ephemeral_public.to_vec(), bundle.signed_prekey_id, one_time_prekey_id)
+        };
+
+        Ok(Some(ProtoEncryptedMessage {
+            ciphertext: encrypted.ciphertext,
+            nonce: encrypted.nonce.to_vec(),
+            ephemeral_public,
+            signed_prekey_id,
+            one_time_prekey_id,
+        }))
     }
 
     async fn ensure_peer_connected(&self, peer_id: PeerId) {

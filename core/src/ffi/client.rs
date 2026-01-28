@@ -59,6 +59,14 @@ enum ClientCommand {
     LocalPeerId {
         response: oneshot::Sender<String>,
     },
+    GetPrekeyBundleJson {
+        response: oneshot::Sender<Result<String, MePassaFfiError>>,
+    },
+    SetContactPrekeyBundle {
+        peer_id: String,
+        prekey_bundle_json: String,
+        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+    },
     ListenOn {
         multiaddr: libp2p::Multiaddr,
         response: oneshot::Sender<Result<(), MePassaFfiError>>,
@@ -275,6 +283,23 @@ async fn run_client_task_arc(
         match cmd {
             ClientCommand::LocalPeerId { response } => {
                 let _ = response.send(client.local_peer_id().to_string());
+            }
+            ClientCommand::GetPrekeyBundleJson { response } => {
+                let result = client
+                    .get_prekey_bundle_json()
+                    .await
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            ClientCommand::SetContactPrekeyBundle {
+                peer_id,
+                prekey_bundle_json,
+                response,
+            } => {
+                let result = client
+                    .set_contact_prekey_bundle(peer_id, prekey_bundle_json)
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
             }
             ClientCommand::ListenOn {
                 multiaddr,
@@ -805,6 +830,44 @@ impl MePassaClient {
         execute_future(rx).map_err(|_| MePassaFfiError::Other {
             message: "Failed to receive response".to_string(),
         })
+    }
+
+    /// Export prekey bundle as JSON (for sharing)
+    pub async fn get_prekey_bundle_json(&self) -> Result<String, MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::GetPrekeyBundleJson { response: tx })
+            .map_err(|_| MePassaFfiError::Other {
+                message: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| MePassaFfiError::Other {
+            message: "Failed to receive response".to_string(),
+        })?
+    }
+
+    /// Store a contact's prekey bundle JSON
+    pub fn set_contact_prekey_bundle(
+        &self,
+        peer_id: String,
+        prekey_bundle_json: String,
+    ) -> Result<(), MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::SetContactPrekeyBundle {
+                peer_id,
+                prekey_bundle_json,
+                response: tx,
+            })
+            .map_err(|_| MePassaFfiError::Other {
+                message: "Failed to send command".to_string(),
+            })?;
+
+        execute_future(rx).map_err(|_| MePassaFfiError::Other {
+            message: "Failed to receive response".to_string(),
+        })?
     }
 
     /// Start listening on an address

@@ -11,13 +11,19 @@ use libp2p::PeerId;
 use std::sync::Arc;
 
 use crate::{
+    crypto::{
+        session::SessionManager,
+        signal::{EncryptedMessage as CryptoEncryptedMessage, X3DH},
+    },
     protocol::{
-        pb::message::Payload, AckMessage, AckStatus, Message, MessageType, ReadReceipt,
-        TextMessage, TypingIndicator,
+        pb::message::Payload, AckMessage, AckStatus, EncryptedMessage as ProtoEncryptedMessage,
+        Message, MessageType, ReadReceipt, TextMessage, TypingIndicator,
     },
     storage::{Database, MessageStatus, NewMessage, UpdateMessage},
     utils::error::{MePassaError, Result},
 };
+use tokio::sync::RwLock;
+use crate::identity::Identity;
 
 /// Message handler
 ///
@@ -29,6 +35,12 @@ pub struct MessageHandler {
     /// Database for storing messages (thread-safe via internal Mutex)
     database: Arc<Database>,
 
+    /// Identity (prekeys for X3DH)
+    identity: Arc<RwLock<Identity>>,
+
+    /// E2E session manager
+    session_manager: SessionManager,
+
     /// Event callback for notifying UI
     event_tx: Option<tokio::sync::mpsc::UnboundedSender<MessageEvent>>,
 }
@@ -38,11 +50,15 @@ impl MessageHandler {
     pub fn new(
         local_peer_id: String,
         database: Arc<Database>,
+        identity: Arc<RwLock<Identity>>,
+        session_manager: SessionManager,
         event_tx: Option<tokio::sync::mpsc::UnboundedSender<MessageEvent>>,
     ) -> Self {
         Self {
             local_peer_id,
             database,
+            identity,
+            session_manager,
             event_tx,
         }
     }
@@ -81,6 +97,9 @@ impl MessageHandler {
             }
             Some(Payload::ReadReceipt(ref read_msg)) => {
                 self.handle_read_receipt(&message, read_msg).await
+            }
+            Some(Payload::Encrypted(ref enc_msg)) => {
+                self.handle_encrypted_message(&message, enc_msg).await
             }
             None => {
                 tracing::warn!("Message {} has no payload", message.id);
@@ -223,6 +242,106 @@ impl MessageHandler {
         self.handle_outgoing_ack(ack.clone()).await
     }
 
+    async fn handle_encrypted_message(
+        &self,
+        message: &Message,
+        encrypted: &ProtoEncryptedMessage,
+    ) -> Result<()> {
+        let peer_id = message.sender_peer_id.clone();
+
+        if !self.session_manager.has_session(&peer_id)? {
+            if encrypted.ephemeral_public.is_empty() {
+                return Err(MePassaError::Crypto("No session and no ephemeral key".to_string()));
+            }
+
+            let (signed_prekey_secret, one_time_secret_opt) = {
+                let mut identity = self.identity.write().await;
+                identity.init_prekey_pool(100);
+                let pool = identity
+                    .prekey_pool_mut()
+                    .ok_or_else(|| MePassaError::Crypto("Prekey pool not initialized".to_string()))?;
+
+                let signed_prekey_secret = pool.signed_prekey().secret_bytes();
+                let one_time_secret_opt: Option<[u8; 32]> = if encrypted.one_time_prekey_id != 0 {
+                    pool.get_prekey(encrypted.one_time_prekey_id)
+                        .map(|pk| pk.secret_bytes())
+                } else {
+                    None
+                };
+                (signed_prekey_secret, one_time_secret_opt)
+            };
+
+            let ephemeral_public: [u8; 32] = encrypted
+                .ephemeral_public
+                .as_slice()
+                .try_into()
+                .map_err(|_| MePassaError::Crypto("Invalid ephemeral public key".to_string()))?;
+
+            let shared_secret = X3DH::respond(
+                &signed_prekey_secret,
+                one_time_secret_opt.as_ref(),
+                &ephemeral_public,
+            )?;
+
+            self.session_manager
+                .create_session(peer_id.clone(), shared_secret)?;
+
+            if encrypted.one_time_prekey_id != 0 {
+                let mut identity = self.identity.write().await;
+                if let Some(pool) = identity.prekey_pool_mut() {
+                    pool.remove_prekey(encrypted.one_time_prekey_id);
+                }
+            }
+        }
+
+        let crypto_msg = CryptoEncryptedMessage {
+            nonce: encrypted
+                .nonce
+                .as_slice()
+                .try_into()
+                .map_err(|_| MePassaError::Crypto("Invalid nonce".to_string()))?,
+            ciphertext: encrypted.ciphertext.clone(),
+        };
+
+        let plaintext = self.session_manager.decrypt_from(&peer_id, &crypto_msg)?;
+        let text = String::from_utf8(plaintext)
+            .map_err(|_| MePassaError::Protocol("Invalid UTF-8 content".to_string()))?;
+
+        let conversation_id = self.database.get_or_create_conversation(&peer_id)?;
+        let new_msg = NewMessage {
+            message_id: message.id.clone(),
+            conversation_id: conversation_id.clone(),
+            sender_peer_id: message.sender_peer_id.clone(),
+            recipient_peer_id: Some(message.recipient_peer_id.clone()),
+            message_type: "text".to_string(),
+            content_encrypted: None,
+            content_plaintext: Some(text.clone()),
+            status: MessageStatus::Delivered,
+            parent_message_id: None,
+        };
+
+        self.database.insert_message(&new_msg)?;
+        self.database.update_conversation_last_message(&conversation_id, &message.id)?;
+
+        let mut display_message = message.clone();
+        display_message.payload = Some(Payload::Text(TextMessage {
+            content: text.clone(),
+            reply_to_id: String::new(),
+            metadata: std::collections::HashMap::new(),
+        }));
+        display_message.r#type = MessageType::Text as i32;
+
+        self.emit_event(MessageEvent::MessageReceived {
+            message_id: message.id.clone(),
+            from_peer_id: message.sender_peer_id.clone(),
+            conversation_id,
+            content: text,
+            message: display_message,
+        });
+
+        Ok(())
+    }
+
     /// Handle typing indicator
     async fn handle_typing_indicator(
         &self,
@@ -356,9 +475,13 @@ mod tests {
 
         let (event_tx, mut event_rx) = tokio::sync::mpsc::unbounded_channel();
 
+        let identity = Arc::new(RwLock::new(crate::identity::Identity::generate(0)));
+        let session_manager = SessionManager::new();
         let handler = MessageHandler::new(
             local_peer_id.clone(),
             db_arc,
+            identity,
+            session_manager,
             Some(event_tx),
         );
 
@@ -451,9 +574,13 @@ mod tests {
 
         let db_arc = Arc::new(db);
 
+        let identity = Arc::new(RwLock::new(crate::identity::Identity::generate(0)));
+        let session_manager = SessionManager::new();
         let handler = MessageHandler::new(
             local_peer_id,
             Arc::clone(&db_arc),
+            identity,
+            session_manager,
             None,
         );
 

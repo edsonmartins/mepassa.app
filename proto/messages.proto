@@ -30,6 +30,7 @@ message Message {
     AckMessage ack = 11;
     TypingIndicator typing = 12;
     ReadReceipt read_receipt = 13;
+    EncryptedMessage encrypted = 14;
   }
 }
 
@@ -40,6 +41,7 @@ enum MessageType {
   MESSAGE_TYPE_ACK = 2;
   MESSAGE_TYPE_TYPING = 3;
   MESSAGE_TYPE_READ_RECEIPT = 4;
+  MESSAGE_TYPE_ENCRYPTED = 5;
 }
 
 // Text message
@@ -87,4 +89,22 @@ message ReadReceipt {
 
   // Unix timestamp when message was read
   int64 read_at = 2;
+}
+
+// Encrypted message payload (E2E)
+message EncryptedMessage {
+  // Ciphertext (AES-GCM)
+  bytes ciphertext = 1;
+
+  // Nonce (12 bytes)
+  bytes nonce = 2;
+
+  // Sender ephemeral public key (X25519) for X3DH session init
+  bytes ephemeral_public = 3;
+
+  // Signed prekey id used for X3DH
+  uint32 signed_prekey_id = 4;
+
+  // One-time prekey id used for X3DH (0 if not used)
+  uint32 one_time_prekey_id = 5;
 }
