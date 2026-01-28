@@ -95,6 +95,7 @@ impl ClientBuilder {
         let our_keypair = crate::identity::Keypair::from_libp2p_keypair(&keypair)?;
         let mut identity = Identity::from_keypair(our_keypair);
         identity.init_prekey_pool(100);
+        let storage_key = identity.storage_key()?;
         let identity = Arc::new(RwLock::new(identity));
 
         // Open database
@@ -131,6 +132,7 @@ impl ClientBuilder {
             Arc::new(database.clone()), // Shares the same SQLite connection!
             Arc::clone(&identity),
             session_manager.clone(),
+            storage_key,
             Some(event_tx),
         ));
 
@@ -183,6 +185,7 @@ impl ClientBuilder {
             data_dir,
             Arc::clone(&callbacks),
             session_manager.clone(),
+            storage_key,
             #[cfg(any(feature = "voip", feature = "video"))]
             call_manager,
             #[cfg(any(feature = "voip", feature = "video"))]

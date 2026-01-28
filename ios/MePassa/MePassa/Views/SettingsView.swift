@@ -20,6 +20,9 @@ struct SettingsView: View {
     @State private var exportData = ""
     @State private var showExportError = false
     @State private var exportErrorMessage = ""
+    @State private var showPrekeyImportSheet = false
+    @State private var prekeyPeerId = ""
+    @State private var prekeyJson = ""
 
     var body: some View {
         Form {
@@ -65,6 +68,10 @@ struct SettingsView: View {
                             showExportError = true
                         }
                     }
+                }
+
+                Button("Importar prekeys de contato") {
+                    showPrekeyImportSheet = true
                 }
             }
 
@@ -166,6 +173,62 @@ struct SettingsView: View {
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Fechar") { showExportSheet = false }
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showPrekeyImportSheet) {
+            NavigationView {
+                VStack(spacing: 16) {
+                    Text("Salvar prekeys do contato")
+                        .font(.headline)
+
+                    TextField("Peer ID", text: $prekeyPeerId)
+                        .textFieldStyle(.roundedBorder)
+                        .padding(.horizontal)
+
+                    TextEditor(text: $prekeyJson)
+                        .font(.system(.body, design: .monospaced))
+                        .frame(minHeight: 200)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.secondary.opacity(0.4))
+                        )
+                        .padding(.horizontal)
+
+                    Button(action: {
+                        do {
+                            try MePassaCore.shared.storePeerPrekeyBundle(
+                                peerId: prekeyPeerId,
+                                bundleJson: prekeyJson
+                            )
+                            prekeyPeerId = ""
+                            prekeyJson = ""
+                            showPrekeyImportSheet = false
+                        } catch {
+                            exportErrorMessage = error.localizedDescription
+                            showExportError = true
+                        }
+                    }) {
+                        Text("Salvar")
+                            .fontWeight(.semibold)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(12)
+                    }
+                    .padding(.horizontal)
+                    .disabled(prekeyPeerId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || prekeyJson.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                    Spacer()
+                }
+                .padding(.top, 12)
+                .navigationTitle("Importar Prekeys")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Fechar") { showPrekeyImportSheet = false }
                     }
                 }
             }

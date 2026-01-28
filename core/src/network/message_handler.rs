@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use crate::{
     crypto::{
+        decrypt_for_storage, encrypt_for_storage,
         session::SessionManager,
         signal::{EncryptedMessage as CryptoEncryptedMessage, X3DH},
     },
@@ -41,6 +42,9 @@ pub struct MessageHandler {
     /// E2E session manager
     session_manager: SessionManager,
 
+    /// Storage encryption key
+    storage_key: [u8; 32],
+
     /// Event callback for notifying UI
     event_tx: Option<tokio::sync::mpsc::UnboundedSender<MessageEvent>>,
 }
@@ -52,6 +56,7 @@ impl MessageHandler {
         database: Arc<Database>,
         identity: Arc<RwLock<Identity>>,
         session_manager: SessionManager,
+        storage_key: [u8; 32],
         event_tx: Option<tokio::sync::mpsc::UnboundedSender<MessageEvent>>,
     ) -> Self {
         Self {
@@ -59,6 +64,7 @@ impl MessageHandler {
             database,
             identity,
             session_manager,
+            storage_key,
             event_tx,
         }
     }
@@ -207,8 +213,8 @@ impl MessageHandler {
             sender_peer_id: message.sender_peer_id.clone(),
             recipient_peer_id: Some(message.recipient_peer_id.clone()),
             message_type: "text".to_string(),
-            content_encrypted: None, // TODO: Support E2E encryption
-            content_plaintext: Some(text.content.clone()),
+            content_encrypted: self.encrypt_for_storage(text.content.as_bytes()).ok(),
+            content_plaintext: None,
             status: MessageStatus::Delivered,
             parent_message_id: if text.reply_to_id.is_empty() {
                 None
@@ -314,8 +320,8 @@ impl MessageHandler {
             sender_peer_id: message.sender_peer_id.clone(),
             recipient_peer_id: Some(message.recipient_peer_id.clone()),
             message_type: "text".to_string(),
-            content_encrypted: None,
-            content_plaintext: Some(text.clone()),
+            content_encrypted: self.encrypt_for_storage(text.as_bytes()).ok(),
+            content_plaintext: None,
             status: MessageStatus::Delivered,
             parent_message_id: None,
         };
@@ -410,6 +416,17 @@ impl MessageHandler {
             }
         }
     }
+
+    fn encrypt_for_storage(&self, plaintext: &[u8]) -> Result<Vec<u8>> {
+        encrypt_for_storage(&self.storage_key, plaintext)
+    }
+
+    fn decrypt_for_storage(&self, blob: &[u8]) -> Result<String> {
+        let bytes = decrypt_for_storage(&self.storage_key, blob)?;
+        let text = String::from_utf8(bytes)
+            .map_err(|_| MePassaError::Protocol("Invalid UTF-8 content".to_string()))?;
+        Ok(text)
+    }
 }
 
 /// Message events emitted to application layer
@@ -476,12 +493,14 @@ mod tests {
         let (event_tx, mut event_rx) = tokio::sync::mpsc::unbounded_channel();
 
         let identity = Arc::new(RwLock::new(crate::identity::Identity::generate(0)));
+        let storage_key = identity.read().await.storage_key().unwrap();
         let session_manager = SessionManager::new();
         let handler = MessageHandler::new(
             local_peer_id.clone(),
             db_arc,
             identity,
             session_manager,
+            storage_key,
             Some(event_tx),
         );
 
@@ -575,12 +594,14 @@ mod tests {
         let db_arc = Arc::new(db);
 
         let identity = Arc::new(RwLock::new(crate::identity::Identity::generate(0)));
+        let storage_key = identity.read().await.storage_key().unwrap();
         let session_manager = SessionManager::new();
         let handler = MessageHandler::new(
             local_peer_id,
             Arc::clone(&db_arc),
             identity,
             session_manager,
+            storage_key,
             None,
         );
 

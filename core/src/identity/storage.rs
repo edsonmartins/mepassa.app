@@ -8,6 +8,8 @@
 
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use hkdf::Hkdf;
+use sha2::Sha256;
 
 use crate::identity::{Keypair, PreKeyPool};
 use crate::utils::error::{Result, MePassaError};
@@ -96,6 +98,16 @@ impl Identity {
     /// Verify a signature
     pub fn verify(&self, message: &[u8], signature: &[u8]) -> Result<()> {
         self.keypair.verify(message, signature)
+    }
+
+    /// Derive a stable storage encryption key from the identity keypair
+    pub fn storage_key(&self) -> Result<[u8; 32]> {
+        let key_bytes = self.keypair.to_bytes();
+        let hkdf = Hkdf::<Sha256>::new(Some(b"mepassa-storage-v1"), &key_bytes);
+        let mut out = [0u8; 32];
+        hkdf.expand(b"storage-key", &mut out)
+            .map_err(|e| MePassaError::Crypto(format!("Storage key derivation failed: {}", e)))?;
+        Ok(out)
     }
 }
 

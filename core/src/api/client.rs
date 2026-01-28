@@ -10,7 +10,7 @@ use tokio::time::{timeout, Duration};
 
 use super::events::{ClientEvent, EventCallback};
 use crate::{
-    crypto::session::SessionManager,
+    crypto::{decrypt_for_storage, encrypt_for_storage, session::SessionManager},
     identity::Identity,
     network::NetworkManager,
     protocol::{pb::message::Payload, EncryptedMessage as ProtoEncryptedMessage, Message, MessageType, TextMessage},
@@ -46,6 +46,8 @@ pub struct Client {
     group_manager: Arc<crate::group::GroupManager>,
     /// E2E session manager
     session_manager: SessionManager,
+    /// Storage encryption key
+    storage_key: [u8; 32],
 }
 
 impl Client {
@@ -58,6 +60,7 @@ impl Client {
         data_dir: PathBuf,
         callbacks: Arc<RwLock<Vec<Box<dyn EventCallback>>>>,
         session_manager: SessionManager,
+        storage_key: [u8; 32],
         #[cfg(any(feature = "voip", feature = "video"))]
         call_manager: Arc<CallManager>,
         #[cfg(any(feature = "voip", feature = "video"))]
@@ -72,6 +75,7 @@ impl Client {
             callbacks,
             data_dir,
             session_manager,
+            storage_key,
             #[cfg(any(feature = "voip", feature = "video"))]
             call_manager,
             #[cfg(any(feature = "voip", feature = "video"))]
@@ -227,8 +231,8 @@ impl Client {
             sender_peer_id: self.local_peer_id().to_string(),
             recipient_peer_id: Some(to.to_string()),
             message_type: "text".to_string(),
-            content_encrypted: None,
-            content_plaintext: Some(content),
+            content_encrypted: self.encrypt_for_storage(content.as_bytes()).ok(),
+            content_plaintext: None,
             status: MessageStatus::Sent,
             parent_message_id: None,
         };
@@ -285,6 +289,17 @@ impl Client {
             signed_prekey_id,
             one_time_prekey_id,
         }))
+    }
+
+    fn encrypt_for_storage(&self, plaintext: &[u8]) -> Result<Vec<u8>> {
+        encrypt_for_storage(&self.storage_key, plaintext)
+    }
+
+    fn decrypt_for_storage(&self, blob: &[u8]) -> Result<String> {
+        let bytes = decrypt_for_storage(&self.storage_key, blob)?;
+        let text = String::from_utf8(bytes)
+            .map_err(|_| MePassaError::Protocol("Invalid UTF-8 content".to_string()))?;
+        Ok(text)
     }
 
     async fn ensure_peer_connected(&self, peer_id: PeerId) {
@@ -598,9 +613,21 @@ impl Client {
         offset: Option<usize>,
     ) -> Result<Vec<crate::storage::Message>> {
         let conversation_id = format!("1:1:{}", peer_id);
-        self.database
+        let mut messages = self.database
             .get_conversation_messages(&conversation_id, limit, offset)
-            .map_err(|e| MePassaError::Storage(e.to_string()))
+            .map_err(|e| MePassaError::Storage(e.to_string()))?;
+
+        for message in &mut messages {
+            if message.content_plaintext.is_none() {
+                if let Some(ref encrypted) = message.content_encrypted {
+                    if let Ok(plaintext) = self.decrypt_for_storage(encrypted) {
+                        message.content_plaintext = Some(plaintext);
+                    }
+                }
+            }
+        }
+
+        Ok(messages)
     }
 
     // ═════════════════════════════════════════════════════════════════════
@@ -632,7 +659,15 @@ impl Client {
 
         let forwarded_content = format!(
             "Forwarded: {}",
-            original_msg.content_plaintext.unwrap_or_default()
+            original_msg
+                .content_plaintext
+                .or_else(|| {
+                    original_msg
+                        .content_encrypted
+                        .as_ref()
+                        .and_then(|blob| self.decrypt_for_storage(blob).ok())
+                })
+                .unwrap_or_default()
         );
 
         let new_msg = crate::storage::NewMessage {
@@ -641,8 +676,8 @@ impl Client {
             sender_peer_id: self.local_peer_id().to_string(),
             recipient_peer_id: Some(to_peer_id.to_string()),
             message_type: original_msg.message_type.clone(),
-            content_encrypted: None,
-            content_plaintext: Some(forwarded_content),
+            content_encrypted: self.encrypt_for_storage(forwarded_content.as_bytes()).ok(),
+            content_plaintext: None,
             status: crate::storage::MessageStatus::Sent,
             parent_message_id: Some(original_msg.message_id.clone()),
         };
