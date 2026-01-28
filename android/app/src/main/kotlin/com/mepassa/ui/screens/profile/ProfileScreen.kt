@@ -47,6 +47,9 @@ fun ProfileScreen(
     var showExportErrorDialog by remember { mutableStateOf(false) }
     var showPrekeyDialog by remember { mutableStateOf(false) }
     var prekeyData by remember { mutableStateOf("") }
+    var showPrekeyImportDialog by remember { mutableStateOf(false) }
+    var prekeyImportPeerId by remember { mutableStateOf("") }
+    var prekeyImportJson by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -253,6 +256,15 @@ fun ProfileScreen(
                 Text("Exportar prekeys")
             }
 
+            OutlinedButton(
+                onClick = { showPrekeyImportDialog = true },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+            ) {
+                Text("Importar prekeys")
+            }
+
             // QR Code placeholder
             Surface(
                 modifier = Modifier
@@ -334,6 +346,58 @@ fun ProfileScreen(
             confirmButton = {
                 TextButton(onClick = { showPrekeyDialog = false }) {
                     Text("Fechar")
+                }
+            }
+        )
+    }
+
+    if (showPrekeyImportDialog) {
+        AlertDialog(
+            onDismissRequest = { showPrekeyImportDialog = false },
+            title = { Text("Importar prekeys") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = prekeyImportPeerId,
+                        onValueChange = { prekeyImportPeerId = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Peer ID") }
+                    )
+                    OutlinedTextField(
+                        value = prekeyImportJson,
+                        onValueChange = { prekeyImportJson = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 4,
+                        label = { Text("Prekey JSON") }
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = prekeyImportPeerId.trim().isNotEmpty() && prekeyImportJson.trim().isNotEmpty(),
+                    onClick = {
+                        scope.launch {
+                            val ok = MePassaClientWrapper.storePeerPrekeyBundle(
+                                prekeyImportPeerId.trim(),
+                                prekeyImportJson.trim()
+                            )
+                            if (!ok) {
+                                exportError = "Falha ao salvar prekeys"
+                                showExportErrorDialog = true
+                            } else {
+                                prekeyImportPeerId = ""
+                                prekeyImportJson = ""
+                                showPrekeyImportDialog = false
+                            }
+                        }
+                    }
+                ) {
+                    Text("Salvar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPrekeyImportDialog = false }) {
+                    Text("Cancelar")
                 }
             }
         )
