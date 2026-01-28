@@ -10,6 +10,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import com.mepassa.core.MePassaClientWrapper
+import kotlinx.coroutines.launch
 
 /**
  * SettingsScreen - App settings
@@ -20,12 +23,19 @@ fun SettingsScreen(
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
     var notificationsEnabled by remember { mutableStateOf(true) }
     var soundEnabled by remember { mutableStateOf(true) }
     var vibrationEnabled by remember { mutableStateOf(true) }
     var readReceiptsEnabled by remember { mutableStateOf(true) }
     var lastSeenEnabled by remember { mutableStateOf(true) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showExportDialog by remember { mutableStateOf(false) }
+    var exportData by remember { mutableStateOf("") }
+    var exportError by remember { mutableStateOf<String?>(null) }
+    var showExportErrorDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -107,6 +117,34 @@ fun SettingsScreen(
                     description = "Mostrar quando você esteve online",
                     checked = lastSeenEnabled,
                     onCheckedChange = { lastSeenEnabled = it }
+                )
+            }
+
+            item {
+                Divider(modifier = Modifier.padding(vertical = 8.dp))
+            }
+
+            // Identity section
+            item {
+                SettingsSectionHeader("Identidade")
+            }
+
+            item {
+                SettingsClickableItem(
+                    title = "Exportar backup da identidade",
+                    description = "Copie o backup Base64 para restaurar em outro aparelho",
+                    onClick = {
+                        scope.launch {
+                            val data = MePassaClientWrapper.exportIdentity(context)
+                            if (data == null) {
+                                exportError = "Backup não encontrado"
+                                showExportErrorDialog = true
+                            } else {
+                                exportData = data
+                                showExportDialog = true
+                            }
+                        }
+                    }
                 )
             }
 
@@ -234,6 +272,42 @@ fun SettingsScreen(
             dismissButton = {
                 TextButton(onClick = { showLogoutDialog = false }) {
                     Text("Cancelar")
+                }
+            }
+        )
+    }
+
+    if (showExportDialog) {
+        AlertDialog(
+            onDismissRequest = { showExportDialog = false },
+            title = { Text("Backup da identidade") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = exportData,
+                        onValueChange = {},
+                        modifier = Modifier.fillMaxWidth(),
+                        readOnly = true,
+                        minLines = 4
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showExportDialog = false }) {
+                    Text("Fechar")
+                }
+            }
+        )
+    }
+
+    if (showExportErrorDialog) {
+        AlertDialog(
+            onDismissRequest = { showExportErrorDialog = false },
+            title = { Text("Erro") },
+            text = { Text(exportError ?: "") },
+            confirmButton = {
+                TextButton(onClick = { showExportErrorDialog = false }) {
+                    Text("OK")
                 }
             }
         )
