@@ -28,6 +28,8 @@ fn main() {
             commands::connect_to_peer,
             commands::send_text_message,
             commands::get_conversation_messages,
+            commands::get_conversation_media,
+            commands::download_media,
             commands::list_conversations,
             commands::search_messages,
             commands::mark_conversation_read,

@@ -130,6 +130,7 @@ impl ClientBuilder {
         let message_handler = Arc::new(crate::network::MessageHandler::new(
             peer_id.to_string(),
             Arc::new(database.clone()), // Shares the same SQLite connection!
+            data_dir.clone(),
             Arc::clone(&identity),
             session_manager.clone(),
             storage_key,

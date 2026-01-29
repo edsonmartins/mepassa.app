@@ -3,5 +3,7 @@
 //! Image compression, resizing, thumbnail generation, and other media utilities.
 
 pub mod image;
+pub mod envelope;
 
 pub use image::{compress_image, generate_thumbnail, resize_image, ImageProcessingError};
+pub use envelope::{MediaEnvelope, MEDIA_ENVELOPE_PREFIX};

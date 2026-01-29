@@ -29,6 +29,7 @@ struct ChatView: View {
 
     // Reactions state
     @State private var messageReactions: [String: [ReactionCount]] = [:]
+    @State private var mediaIndex: [String: FfiMedia] = [:]
     @State private var showReactionPicker = false
     @State private var reactionPickerMessageId: String?
 
@@ -83,7 +84,7 @@ struct ChatView: View {
 
     private func messageRow(_ message: Message) -> some View {
         VStack(alignment: message.isOutgoing ? .trailing : .leading, spacing: 4) {
-            MessageBubble(message: message)
+            MessageBubble(message: message, media: mediaIndex[message.id])
                 .transition(.asymmetric(
                     insertion: .move(edge: .bottom).combined(with: .opacity),
                     removal: .opacity
@@ -366,15 +367,22 @@ struct ChatView: View {
                     limit: 100,
                     offset: 0
                 )
+                let mediaItems = try await MePassaCore.shared.getConversationMedia(
+                    conversationId: conversation.id,
+                    mediaType: nil,
+                    limit: 200
+                )
 
                 let localPeerId = MePassaCore.shared.localPeerId ?? ""
 
                 await MainActor.run {
                     let ordered = ffiMessages.sorted { $0.createdAt < $1.createdAt }
+                    self.mediaIndex = Dictionary(uniqueKeysWithValues: mediaItems.map { ($0.messageId, $0) })
                     messages = ordered.map { ffiMsg in
                         Message(
                             id: ffiMsg.id,
                             content: ffiMsg.content ?? "",
+                            messageType: ffiMsg.messageType,
                             senderId: ffiMsg.senderPeerId,
                             timestamp: ffiMsg.createdAt,
                             isOutgoing: ffiMsg.senderPeerId == localPeerId,
@@ -542,6 +550,7 @@ struct ChatView: View {
 
 struct MessageBubble: View {
     let message: Message
+    let media: FfiMedia?
 
     var body: some View {
         HStack {
@@ -550,12 +559,16 @@ struct MessageBubble: View {
             }
 
             VStack(alignment: message.isOutgoing ? .trailing : .leading, spacing: 4) {
-                Text(message.content)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(message.isOutgoing ? Color.blue : Color.secondary.opacity(0.2))
-                    .foregroundColor(message.isOutgoing ? .white : .primary)
-                    .cornerRadius(16)
+                if message.messageType == "image", let media = media {
+                    ImageMessageBubble(media: media, isOutgoing: message.isOutgoing)
+                } else {
+                    Text(message.content)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(message.isOutgoing ? Color.blue : Color.secondary.opacity(0.2))
+                        .foregroundColor(message.isOutgoing ? .white : .primary)
+                        .cornerRadius(16)
+                }
 
                 MessageStatusIndicator(
                     message: message.ffiMessage,
@@ -575,20 +588,58 @@ struct MessageBubble: View {
 struct Message: Identifiable {
     let id: String
     let content: String
+    let messageType: String
     let senderId: String
     let timestamp: Date
     let isOutgoing: Bool
     let status: MessageStatus
     let ffiMessage: FfiMessageWrapper?  // Keep reference to original FfiMessage
 
-    init(id: String, content: String, senderId: String, timestamp: Date, isOutgoing: Bool, status: MessageStatus, ffiMessage: FfiMessageWrapper? = nil) {
+    init(id: String, content: String, messageType: String, senderId: String, timestamp: Date, isOutgoing: Bool, status: MessageStatus, ffiMessage: FfiMessageWrapper? = nil) {
         self.id = id
         self.content = content
+        self.messageType = messageType
         self.senderId = senderId
         self.timestamp = timestamp
         self.isOutgoing = isOutgoing
         self.status = status
         self.ffiMessage = ffiMessage
+    }
+}
+
+struct ImageMessageBubble: View {
+    let media: FfiMedia
+    let isOutgoing: Bool
+    @State private var image: UIImage?
+
+    var body: some View {
+        Group {
+            if let image = image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: 220)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+            } else {
+                Text("Carregando imagem...")
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(isOutgoing ? Color.blue : Color.secondary.opacity(0.2))
+                    .foregroundColor(isOutgoing ? .white : .primary)
+                    .cornerRadius(16)
+            }
+        }
+        .task {
+            guard image == nil else { return }
+            do {
+                let data = try await MePassaCore.shared.downloadMedia(mediaHash: media.mediaHash)
+                if let img = UIImage(data: data) {
+                    image = img
+                }
+            } catch {
+                print("❌ Failed to load image: \(error)")
+            }
+        }
     }
 }
 

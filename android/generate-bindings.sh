@@ -18,7 +18,7 @@ NC='\033[0m'
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CORE_DIR="$PROJECT_ROOT/core"
 ANDROID_DIR="$PROJECT_ROOT/android"
-GENERATED_DIR="$ANDROID_DIR/app/src/main/kotlin/uniffi/mepassa"
+GENERATED_DIR="$ANDROID_DIR/app/src/main/kotlin"
 
 # Files
 UDL_FILE="$CORE_DIR/src/mepassa.udl"

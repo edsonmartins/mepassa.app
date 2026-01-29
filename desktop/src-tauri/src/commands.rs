@@ -1,6 +1,8 @@
 use mepassa_core::ffi::MePassaClient;
 use std::sync::{Arc, Mutex};
 use tauri::State;
+use base64::{engine::general_purpose, Engine as _};
+use mepassa_core::FfiMediaType;
 use tauri_plugin_notification::NotificationExt;
 
 // Global client state - use Arc to allow cloning the handle
@@ -147,6 +149,7 @@ pub async fn get_conversation_messages(
                 "sender_peer_id": m.sender_peer_id,
                 "recipient_peer_id": m.recipient_peer_id,
                 "content": m.content_plaintext,
+                "message_type": m.message_type,
                 "created_at": m.created_at,
                 "status": format!("{:?}", m.status),
             })
@@ -154,6 +157,78 @@ pub async fn get_conversation_messages(
         .collect();
 
     Ok(json_messages)
+}
+
+#[tauri::command]
+pub async fn get_conversation_media(
+    state: State<'_, ClientState>,
+    conversation_id: String,
+    media_type: Option<String>,
+    limit: Option<u32>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let client = {
+        let client_guard = state.lock().map_err(|e| e.to_string())?;
+        client_guard
+            .as_ref()
+            .ok_or_else(|| "Client not initialized".to_string())?
+            .clone()
+    };
+
+    let media_type = media_type.map(|mt| match mt.as_str() {
+        "image" => FfiMediaType::Image,
+        "video" => FfiMediaType::Video,
+        "audio" => FfiMediaType::Audio,
+        "document" => FfiMediaType::Document,
+        "voice_message" => FfiMediaType::VoiceMessage,
+        _ => FfiMediaType::Document,
+    });
+
+    let media = client
+        .get_conversation_media(conversation_id, media_type, limit)
+        .map_err(|e| e.to_string())?;
+
+    let json_media: Vec<serde_json::Value> = media
+        .iter()
+        .map(|m| {
+            serde_json::json!({
+                "id": m.id,
+                "media_hash": m.media_hash,
+                "message_id": m.message_id,
+                "media_type": format!("{:?}", m.media_type).to_lowercase(),
+                "file_name": m.file_name,
+                "file_size": m.file_size,
+                "mime_type": m.mime_type,
+                "local_path": m.local_path,
+                "thumbnail_path": m.thumbnail_path,
+                "width": m.width,
+                "height": m.height,
+                "duration_seconds": m.duration_seconds,
+            })
+        })
+        .collect();
+
+    Ok(json_media)
+}
+
+#[tauri::command]
+pub async fn download_media(
+    state: State<'_, ClientState>,
+    media_hash: String,
+) -> Result<String, String> {
+    let client = {
+        let client_guard = state.lock().map_err(|e| e.to_string())?;
+        client_guard
+            .as_ref()
+            .ok_or_else(|| "Client not initialized".to_string())?
+            .clone()
+    };
+
+    let bytes = client
+        .download_media(media_hash)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(general_purpose::STANDARD.encode(bytes))
 }
 
 #[tauri::command]

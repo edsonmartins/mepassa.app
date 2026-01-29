@@ -103,6 +103,7 @@ struct MessageStatusFull: View {
                 senderPeerId: "peer1",
                 recipientPeerId: "peer2",
                 content: "Hello",
+                messageType: "text",
                 createdAt: Date(),
                 status: .sent
             ),
@@ -116,6 +117,7 @@ struct MessageStatusFull: View {
                 senderPeerId: "peer1",
                 recipientPeerId: "peer2",
                 content: "Hello",
+                messageType: "text",
                 createdAt: Date(),
                 status: .read
             ),

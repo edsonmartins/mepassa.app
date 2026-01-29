@@ -7,8 +7,24 @@ interface Message {
   sender_peer_id: string
   recipient_peer_id: string
   content: string | null
+  message_type: string
   created_at: number
   status: string
+}
+
+interface MediaItem {
+  id: number
+  media_hash: string
+  message_id: string
+  media_type: string
+  file_name: string | null
+  file_size: number | null
+  mime_type: string | null
+  local_path: string | null
+  thumbnail_path: string | null
+  width: number | null
+  height: number | null
+  duration_seconds: number | null
 }
 
 interface ChatViewProps {
@@ -19,6 +35,8 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
   const { peerId } = useParams<{ peerId: string }>()
   const navigate = useNavigate()
   const [messages, setMessages] = useState<Message[]>([])
+  const [mediaIndex, setMediaIndex] = useState<Record<string, MediaItem>>({})
+  const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({})
   const [newMessage, setNewMessage] = useState('')
   const [isSending, setIsSending] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -30,6 +48,7 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
     if (!peerId) return
 
     loadMessages()
+    loadMediaIndex()
     markAsRead()
 
     // Auto-refresh every 2 seconds
@@ -87,6 +106,62 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
     }
   }
 
+  const loadMediaIndex = async () => {
+    if (!peerId) return
+
+    try {
+      const conversationId = `1:1:${peerId}`
+      const media = await invoke<MediaItem[]>('get_conversation_media', {
+        conversationId,
+        mediaType: null,
+        limit: 200,
+      })
+
+      const index: Record<string, MediaItem> = {}
+      for (const item of media) {
+        index[item.message_id] = item
+      }
+      setMediaIndex(index)
+    } catch (error) {
+      console.error('Failed to load media index:', error)
+    }
+  }
+
+  useEffect(() => {
+    const pendingImages = messages.filter(
+      (msg) => msg.message_type === 'image' && mediaIndex[msg.id]
+    )
+
+    for (const msg of pendingImages) {
+      const media = mediaIndex[msg.id]
+      if (!media) continue
+      if (mediaUrls[media.media_hash]) continue
+
+      void (async () => {
+        try {
+          const base64 = await invoke<string>('download_media', {
+            mediaHash: media.media_hash,
+          })
+          const binary = atob(base64)
+          const len = binary.length
+          const bytes = new Uint8Array(len)
+          for (let i = 0; i < len; i += 1) {
+            bytes[i] = binary.charCodeAt(i)
+          }
+          const blob = new Blob([bytes], { type: media.mime_type || 'image/jpeg' })
+          const url = URL.createObjectURL(blob)
+          setMediaUrls((prev) => ({ ...prev, [media.media_hash]: url }))
+        } catch (error) {
+          console.error('Failed to download media:', error)
+        }
+      })()
+    }
+
+    return () => {
+      // cleanup happens on unmount
+    }
+  }, [messages, mediaIndex, mediaUrls])
+
   const markAsRead = async () => {
     if (!peerId) return
 
@@ -128,7 +203,7 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
   }
 
   const formatTime = (timestamp: number): string => {
-    const date = new Date(timestamp * 1000)
+    const date = new Date(timestamp)
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   }
 
@@ -225,7 +300,21 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
                 className={`flex ${isSentByMe(msg) ? 'justify-end' : 'justify-start'}`}
               >
                 <div className={isSentByMe(msg) ? 'message-sent' : 'message-received'}>
-                  <p className="whitespace-pre-wrap">{msg.content || ''}</p>
+                  {msg.message_type === 'image' && mediaIndex[msg.id] ? (
+                    mediaUrls[mediaIndex[msg.id].media_hash] ? (
+                      <img
+                        src={mediaUrls[mediaIndex[msg.id].media_hash]}
+                        alt={mediaIndex[msg.id].file_name || 'image'}
+                        className="max-w-[240px] rounded-lg"
+                      />
+                    ) : (
+                      <p className="whitespace-pre-wrap text-sm text-gray-500">
+                        Carregando imagem...
+                      </p>
+                    )
+                  ) : (
+                    <p className="whitespace-pre-wrap">{msg.content || ''}</p>
+                  )}
                   <p
                     className={`text-xs mt-1 ${
                       isSentByMe(msg) ? 'text-primary-100' : 'text-gray-500'

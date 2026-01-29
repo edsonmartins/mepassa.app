@@ -31,6 +31,9 @@ message Message {
     TypingIndicator typing = 12;
     ReadReceipt read_receipt = 13;
     EncryptedMessage encrypted = 14;
+    MediaOffer media_offer = 15;
+    MediaRequest media_request = 16;
+    MediaChunk media_chunk = 17;
   }
 }
 
@@ -42,6 +45,9 @@ enum MessageType {
   MESSAGE_TYPE_TYPING = 3;
   MESSAGE_TYPE_READ_RECEIPT = 4;
   MESSAGE_TYPE_ENCRYPTED = 5;
+  MESSAGE_TYPE_MEDIA_OFFER = 6;
+  MESSAGE_TYPE_MEDIA_REQUEST = 7;
+  MESSAGE_TYPE_MEDIA_CHUNK = 8;
 }
 
 // Text message
@@ -107,4 +113,34 @@ message EncryptedMessage {
 
   // One-time prekey id used for X3DH (0 if not used)
   uint32 one_time_prekey_id = 5;
+}
+
+// Media offer (metadata only, no bytes)
+message MediaOffer {
+  string message_id = 1;
+  string media_hash = 2;
+  string media_type = 3;
+  string file_name = 4;
+  string mime_type = 5;
+  int64 file_size = 6;
+  int32 width = 7;
+  int32 height = 8;
+  int32 duration_seconds = 9;
+}
+
+// Media request (asks peer to send chunks)
+message MediaRequest {
+  string message_id = 1;
+  string media_hash = 2;
+  int64 offset = 3;
+  int32 chunk_size = 4;
+}
+
+// Media chunk (binary data)
+message MediaChunk {
+  string message_id = 1;
+  string media_hash = 2;
+  int64 offset = 3;
+  bytes data = 4;
+  bool is_last = 5;
 }

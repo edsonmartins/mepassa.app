@@ -520,7 +520,25 @@ impl NetworkManager {
                                 );
 
                                 // Process message through handler
-                                if let Some(ref handler) = self.message_handler {
+                                if let Some(handler) = self.message_handler.clone() {
+                                    let message_type = MessageType::try_from(request.r#type)
+                                        .unwrap_or(MessageType::Unspecified);
+
+                                    // Special case: MediaRequest triggers chunked responses
+                                    let mut pending_chunks = Vec::new();
+                                    if message_type == MessageType::MediaRequest {
+                                        if let Some(Payload::MediaRequest(ref media_request)) = request.payload {
+                                            match handler.build_media_chunks(peer, media_request).await {
+                                                Ok(chunks) => {
+                                                    pending_chunks = chunks;
+                                                }
+                                                Err(e) => {
+                                                    tracing::error!("❌ Failed to build media chunks: {}", e);
+                                                }
+                                            }
+                                        }
+                                    }
+
                                     match handler.handle_incoming_message(peer, request).await {
                                         Ok(ack) => {
                                             tracing::info!("✅ Processed message {}, sending ACK", ack.message_id);
@@ -538,6 +556,12 @@ impl NetworkManager {
                                         }
                                         Err(e) => {
                                             tracing::error!("❌ Failed to process message: {}", e);
+                                        }
+                                    }
+
+                                    if !pending_chunks.is_empty() {
+                                        for chunk in pending_chunks {
+                                            let _ = self.send_message(peer, chunk);
                                         }
                                     }
                                 } else {

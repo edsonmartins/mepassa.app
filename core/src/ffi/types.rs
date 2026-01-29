@@ -5,57 +5,57 @@ use crate::storage::{Conversation, Message, MessageStatus as InternalMessageStat
 /// FFI-safe error type (rich error with messages)
 #[derive(Debug, thiserror::Error)]
 pub enum MePassaFfiError {
-    #[error("Identity error: {message}")]
-    Identity { message: String },
+    #[error("Identity error: {details}")]
+    Identity { details: String },
 
-    #[error("Crypto error: {message}")]
-    Crypto { message: String },
+    #[error("Crypto error: {details}")]
+    Crypto { details: String },
 
-    #[error("Network error: {message}")]
-    Network { message: String },
+    #[error("Network error: {details}")]
+    Network { details: String },
 
-    #[error("Storage error: {message}")]
-    Storage { message: String },
+    #[error("Storage error: {details}")]
+    Storage { details: String },
 
-    #[error("Protocol error: {message}")]
-    Protocol { message: String },
+    #[error("Protocol error: {details}")]
+    Protocol { details: String },
 
-    #[error("IO error: {message}")]
-    Io { message: String },
+    #[error("IO error: {details}")]
+    Io { details: String },
 
-    #[error("Other error: {message}")]
-    Other { message: String },
+    #[error("Other error: {details}")]
+    Other { details: String },
 }
 
 impl From<crate::utils::error::MePassaError> for MePassaFfiError {
     fn from(err: crate::utils::error::MePassaError) -> Self {
         match err {
             crate::utils::error::MePassaError::Identity(s) => {
-                MePassaFfiError::Identity { message: s }
+                MePassaFfiError::Identity { details: s }
             }
-            crate::utils::error::MePassaError::Crypto(s) => MePassaFfiError::Crypto { message: s },
+            crate::utils::error::MePassaError::Crypto(s) => MePassaFfiError::Crypto { details: s },
             crate::utils::error::MePassaError::Network(s) => {
-                MePassaFfiError::Network { message: s }
+                MePassaFfiError::Network { details: s }
             }
             crate::utils::error::MePassaError::Storage(s) => {
-                MePassaFfiError::Storage { message: s }
+                MePassaFfiError::Storage { details: s }
             }
             crate::utils::error::MePassaError::Protocol(s) => {
-                MePassaFfiError::Protocol { message: s }
+                MePassaFfiError::Protocol { details: s }
             }
             crate::utils::error::MePassaError::NotFound(s) => {
-                MePassaFfiError::Other { message: format!("Not found: {}", s) }
+                MePassaFfiError::Other { details: format!("Not found: {}", s) }
             }
             crate::utils::error::MePassaError::Permission(s) => {
-                MePassaFfiError::Other { message: format!("Permission denied: {}", s) }
+                MePassaFfiError::Other { details: format!("Permission denied: {}", s) }
             }
             crate::utils::error::MePassaError::AlreadyExists(s) => {
-                MePassaFfiError::Other { message: format!("Already exists: {}", s) }
+                MePassaFfiError::Other { details: format!("Already exists: {}", s) }
             }
             crate::utils::error::MePassaError::Io(e) => MePassaFfiError::Io {
-                message: e.to_string(),
+                details: e.to_string(),
             },
-            crate::utils::error::MePassaError::Other(s) => MePassaFfiError::Other { message: s },
+            crate::utils::error::MePassaError::Other(s) => MePassaFfiError::Other { details: s },
         }
     }
 }

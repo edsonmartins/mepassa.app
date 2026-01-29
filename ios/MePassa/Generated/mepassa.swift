@@ -2575,19 +2575,19 @@ public enum MePassaFfiError: Swift.Error, Equatable, Hashable, Foundation.Locali
 
     
     
-    case Identity(message: String
+    case Identity(details: String
     )
-    case Crypto(message: String
+    case Crypto(details: String
     )
-    case Network(message: String
+    case Network(details: String
     )
-    case Storage(message: String
+    case Storage(details: String
     )
-    case Protocol(message: String
+    case Protocol(details: String
     )
-    case Io(message: String
+    case Io(details: String
     )
-    case Other(message: String
+    case Other(details: String
     )
 
     
@@ -2619,25 +2619,25 @@ public struct FfiConverterTypeMePassaFfiError: FfiConverterRustBuffer {
 
         
         case 1: return .Identity(
-            message: try FfiConverterString.read(from: &buf)
+            details: try FfiConverterString.read(from: &buf)
             )
         case 2: return .Crypto(
-            message: try FfiConverterString.read(from: &buf)
+            details: try FfiConverterString.read(from: &buf)
             )
         case 3: return .Network(
-            message: try FfiConverterString.read(from: &buf)
+            details: try FfiConverterString.read(from: &buf)
             )
         case 4: return .Storage(
-            message: try FfiConverterString.read(from: &buf)
+            details: try FfiConverterString.read(from: &buf)
             )
         case 5: return .Protocol(
-            message: try FfiConverterString.read(from: &buf)
+            details: try FfiConverterString.read(from: &buf)
             )
         case 6: return .Io(
-            message: try FfiConverterString.read(from: &buf)
+            details: try FfiConverterString.read(from: &buf)
             )
         case 7: return .Other(
-            message: try FfiConverterString.read(from: &buf)
+            details: try FfiConverterString.read(from: &buf)
             )
 
          default: throw UniffiInternalError.unexpectedEnumCase
@@ -2651,39 +2651,39 @@ public struct FfiConverterTypeMePassaFfiError: FfiConverterRustBuffer {
 
         
         
-        case let .Identity(message):
+        case let .Identity(details):
             writeInt(&buf, Int32(1))
-            FfiConverterString.write(message, into: &buf)
+            FfiConverterString.write(details, into: &buf)
             
         
-        case let .Crypto(message):
+        case let .Crypto(details):
             writeInt(&buf, Int32(2))
-            FfiConverterString.write(message, into: &buf)
+            FfiConverterString.write(details, into: &buf)
             
         
-        case let .Network(message):
+        case let .Network(details):
             writeInt(&buf, Int32(3))
-            FfiConverterString.write(message, into: &buf)
+            FfiConverterString.write(details, into: &buf)
             
         
-        case let .Storage(message):
+        case let .Storage(details):
             writeInt(&buf, Int32(4))
-            FfiConverterString.write(message, into: &buf)
+            FfiConverterString.write(details, into: &buf)
             
         
-        case let .Protocol(message):
+        case let .Protocol(details):
             writeInt(&buf, Int32(5))
-            FfiConverterString.write(message, into: &buf)
+            FfiConverterString.write(details, into: &buf)
             
         
-        case let .Io(message):
+        case let .Io(details):
             writeInt(&buf, Int32(6))
-            FfiConverterString.write(message, into: &buf)
+            FfiConverterString.write(details, into: &buf)
             
         
-        case let .Other(message):
+        case let .Other(details):
             writeInt(&buf, Int32(7))
-            FfiConverterString.write(message, into: &buf)
+            FfiConverterString.write(details, into: &buf)
             
         }
     }

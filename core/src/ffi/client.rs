@@ -532,7 +532,7 @@ async fn run_client_task_arc(
                     Ok(peer_id) => peer_id,
                     Err(_) => {
                         let _ = response.send(Err(MePassaFfiError::Network {
-                            message: "Invalid peer ID".to_string(),
+                            details: "Invalid peer ID".to_string(),
                         }));
                         continue;
                     }
@@ -555,7 +555,7 @@ async fn run_client_task_arc(
                     Ok(peer_id) => peer_id,
                     Err(_) => {
                         let _ = response.send(Err(MePassaFfiError::Network {
-                            message: "Invalid peer ID".to_string(),
+                            details: "Invalid peer ID".to_string(),
                         }));
                         continue;
                     }
@@ -578,7 +578,7 @@ async fn run_client_task_arc(
                     Ok(peer_id) => peer_id,
                     Err(_) => {
                         let _ = response.send(Err(MePassaFfiError::Network {
-                            message: "Invalid peer ID".to_string(),
+                            details: "Invalid peer ID".to_string(),
                         }));
                         continue;
                     }
@@ -604,7 +604,7 @@ async fn run_client_task_arc(
                     Ok(peer_id) => peer_id,
                     Err(_) => {
                         let _ = response.send(Err(MePassaFfiError::Network {
-                            message: "Invalid peer ID".to_string(),
+                            details: "Invalid peer ID".to_string(),
                         }));
                         continue;
                     }
@@ -672,7 +672,7 @@ async fn run_client_task_arc(
                     Ok(peer_id) => peer_id,
                     Err(_) => {
                         let _ = response.send(Err(MePassaFfiError::Network {
-                            message: "Invalid peer ID".to_string(),
+                            details: "Invalid peer ID".to_string(),
                         }));
                         continue;
                     }
@@ -824,11 +824,11 @@ impl MePassaClient {
             .sender
             .send(ClientCommand::LocalPeerId { response: tx })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         execute_future(rx).map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })
     }
 
@@ -839,11 +839,11 @@ impl MePassaClient {
             .sender
             .send(ClientCommand::GetPrekeyBundleJson { response: tx })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.await.map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -862,18 +862,18 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         execute_future(rx).map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
     /// Start listening on an address
     pub async fn listen_on(&self, multiaddr: String) -> Result<(), MePassaFfiError> {
         let addr: libp2p::Multiaddr = multiaddr.parse().map_err(|_| MePassaFfiError::Network {
-            message: "Invalid multiaddr".to_string(),
+            details: "Invalid multiaddr".to_string(),
         })?;
 
         let (tx, rx) = oneshot::channel();
@@ -884,11 +884,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.await.map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -899,11 +899,11 @@ impl MePassaClient {
         multiaddr: String,
     ) -> Result<(), MePassaFfiError> {
         let peer_id: libp2p::PeerId = peer_id.parse().map_err(|_| MePassaFfiError::Network {
-            message: "Invalid peer ID".to_string(),
+            details: "Invalid peer ID".to_string(),
         })?;
 
         let addr: libp2p::Multiaddr = multiaddr.parse().map_err(|_| MePassaFfiError::Network {
-            message: "Invalid multiaddr".to_string(),
+            details: "Invalid multiaddr".to_string(),
         })?;
 
         let (tx, rx) = oneshot::channel();
@@ -915,11 +915,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.await.map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -930,7 +930,7 @@ impl MePassaClient {
         content: String,
     ) -> Result<String, MePassaFfiError> {
         let to: libp2p::PeerId = to_peer_id.parse().map_err(|_| MePassaFfiError::Network {
-            message: "Invalid peer ID".to_string(),
+            details: "Invalid peer ID".to_string(),
         })?;
 
         let (tx, rx) = oneshot::channel();
@@ -942,11 +942,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.await.map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -967,11 +967,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         execute_future(rx).map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -982,11 +982,11 @@ impl MePassaClient {
             .sender
             .send(ClientCommand::ListConversations { response: tx })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         execute_future(rx).map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1005,11 +1005,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         execute_future(rx).map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1023,11 +1023,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         execute_future(rx).map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1038,11 +1038,11 @@ impl MePassaClient {
             .sender
             .send(ClientCommand::ConnectedPeersCount { response: tx })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.await.map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1053,11 +1053,11 @@ impl MePassaClient {
             .sender
             .send(ClientCommand::ListeningAddresses { response: tx })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.await.map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1068,11 +1068,11 @@ impl MePassaClient {
             .sender
             .send(ClientCommand::Bootstrap { response: tx })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.await.map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1089,11 +1089,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.await.map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1108,11 +1108,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.await.map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1128,11 +1128,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.await.map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1147,11 +1147,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.await.map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1166,11 +1166,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.await.map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1185,11 +1185,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.await.map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1211,11 +1211,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.await.map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1230,11 +1230,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.await.map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1261,11 +1261,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.await.map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1283,11 +1283,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.await.map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1314,7 +1314,7 @@ impl MePassaClient {
                 callback,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })
     }
 
@@ -1324,7 +1324,7 @@ impl MePassaClient {
     /// Start a voice call (stub - VoIP feature disabled)
     pub async fn start_call(&self, _to_peer_id: String) -> Result<String, MePassaFfiError> {
         Err(MePassaFfiError::Other {
-            message: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
+            details: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
         })
     }
 
@@ -1332,7 +1332,7 @@ impl MePassaClient {
     /// Accept an incoming call (stub - VoIP feature disabled)
     pub async fn accept_call(&self, _call_id: String) -> Result<(), MePassaFfiError> {
         Err(MePassaFfiError::Other {
-            message: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
+            details: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
         })
     }
 
@@ -1340,7 +1340,7 @@ impl MePassaClient {
     /// Reject an incoming call (stub - VoIP feature disabled)
     pub async fn reject_call(&self, _call_id: String, _reason: Option<String>) -> Result<(), MePassaFfiError> {
         Err(MePassaFfiError::Other {
-            message: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
+            details: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
         })
     }
 
@@ -1348,7 +1348,7 @@ impl MePassaClient {
     /// Hang up an active call (stub - VoIP feature disabled)
     pub async fn hangup_call(&self, _call_id: String) -> Result<(), MePassaFfiError> {
         Err(MePassaFfiError::Other {
-            message: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
+            details: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
         })
     }
 
@@ -1356,7 +1356,7 @@ impl MePassaClient {
     /// Toggle audio mute (stub - VoIP feature disabled)
     pub async fn toggle_mute(&self, _call_id: String) -> Result<(), MePassaFfiError> {
         Err(MePassaFfiError::Other {
-            message: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
+            details: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
         })
     }
 
@@ -1364,7 +1364,7 @@ impl MePassaClient {
     /// Toggle speakerphone (stub - VoIP feature disabled)
     pub async fn toggle_speakerphone(&self, _call_id: String) -> Result<(), MePassaFfiError> {
         Err(MePassaFfiError::Other {
-            message: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
+            details: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
         })
     }
 
@@ -1372,7 +1372,7 @@ impl MePassaClient {
     /// Enable video (stub - VoIP/video features disabled)
     pub async fn enable_video(&self, _call_id: String, _codec: types::FfiVideoCodec) -> Result<(), MePassaFfiError> {
         Err(MePassaFfiError::Other {
-            message: "VoIP/video features are not enabled. Rebuild with --features voip or --features video".to_string(),
+            details: "VoIP/video features are not enabled. Rebuild with --features voip or --features video".to_string(),
         })
     }
 
@@ -1380,7 +1380,7 @@ impl MePassaClient {
     /// Disable video (stub - VoIP/video features disabled)
     pub async fn disable_video(&self, _call_id: String) -> Result<(), MePassaFfiError> {
         Err(MePassaFfiError::Other {
-            message: "VoIP/video features are not enabled. Rebuild with --features voip or --features video".to_string(),
+            details: "VoIP/video features are not enabled. Rebuild with --features voip or --features video".to_string(),
         })
     }
 
@@ -1394,7 +1394,7 @@ impl MePassaClient {
         _height: u32,
     ) -> Result<(), MePassaFfiError> {
         Err(MePassaFfiError::Other {
-            message: "VoIP/video features are not enabled. Rebuild with --features voip or --features video".to_string(),
+            details: "VoIP/video features are not enabled. Rebuild with --features voip or --features video".to_string(),
         })
     }
 
@@ -1402,7 +1402,7 @@ impl MePassaClient {
     /// Switch camera (stub - VoIP/video features disabled)
     pub async fn switch_camera(&self, _call_id: String) -> Result<(), MePassaFfiError> {
         Err(MePassaFfiError::Other {
-            message: "VoIP/video features are not enabled. Rebuild with --features voip or --features video".to_string(),
+            details: "VoIP/video features are not enabled. Rebuild with --features voip or --features video".to_string(),
         })
     }
 
@@ -1413,7 +1413,7 @@ impl MePassaClient {
         _callback: Box<dyn crate::FfiVideoFrameCallback>,
     ) -> Result<(), MePassaFfiError> {
         Err(MePassaFfiError::Other {
-            message: "VoIP/video features are not enabled. Rebuild with --features voip or --features video".to_string(),
+            details: "VoIP/video features are not enabled. Rebuild with --features voip or --features video".to_string(),
         })
     }
 
@@ -1434,11 +1434,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.await.map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1457,11 +1457,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.await.map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1475,11 +1475,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.await.map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1498,11 +1498,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.await.map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1521,11 +1521,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.await.map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1536,11 +1536,11 @@ impl MePassaClient {
             .sender
             .send(ClientCommand::GetGroups { response: tx })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.await.map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1567,11 +1567,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.await.map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1594,11 +1594,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.await.map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1621,11 +1621,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.await.map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1654,11 +1654,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.await.map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1672,11 +1672,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.await.map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1697,11 +1697,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.blocking_recv().map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1719,11 +1719,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.blocking_recv().map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1742,11 +1742,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.await.map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1769,11 +1769,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.blocking_recv().map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1792,11 +1792,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.blocking_recv().map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 
@@ -1813,11 +1813,11 @@ impl MePassaClient {
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {
-                message: "Failed to send command".to_string(),
+                details: "Failed to send command".to_string(),
             })?;
 
         rx.blocking_recv().map_err(|_| MePassaFfiError::Other {
-            message: "Failed to receive response".to_string(),
+            details: "Failed to receive response".to_string(),
         })?
     }
 

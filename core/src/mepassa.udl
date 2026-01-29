@@ -3,13 +3,13 @@ namespace mepassa {};
 // Error types
 [Error]
 interface MePassaFfiError {
-    Identity(string message);
-    Crypto(string message);
-    Network(string message);
-    Storage(string message);
-    Protocol(string message);
-    Io(string message);
-    Other(string message);
+    Identity(string details);
+    Crypto(string details);
+    Network(string details);
+    Storage(string details);
+    Protocol(string details);
+    Io(string details);
+    Other(string details);
 };
 
 // Message status enum

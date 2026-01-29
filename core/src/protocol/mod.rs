@@ -14,6 +14,6 @@ pub mod pb {
 
 // Re-export common types
 pub use pb::{
-    AckMessage, AckStatus, EncryptedMessage, Message, MessageType, ReadReceipt, TextMessage,
-    TypingIndicator,
+    AckMessage, AckStatus, EncryptedMessage, MediaChunk, MediaOffer, MediaRequest, Message,
+    MessageType, ReadReceipt, TextMessage, TypingIndicator,
 };

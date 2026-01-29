@@ -19,7 +19,7 @@ pub struct Message {
     #[prost(enumeration = "MessageType", tag = "5")]
     pub r#type: i32,
     /// Message payload (one of the following)
-    #[prost(oneof = "message::Payload", tags = "10, 11, 12, 13, 14")]
+    #[prost(oneof = "message::Payload", tags = "10, 11, 12, 13, 14, 15, 16, 17")]
     pub payload: ::core::option::Option<message::Payload>,
 }
 /// Nested message and enum types in `Message`.
@@ -38,6 +38,12 @@ pub mod message {
         ReadReceipt(super::ReadReceipt),
         #[prost(message, tag = "14")]
         Encrypted(super::EncryptedMessage),
+        #[prost(message, tag = "15")]
+        MediaOffer(super::MediaOffer),
+        #[prost(message, tag = "16")]
+        MediaRequest(super::MediaRequest),
+        #[prost(message, tag = "17")]
+        MediaChunk(super::MediaChunk),
     }
 }
 /// Text message
@@ -110,6 +116,57 @@ pub struct EncryptedMessage {
     #[prost(uint32, tag = "5")]
     pub one_time_prekey_id: u32,
 }
+/// Media offer (metadata only, no bytes)
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MediaOffer {
+    #[prost(string, tag = "1")]
+    pub message_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub media_hash: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub media_type: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub file_name: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub mime_type: ::prost::alloc::string::String,
+    #[prost(int64, tag = "6")]
+    pub file_size: i64,
+    #[prost(int32, tag = "7")]
+    pub width: i32,
+    #[prost(int32, tag = "8")]
+    pub height: i32,
+    #[prost(int32, tag = "9")]
+    pub duration_seconds: i32,
+}
+/// Media request (asks peer to send chunks)
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MediaRequest {
+    #[prost(string, tag = "1")]
+    pub message_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub media_hash: ::prost::alloc::string::String,
+    #[prost(int64, tag = "3")]
+    pub offset: i64,
+    #[prost(int32, tag = "4")]
+    pub chunk_size: i32,
+}
+/// Media chunk (binary data)
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MediaChunk {
+    #[prost(string, tag = "1")]
+    pub message_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub media_hash: ::prost::alloc::string::String,
+    #[prost(int64, tag = "3")]
+    pub offset: i64,
+    #[prost(bytes = "vec", tag = "4")]
+    pub data: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bool, tag = "5")]
+    pub is_last: bool,
+}
 /// Message type enum
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
@@ -120,6 +177,9 @@ pub enum MessageType {
     Typing = 3,
     ReadReceipt = 4,
     Encrypted = 5,
+    MediaOffer = 6,
+    MediaRequest = 7,
+    MediaChunk = 8,
 }
 impl MessageType {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -134,6 +194,9 @@ impl MessageType {
             MessageType::Typing => "MESSAGE_TYPE_TYPING",
             MessageType::ReadReceipt => "MESSAGE_TYPE_READ_RECEIPT",
             MessageType::Encrypted => "MESSAGE_TYPE_ENCRYPTED",
+            MessageType::MediaOffer => "MESSAGE_TYPE_MEDIA_OFFER",
+            MessageType::MediaRequest => "MESSAGE_TYPE_MEDIA_REQUEST",
+            MessageType::MediaChunk => "MESSAGE_TYPE_MEDIA_CHUNK",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -145,6 +208,9 @@ impl MessageType {
             "MESSAGE_TYPE_TYPING" => Some(Self::Typing),
             "MESSAGE_TYPE_READ_RECEIPT" => Some(Self::ReadReceipt),
             "MESSAGE_TYPE_ENCRYPTED" => Some(Self::Encrypted),
+            "MESSAGE_TYPE_MEDIA_OFFER" => Some(Self::MediaOffer),
+            "MESSAGE_TYPE_MEDIA_REQUEST" => Some(Self::MediaRequest),
+            "MESSAGE_TYPE_MEDIA_CHUNK" => Some(Self::MediaChunk),
             _ => None,
         }
     }

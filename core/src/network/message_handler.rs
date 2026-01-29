@@ -8,7 +8,7 @@
 //! 5. Sends acknowledgment back to sender
 
 use libp2p::PeerId;
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use crate::{
     crypto::{
@@ -16,15 +16,18 @@ use crate::{
         session::SessionManager,
         signal::{EncryptedMessage as CryptoEncryptedMessage, X3DH},
     },
+    media::MediaEnvelope,
     protocol::{
         pb::message::Payload, AckMessage, AckStatus, EncryptedMessage as ProtoEncryptedMessage,
-        Message, MessageType, ReadReceipt, TextMessage, TypingIndicator,
+        MediaChunk, MediaOffer, MediaRequest, Message, MessageType, ReadReceipt, TextMessage,
+        TypingIndicator,
     },
-    storage::{Database, MessageStatus, NewMessage, UpdateMessage},
+    storage::{Database, MediaType, MessageStatus, NewMedia, NewMessage, UpdateMessage},
     utils::error::{MePassaError, Result},
 };
 use tokio::sync::RwLock;
 use crate::identity::Identity;
+use sha2::{Digest, Sha256};
 
 /// Message handler
 ///
@@ -35,6 +38,9 @@ pub struct MessageHandler {
 
     /// Database for storing messages (thread-safe via internal Mutex)
     database: Arc<Database>,
+
+    /// Base data directory for storing media files
+    data_dir: PathBuf,
 
     /// Identity (prekeys for X3DH)
     identity: Arc<RwLock<Identity>>,
@@ -54,6 +60,7 @@ impl MessageHandler {
     pub fn new(
         local_peer_id: String,
         database: Arc<Database>,
+        data_dir: PathBuf,
         identity: Arc<RwLock<Identity>>,
         session_manager: SessionManager,
         storage_key: [u8; 32],
@@ -62,6 +69,7 @@ impl MessageHandler {
         Self {
             local_peer_id,
             database,
+            data_dir,
             identity,
             session_manager,
             storage_key,
@@ -106,6 +114,16 @@ impl MessageHandler {
             }
             Some(Payload::Encrypted(ref enc_msg)) => {
                 self.handle_encrypted_message(&message, enc_msg).await
+            }
+            Some(Payload::MediaOffer(ref offer)) => {
+                self.handle_media_offer(&message, offer).await
+            }
+            Some(Payload::MediaChunk(ref chunk)) => {
+                self.handle_media_chunk(&message, chunk).await
+            }
+            Some(Payload::MediaRequest(_)) => {
+                // Media requests are handled in NetworkManager to enable chunk sending.
+                Ok(())
             }
             None => {
                 tracing::warn!("Message {} has no payload", message.id);
@@ -202,6 +220,10 @@ impl MessageHandler {
     /// Handle text message
     async fn handle_text_message(&self, message: &Message, text: &TextMessage) -> Result<()> {
         tracing::debug!("📝 Received text: \"{}\"", text.content);
+
+        if let Some(envelope) = MediaEnvelope::decode(&text.content) {
+            return self.handle_media_envelope(message, envelope).await;
+        }
 
         // Get or create conversation (Database has internal Mutex for thread-safety)
         let conversation_id = self.database.get_or_create_conversation(&message.sender_peer_id)?;
@@ -313,6 +335,10 @@ impl MessageHandler {
         let text = String::from_utf8(plaintext)
             .map_err(|_| MePassaError::Protocol("Invalid UTF-8 content".to_string()))?;
 
+        if let Some(envelope) = MediaEnvelope::decode(&text) {
+            return self.handle_media_envelope(message, envelope).await;
+        }
+
         let conversation_id = self.database.get_or_create_conversation(&peer_id)?;
         let new_msg = NewMessage {
             message_id: message.id.clone(),
@@ -399,6 +425,161 @@ impl MessageHandler {
         Ok(())
     }
 
+    async fn handle_media_offer(&self, message: &Message, offer: &MediaOffer) -> Result<()> {
+        let media_type = MediaType::from_str(&offer.media_type);
+        let placeholder = match media_type {
+            MediaType::Image => format!("[Image: {}]", offer.file_name),
+            MediaType::Video => format!("[Video: {}s]", offer.duration_seconds),
+            MediaType::VoiceMessage => format!("[Voice: {}s]", offer.duration_seconds),
+            MediaType::Audio => "[Audio]".to_string(),
+            MediaType::Document => format!("[File: {}]", offer.file_name),
+        };
+
+        let conversation_id = self.database.get_or_create_conversation(&message.sender_peer_id)?;
+
+        let new_msg = NewMessage {
+            message_id: message.id.clone(),
+            conversation_id: conversation_id.clone(),
+            sender_peer_id: message.sender_peer_id.clone(),
+            recipient_peer_id: Some(message.recipient_peer_id.clone()),
+            message_type: media_type.as_str().to_string(),
+            content_encrypted: self.encrypt_for_storage(placeholder.as_bytes()).ok(),
+            content_plaintext: None,
+            status: MessageStatus::Delivered,
+            parent_message_id: None,
+        };
+
+        self.database.insert_message(&new_msg)?;
+        self.database.update_conversation_last_message(&conversation_id, &message.id)?;
+
+        let new_media = NewMedia {
+            media_hash: offer.media_hash.clone(),
+            message_id: offer.message_id.clone(),
+            media_type,
+            file_name: Some(offer.file_name.clone()),
+            file_size: Some(offer.file_size),
+            mime_type: Some(offer.mime_type.clone()),
+            local_path: None,
+            thumbnail_path: None,
+            width: if offer.width > 0 { Some(offer.width) } else { None },
+            height: if offer.height > 0 { Some(offer.height) } else { None },
+            duration_seconds: if offer.duration_seconds > 0 {
+                Some(offer.duration_seconds)
+            } else {
+                None
+            },
+        };
+        let _ = self.database.insert_media(&new_media);
+
+        self.emit_event(MessageEvent::MessageReceived {
+            message_id: message.id.clone(),
+            from_peer_id: message.sender_peer_id.clone(),
+            conversation_id,
+            content: placeholder,
+            message: message.clone(),
+        });
+
+        Ok(())
+    }
+
+    async fn handle_media_chunk(&self, _message: &Message, chunk: &MediaChunk) -> Result<()> {
+        use std::io::{Seek, SeekFrom, Write};
+
+        let tmp_dir = self.data_dir.join("media").join("tmp");
+        std::fs::create_dir_all(&tmp_dir)
+            .map_err(|e| MePassaError::Storage(format!("Failed to create tmp dir: {}", e)))?;
+        let tmp_path = tmp_dir.join(format!("{}.part", chunk.media_hash));
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .open(&tmp_path)
+            .map_err(|e| MePassaError::Storage(format!("Failed to open temp file: {}", e)))?;
+        file.seek(SeekFrom::Start(chunk.offset as u64))
+            .map_err(|e| MePassaError::Storage(format!("Failed to seek temp file: {}", e)))?;
+        file.write_all(&chunk.data)
+            .map_err(|e| MePassaError::Storage(format!("Failed to write chunk: {}", e)))?;
+
+        if chunk.is_last {
+            let media = self
+                .database
+                .get_media_by_hash(&chunk.media_hash)?
+                .ok_or_else(|| MePassaError::NotFound("Media record not found".to_string()))?;
+
+            let extension = media
+                .file_name
+                .as_ref()
+                .and_then(|name| std::path::Path::new(name).extension())
+                .and_then(|ext| ext.to_str());
+            let file_name = match extension {
+                Some(ext) => format!("{}.{}", chunk.media_hash, ext),
+                None => chunk.media_hash.clone(),
+            };
+            let final_path = self.data_dir.join("media").join(file_name);
+            std::fs::create_dir_all(self.data_dir.join("media"))
+                .map_err(|e| MePassaError::Storage(format!("Failed to create media dir: {}", e)))?;
+            std::fs::rename(&tmp_path, &final_path)
+                .map_err(|e| MePassaError::Storage(format!("Failed to finalize media file: {}", e)))?;
+
+            self.database
+                .update_media_local_path(media.id, &final_path.to_string_lossy())
+                .map_err(|e| MePassaError::Storage(e.to_string()))?;
+        }
+
+        Ok(())
+    }
+
+    pub async fn build_media_chunks(
+        &self,
+        from_peer: PeerId,
+        request: &MediaRequest,
+    ) -> Result<Vec<Message>> {
+        let media = self
+            .database
+            .get_media_by_hash(&request.media_hash)?
+            .ok_or_else(|| MePassaError::NotFound("Media not found".to_string()))?;
+        let local_path = media
+            .local_path
+            .ok_or_else(|| MePassaError::NotFound("Media file missing".to_string()))?;
+        let data = std::fs::read(&local_path)?;
+
+        let chunk_size = if request.chunk_size > 0 {
+            request.chunk_size as usize
+        } else {
+            64 * 1024
+        };
+
+        let mut chunks = Vec::new();
+        let mut offset: usize = if request.offset > 0 {
+            std::cmp::min(request.offset as usize, data.len())
+        } else {
+            0
+        };
+        while offset < data.len() {
+            let end = std::cmp::min(offset + chunk_size, data.len());
+            let chunk_data = data[offset..end].to_vec();
+            let is_last = end >= data.len();
+            let chunk = MediaChunk {
+                message_id: request.message_id.clone(),
+                media_hash: request.media_hash.clone(),
+                offset: offset as i64,
+                data: chunk_data,
+                is_last,
+            };
+            let msg = Message {
+                id: uuid::Uuid::new_v4().to_string(),
+                sender_peer_id: self.local_peer_id.clone(),
+                recipient_peer_id: from_peer.to_string(),
+                timestamp: chrono::Utc::now().timestamp_millis(),
+                r#type: MessageType::MediaChunk as i32,
+                payload: Some(Payload::MediaChunk(chunk)),
+            };
+            chunks.push(msg);
+            offset = end;
+        }
+
+        Ok(chunks)
+    }
+
     /// Create an acknowledgment message
     fn create_ack(&self, message_id: &str, status: AckStatus, error: Option<String>) -> AckMessage {
         AckMessage {
@@ -426,6 +607,140 @@ impl MessageHandler {
         let text = String::from_utf8(bytes)
             .map_err(|_| MePassaError::Protocol("Invalid UTF-8 content".to_string()))?;
         Ok(text)
+    }
+
+    async fn handle_media_envelope(&self, message: &Message, envelope: MediaEnvelope) -> Result<()> {
+        let media_bytes = envelope.media_bytes()?;
+        let mut hasher = Sha256::new();
+        hasher.update(&media_bytes);
+        let computed_hash = format!("{:x}", hasher.finalize());
+        if computed_hash != envelope.media_hash {
+            return Err(MePassaError::Protocol("Media hash mismatch".to_string()));
+        }
+
+        let media_type = MediaType::from_str(&envelope.media_type);
+        let message_type = match media_type {
+            MediaType::VoiceMessage => "voice",
+            MediaType::Audio => "audio",
+            MediaType::Image => "image",
+            MediaType::Video => "video",
+            MediaType::Document => "document",
+        }
+        .to_string();
+
+        let conversation_id = self.database.get_or_create_conversation(&message.sender_peer_id)?;
+
+        let placeholder = match media_type {
+            MediaType::Image => format!(
+                "[Image{}]",
+                envelope
+                    .file_name
+                    .as_ref()
+                    .map(|name| format!(": {}", name))
+                    .unwrap_or_default()
+            ),
+            MediaType::Video => format!(
+                "[Video{}]",
+                envelope
+                    .duration_seconds
+                    .map(|d| format!(": {}s", d))
+                    .unwrap_or_default()
+            ),
+            MediaType::VoiceMessage => format!(
+                "[Voice{}]",
+                envelope
+                    .duration_seconds
+                    .map(|d| format!(": {}s", d))
+                    .unwrap_or_default()
+            ),
+            MediaType::Audio => "[Audio]".to_string(),
+            MediaType::Document => format!(
+                "[File{}]",
+                envelope
+                    .file_name
+                    .as_ref()
+                    .map(|name| format!(": {}", name))
+                    .unwrap_or_default()
+            ),
+        };
+
+        let media_dir = self.data_dir.join("media");
+        std::fs::create_dir_all(&media_dir)
+            .map_err(|e| MePassaError::Storage(format!("Failed to create media dir: {}", e)))?;
+
+        let extension = envelope
+            .file_name
+            .as_ref()
+            .and_then(|name| std::path::Path::new(name).extension())
+            .and_then(|ext| ext.to_str());
+        let file_name = match extension {
+            Some(ext) => format!("{}.{}", envelope.media_hash, ext),
+            None => envelope.media_hash.clone(),
+        };
+        let media_path = media_dir.join(file_name);
+        std::fs::write(&media_path, &media_bytes)
+            .map_err(|e| MePassaError::Storage(format!("Failed to write media file: {}", e)))?;
+
+        let mut thumbnail_path = None;
+        if let Some(thumbnail_bytes) = envelope.thumbnail_bytes()? {
+            let thumb_dir = media_dir.join("thumbnails");
+            std::fs::create_dir_all(&thumb_dir).map_err(|e| {
+                MePassaError::Storage(format!("Failed to create thumbnail dir: {}", e))
+            })?;
+            let thumb_path = thumb_dir.join(format!("{}.jpg", envelope.media_hash));
+            std::fs::write(&thumb_path, &thumbnail_bytes).map_err(|e| {
+                MePassaError::Storage(format!("Failed to write thumbnail file: {}", e))
+            })?;
+            thumbnail_path = Some(thumb_path.to_string_lossy().to_string());
+        }
+
+        let new_msg = NewMessage {
+            message_id: message.id.clone(),
+            conversation_id: conversation_id.clone(),
+            sender_peer_id: message.sender_peer_id.clone(),
+            recipient_peer_id: Some(message.recipient_peer_id.clone()),
+            message_type: message_type.clone(),
+            content_encrypted: self.encrypt_for_storage(placeholder.as_bytes()).ok(),
+            content_plaintext: None,
+            status: MessageStatus::Delivered,
+            parent_message_id: None,
+        };
+
+        self.database.insert_message(&new_msg)?;
+        self.database.update_conversation_last_message(&conversation_id, &message.id)?;
+
+        let new_media = NewMedia {
+            media_hash: envelope.media_hash.clone(),
+            message_id: message.id.clone(),
+            media_type,
+            file_name: envelope.file_name.clone(),
+            file_size: Some(media_bytes.len() as i64),
+            mime_type: envelope.mime_type.clone(),
+            local_path: Some(media_path.to_string_lossy().to_string()),
+            thumbnail_path,
+            width: envelope.width,
+            height: envelope.height,
+            duration_seconds: envelope.duration_seconds,
+        };
+        let _ = self.database.insert_media(&new_media);
+
+        let mut display_message = message.clone();
+        display_message.payload = Some(Payload::Text(TextMessage {
+            content: placeholder.clone(),
+            reply_to_id: String::new(),
+            metadata: std::collections::HashMap::new(),
+        }));
+        display_message.r#type = MessageType::Text as i32;
+
+        self.emit_event(MessageEvent::MessageReceived {
+            message_id: message.id.clone(),
+            from_peer_id: message.sender_peer_id.clone(),
+            conversation_id,
+            content: placeholder,
+            message: display_message,
+        });
+
+        Ok(())
     }
 }
 
@@ -498,6 +813,7 @@ mod tests {
         let handler = MessageHandler::new(
             local_peer_id.clone(),
             db_arc,
+            std::env::temp_dir().join("mepassa_test_media"),
             identity,
             session_manager,
             storage_key,
@@ -599,6 +915,7 @@ mod tests {
         let handler = MessageHandler::new(
             local_peer_id,
             Arc::clone(&db_arc),
+            std::env::temp_dir().join("mepassa_test_media"),
             identity,
             session_manager,
             storage_key,

@@ -461,15 +461,17 @@ struct FfiMessageWrapper: Identifiable {
     let senderPeerId: String
     let recipientPeerId: String?
     let content: String?
+    let messageType: String
     let createdAt: Date
     let status: MessageStatus
 
-    init(id: String, conversationId: String, senderPeerId: String, recipientPeerId: String?, content: String?, createdAt: Date, status: MessageStatus) {
+    init(id: String, conversationId: String, senderPeerId: String, recipientPeerId: String?, content: String?, messageType: String, createdAt: Date, status: MessageStatus) {
         self.id = id
         self.conversationId = conversationId
         self.senderPeerId = senderPeerId
         self.recipientPeerId = recipientPeerId
         self.content = content
+        self.messageType = messageType
         self.createdAt = createdAt
         self.status = status
     }
@@ -480,6 +482,7 @@ struct FfiMessageWrapper: Identifiable {
         self.senderPeerId = ffi.senderPeerId
         self.recipientPeerId = ffi.recipientPeerId
         self.content = ffi.contentPlaintext
+        self.messageType = ffi.messageType
         self.createdAt = Date(timeIntervalSince1970: TimeInterval(ffi.createdAt) / 1000.0)
         self.status = ffi.status
     }

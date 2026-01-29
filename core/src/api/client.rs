@@ -3,7 +3,7 @@
 //! Public API for MePassa client.
 
 use libp2p::{Multiaddr, PeerId};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio::time::{timeout, Duration};
@@ -13,10 +13,11 @@ use crate::{
     crypto::{decrypt_for_storage, encrypt_for_storage, session::SessionManager},
     identity::Identity,
     network::NetworkManager,
-    protocol::{pb::message::Payload, EncryptedMessage as ProtoEncryptedMessage, Message, MessageType, TextMessage},
-    storage::{contacts::{NewContact, UpdateContact}, Database, MessageStatus, NewMessage, StorageError},
+    protocol::{pb::message::Payload, EncryptedMessage as ProtoEncryptedMessage, MediaOffer, MediaRequest, Message, MessageType, TextMessage},
+    storage::{contacts::{NewContact, UpdateContact}, Database, MediaType, MessageStatus, NewMessage, StorageError},
     utils::error::{MePassaError, Result},
 };
+use sha2::{Digest, Sha256};
 #[cfg(any(feature = "voip", feature = "video"))]
 use crate::voip::{CallManager, VoIPIntegration};
 
@@ -158,6 +159,77 @@ impl Client {
         for callback in callbacks.iter() {
             callback.on_event(event.clone());
         }
+    }
+
+    fn media_dir(&self) -> PathBuf {
+        self.data_dir.join("media")
+    }
+
+    fn write_media_file(&self, media_hash: &str, file_name: Option<&str>, data: &[u8]) -> Result<String> {
+        let media_dir = self.media_dir();
+        std::fs::create_dir_all(&media_dir)
+            .map_err(|e| MePassaError::Storage(format!("Failed to create media dir: {}", e)))?;
+
+        let extension = file_name
+            .and_then(|name| Path::new(name).extension())
+            .and_then(|ext| ext.to_str());
+        let file_name = match extension {
+            Some(ext) => format!("{}.{}", media_hash, ext),
+            None => media_hash.to_string(),
+        };
+        let path = media_dir.join(file_name);
+        std::fs::write(&path, data)
+            .map_err(|e| MePassaError::Storage(format!("Failed to write media file: {}", e)))?;
+        Ok(path.to_string_lossy().to_string())
+    }
+
+    fn write_thumbnail_file(&self, media_hash: &str, data: &[u8]) -> Result<String> {
+        let thumb_dir = self.media_dir().join("thumbnails");
+        std::fs::create_dir_all(&thumb_dir)
+            .map_err(|e| MePassaError::Storage(format!("Failed to create thumbnail dir: {}", e)))?;
+        let path = thumb_dir.join(format!("{}.jpg", media_hash));
+        std::fs::write(&path, data)
+            .map_err(|e| MePassaError::Storage(format!("Failed to write thumbnail file: {}", e)))?;
+        Ok(path.to_string_lossy().to_string())
+    }
+
+    fn media_placeholder(media_type: &MediaType, file_name: Option<&str>, duration_seconds: Option<i32>) -> String {
+        match media_type {
+            MediaType::Image => format!(
+                "[Image{}]",
+                file_name
+                    .map(|name| format!(": {}", name))
+                    .unwrap_or_default()
+            ),
+            MediaType::Video => format!(
+                "[Video{}]",
+                duration_seconds
+                    .map(|d| format!(": {}s", d))
+                    .unwrap_or_default()
+            ),
+            MediaType::VoiceMessage => format!(
+                "[Voice{}]",
+                duration_seconds
+                    .map(|d| format!(": {}s", d))
+                    .unwrap_or_default()
+            ),
+            MediaType::Audio => "[Audio]".to_string(),
+            MediaType::Document => format!(
+                "[File{}]",
+                file_name
+                    .map(|name| format!(": {}", name))
+                    .unwrap_or_default()
+            ),
+        }
+    }
+
+    fn compute_media_hash(data: &[u8], salt: Option<&str>) -> String {
+        let mut hasher = Sha256::new();
+        hasher.update(data);
+        if let Some(salt) = salt {
+            hasher.update(salt.as_bytes());
+        }
+        format!("{:x}", hasher.finalize())
     }
 
     /// Start listening on a multiaddr
@@ -341,30 +413,55 @@ impl Client {
         quality: u8,
     ) -> Result<String> {
         use crate::media::image::compress_image;
-        use sha2::{Digest, Sha256};
+        self.ensure_peer_connected(to).await;
 
         // Compress image
         let compressed_data = compress_image(image_data, quality)
             .map_err(|e| MePassaError::Other(format!("Image compression failed: {}", e)))?;
 
-        // Calculate media hash for deduplication
-        let mut hasher = Sha256::new();
-        hasher.update(&compressed_data);
-        let media_hash = format!("{:x}", hasher.finalize());
-
-        // Check if media already exists (deduplication)
-        if let Ok(Some(_existing)) = self.database.get_media_by_hash(&media_hash) {
-            // Media already uploaded, just create message reference
-            // TODO: Create message with existing media reference
-        }
-
         // Generate message ID
         let message_id = uuid::Uuid::new_v4().to_string();
         let timestamp = chrono::Utc::now().timestamp_millis();
 
-        // TODO: Create protocol message with media payload
-        // For now, create placeholder text message
-        // In production, should use MediaMessage payload type
+        // Calculate media hash (salt with message_id to avoid collisions)
+        let mut media_hash = Self::compute_media_hash(&compressed_data, None);
+        if let Ok(Some(_existing)) = self.database.get_media_by_hash(&media_hash) {
+            media_hash = Self::compute_media_hash(&compressed_data, Some(&message_id));
+        }
+
+        let local_path = self.write_media_file(&media_hash, Some(&file_name), &compressed_data)?;
+        let media_type = MediaType::Image;
+        let placeholder = Self::media_placeholder(&media_type, Some(&file_name), None);
+
+        let offer = MediaOffer {
+            message_id: message_id.clone(),
+            media_hash: media_hash.clone(),
+            media_type: media_type.as_str().to_string(),
+            file_name: file_name.clone(),
+            mime_type: "image/jpeg".to_string(),
+            file_size: compressed_data.len() as i64,
+            width: 0,
+            height: 0,
+            duration_seconds: 0,
+        };
+        let message_type = MessageType::MediaOffer;
+        let payload = Payload::MediaOffer(offer);
+
+        // Create protocol message
+        let proto_message = Message {
+            id: message_id.clone(),
+            sender_peer_id: self.local_peer_id().to_string(),
+            recipient_peer_id: to.to_string(),
+            timestamp,
+            r#type: message_type as i32,
+            payload: Some(payload),
+        };
+
+        // Send via network
+        {
+            let mut network = self.network.write().await;
+            network.send_message(to, proto_message)?;
+        }
 
         // Store in database
         let conversation_id = self.database.get_or_create_conversation(&to.to_string())?;
@@ -374,28 +471,38 @@ impl Client {
             sender_peer_id: self.local_peer_id().to_string(),
             recipient_peer_id: Some(to.to_string()),
             message_type: "image".to_string(),
-            content_encrypted: None,
-            content_plaintext: Some(format!("[Image: {}]", file_name)),
+            content_encrypted: self.encrypt_for_storage(placeholder.as_bytes()).ok(),
+            content_plaintext: None,
             status: MessageStatus::Sent,
             parent_message_id: None,
         };
         self.database.insert_message(&new_msg)?;
+        self.database
+            .update_conversation_last_message(&conversation_id, &message_id)?;
 
         // Store media record
         let new_media = crate::storage::NewMedia {
             media_hash: media_hash.clone(),
             message_id: message_id.clone(),
-            media_type: crate::storage::MediaType::Image,
+            media_type,
             file_name: Some(file_name),
             file_size: Some(compressed_data.len() as i64),
             mime_type: Some("image/jpeg".to_string()),
-            local_path: None, // TODO: Save to disk
+            local_path: Some(local_path),
             thumbnail_path: None,
             width: None,
             height: None,
             duration_seconds: None,
         };
-        self.database.insert_media(&new_media)?;
+        if let Err(e) = self.database.insert_media(&new_media) {
+            tracing::warn!("Failed to insert media record: {}", e);
+        }
+
+        self.emit_event(ClientEvent::MessageSent {
+            message_id: message_id.clone(),
+            to,
+        })
+        .await;
 
         Ok(message_id)
     }
@@ -408,15 +515,49 @@ impl Client {
         file_name: String,
         duration_seconds: i32,
     ) -> Result<String> {
-        use sha2::{Digest, Sha256};
+        self.ensure_peer_connected(to).await;
 
         // Calculate media hash
-        let mut hasher = Sha256::new();
-        hasher.update(audio_data);
-        let media_hash = format!("{:x}", hasher.finalize());
-
         // Generate message ID
         let message_id = uuid::Uuid::new_v4().to_string();
+        let timestamp = chrono::Utc::now().timestamp_millis();
+
+        let mut media_hash = Self::compute_media_hash(audio_data, None);
+        if let Ok(Some(_existing)) = self.database.get_media_by_hash(&media_hash) {
+            media_hash = Self::compute_media_hash(audio_data, Some(&message_id));
+        }
+
+        let local_path = self.write_media_file(&media_hash, Some(&file_name), audio_data)?;
+        let media_type = MediaType::VoiceMessage;
+        let placeholder = Self::media_placeholder(&media_type, Some(&file_name), Some(duration_seconds));
+
+        let offer = MediaOffer {
+            message_id: message_id.clone(),
+            media_hash: media_hash.clone(),
+            media_type: media_type.as_str().to_string(),
+            file_name: file_name.clone(),
+            mime_type: "audio/aac".to_string(),
+            file_size: audio_data.len() as i64,
+            width: 0,
+            height: 0,
+            duration_seconds,
+        };
+        let message_type = MessageType::MediaOffer;
+        let payload = Payload::MediaOffer(offer);
+
+        let proto_message = Message {
+            id: message_id.clone(),
+            sender_peer_id: self.local_peer_id().to_string(),
+            recipient_peer_id: to.to_string(),
+            timestamp,
+            r#type: message_type as i32,
+            payload: Some(payload),
+        };
+
+        {
+            let mut network = self.network.write().await;
+            network.send_message(to, proto_message)?;
+        }
 
         // Store in database
         let conversation_id = self.database.get_or_create_conversation(&to.to_string())?;
@@ -426,30 +567,38 @@ impl Client {
             sender_peer_id: self.local_peer_id().to_string(),
             recipient_peer_id: Some(to.to_string()),
             message_type: "voice".to_string(),
-            content_encrypted: None,
-            content_plaintext: Some(format!("[Voice: {}s]", duration_seconds)),
+            content_encrypted: self.encrypt_for_storage(placeholder.as_bytes()).ok(),
+            content_plaintext: None,
             status: MessageStatus::Sent,
             parent_message_id: None,
         };
         self.database.insert_message(&new_msg)?;
+        self.database
+            .update_conversation_last_message(&conversation_id, &message_id)?;
 
         // Store media record
         let new_media = crate::storage::NewMedia {
             media_hash: media_hash.clone(),
             message_id: message_id.clone(),
-            media_type: crate::storage::MediaType::VoiceMessage,
+            media_type,
             file_name: Some(file_name),
             file_size: Some(audio_data.len() as i64),
             mime_type: Some("audio/aac".to_string()),
-            local_path: None, // TODO: Save to disk
+            local_path: Some(local_path),
             thumbnail_path: None,
             width: None,
             height: None,
             duration_seconds: Some(duration_seconds),
         };
-        self.database.insert_media(&new_media)?;
+        if let Err(e) = self.database.insert_media(&new_media) {
+            tracing::warn!("Failed to insert media record: {}", e);
+        }
 
-        // TODO: Send via network
+        self.emit_event(ClientEvent::MessageSent {
+            message_id: message_id.clone(),
+            to,
+        })
+        .await;
 
         Ok(message_id)
     }
@@ -462,15 +611,49 @@ impl Client {
         file_name: String,
         mime_type: String,
     ) -> Result<String> {
-        use sha2::{Digest, Sha256};
+        self.ensure_peer_connected(to).await;
 
         // Calculate media hash
-        let mut hasher = Sha256::new();
-        hasher.update(file_data);
-        let media_hash = format!("{:x}", hasher.finalize());
-
         // Generate message ID
         let message_id = uuid::Uuid::new_v4().to_string();
+        let timestamp = chrono::Utc::now().timestamp_millis();
+
+        let mut media_hash = Self::compute_media_hash(file_data, None);
+        if let Ok(Some(_existing)) = self.database.get_media_by_hash(&media_hash) {
+            media_hash = Self::compute_media_hash(file_data, Some(&message_id));
+        }
+
+        let local_path = self.write_media_file(&media_hash, Some(&file_name), file_data)?;
+        let media_type = MediaType::Document;
+        let placeholder = Self::media_placeholder(&media_type, Some(&file_name), None);
+
+        let offer = MediaOffer {
+            message_id: message_id.clone(),
+            media_hash: media_hash.clone(),
+            media_type: media_type.as_str().to_string(),
+            file_name: file_name.clone(),
+            mime_type: mime_type.clone(),
+            file_size: file_data.len() as i64,
+            width: 0,
+            height: 0,
+            duration_seconds: 0,
+        };
+        let message_type = MessageType::MediaOffer;
+        let payload = Payload::MediaOffer(offer);
+
+        let proto_message = Message {
+            id: message_id.clone(),
+            sender_peer_id: self.local_peer_id().to_string(),
+            recipient_peer_id: to.to_string(),
+            timestamp,
+            r#type: message_type as i32,
+            payload: Some(payload),
+        };
+
+        {
+            let mut network = self.network.write().await;
+            network.send_message(to, proto_message)?;
+        }
 
         // Store in database
         let conversation_id = self.database.get_or_create_conversation(&to.to_string())?;
@@ -480,30 +663,38 @@ impl Client {
             sender_peer_id: self.local_peer_id().to_string(),
             recipient_peer_id: Some(to.to_string()),
             message_type: "document".to_string(),
-            content_encrypted: None,
-            content_plaintext: Some(format!("[File: {}]", file_name)),
+            content_encrypted: self.encrypt_for_storage(placeholder.as_bytes()).ok(),
+            content_plaintext: None,
             status: MessageStatus::Sent,
             parent_message_id: None,
         };
         self.database.insert_message(&new_msg)?;
+        self.database
+            .update_conversation_last_message(&conversation_id, &message_id)?;
 
         // Store media record
         let new_media = crate::storage::NewMedia {
             media_hash: media_hash.clone(),
             message_id: message_id.clone(),
-            media_type: crate::storage::MediaType::Document,
+            media_type,
             file_name: Some(file_name),
             file_size: Some(file_data.len() as i64),
             mime_type: Some(mime_type),
-            local_path: None, // TODO: Save to disk
+            local_path: Some(local_path),
             thumbnail_path: None,
             width: None,
             height: None,
             duration_seconds: None,
         };
-        self.database.insert_media(&new_media)?;
+        if let Err(e) = self.database.insert_media(&new_media) {
+            tracing::warn!("Failed to insert media record: {}", e);
+        }
 
-        // TODO: Send via network
+        self.emit_event(ClientEvent::MessageSent {
+            message_id: message_id.clone(),
+            to,
+        })
+        .await;
 
         Ok(message_id)
     }
@@ -519,15 +710,54 @@ impl Client {
         duration_seconds: i32,
         thumbnail_data: Option<&[u8]>,
     ) -> Result<String> {
-        use sha2::{Digest, Sha256};
+        self.ensure_peer_connected(to).await;
 
         // Calculate video hash
-        let mut hasher = Sha256::new();
-        hasher.update(video_data);
-        let media_hash = format!("{:x}", hasher.finalize());
-
         // Generate message ID
         let message_id = uuid::Uuid::new_v4().to_string();
+        let timestamp = chrono::Utc::now().timestamp_millis();
+
+        let mut media_hash = Self::compute_media_hash(video_data, None);
+        if let Ok(Some(_existing)) = self.database.get_media_by_hash(&media_hash) {
+            media_hash = Self::compute_media_hash(video_data, Some(&message_id));
+        }
+
+        let local_path = self.write_media_file(&media_hash, Some(&file_name), video_data)?;
+        let media_type = MediaType::Video;
+        let placeholder = Self::media_placeholder(&media_type, Some(&file_name), Some(duration_seconds));
+
+        let mut thumbnail_path = None;
+        if let Some(thumb_data) = thumbnail_data {
+            thumbnail_path = Some(self.write_thumbnail_file(&media_hash, thumb_data)?);
+        }
+
+        let offer = MediaOffer {
+            message_id: message_id.clone(),
+            media_hash: media_hash.clone(),
+            media_type: media_type.as_str().to_string(),
+            file_name: file_name.clone(),
+            mime_type: "video/mp4".to_string(),
+            file_size: video_data.len() as i64,
+            width: width.unwrap_or(0),
+            height: height.unwrap_or(0),
+            duration_seconds,
+        };
+        let message_type = MessageType::MediaOffer;
+        let payload = Payload::MediaOffer(offer);
+
+        let proto_message = Message {
+            id: message_id.clone(),
+            sender_peer_id: self.local_peer_id().to_string(),
+            recipient_peer_id: to.to_string(),
+            timestamp,
+            r#type: message_type as i32,
+            payload: Some(payload),
+        };
+
+        {
+            let mut network = self.network.write().await;
+            network.send_message(to, proto_message)?;
+        }
 
         // Store in database
         let conversation_id = self.database.get_or_create_conversation(&to.to_string())?;
@@ -537,54 +767,133 @@ impl Client {
             sender_peer_id: self.local_peer_id().to_string(),
             recipient_peer_id: Some(to.to_string()),
             message_type: "video".to_string(),
-            content_encrypted: None,
-            content_plaintext: Some(format!("[Video: {}s]", duration_seconds)),
+            content_encrypted: self.encrypt_for_storage(placeholder.as_bytes()).ok(),
+            content_plaintext: None,
             status: MessageStatus::Sent,
             parent_message_id: None,
         };
         self.database.insert_message(&new_msg)?;
-
-        // Calculate thumbnail hash if provided
-        let thumbnail_path = if let Some(thumb_data) = thumbnail_data {
-            let mut thumb_hasher = Sha256::new();
-            thumb_hasher.update(thumb_data);
-            let thumb_hash = format!("{:x}", thumb_hasher.finalize());
-            // TODO: Save thumbnail to disk
-            Some(format!("thumbnails/{}.jpg", thumb_hash))
-        } else {
-            None
-        };
+        self.database
+            .update_conversation_last_message(&conversation_id, &message_id)?;
 
         // Store media record
         let new_media = crate::storage::NewMedia {
             media_hash: media_hash.clone(),
             message_id: message_id.clone(),
-            media_type: crate::storage::MediaType::Video,
+            media_type,
             file_name: Some(file_name),
             file_size: Some(video_data.len() as i64),
             mime_type: Some("video/mp4".to_string()),
-            local_path: None, // TODO: Save to disk
+            local_path: Some(local_path),
             thumbnail_path,
             width,
             height,
             duration_seconds: Some(duration_seconds),
         };
-        self.database.insert_media(&new_media)?;
+        if let Err(e) = self.database.insert_media(&new_media) {
+            tracing::warn!("Failed to insert media record: {}", e);
+        }
 
-        // TODO: Send via network
+        self.emit_event(ClientEvent::MessageSent {
+            message_id: message_id.clone(),
+            to,
+        })
+        .await;
 
         Ok(message_id)
     }
 
     /// Download media by hash
     pub async fn download_media(&self, media_hash: &str) -> Result<Vec<u8>> {
-        // TODO: Implement actual download from peer
-        // For now, read from local storage if available
+        // Read from local storage if available
         if let Ok(Some(media)) = self.database.get_media_by_hash(media_hash) {
             if let Some(local_path) = media.local_path {
-                let data = std::fs::read(&local_path)?;
-                return Ok(data);
+                if Path::new(&local_path).exists() {
+                    let data = std::fs::read(&local_path)?;
+                    return Ok(data);
+                }
+                tracing::warn!("Media path missing on disk: {}", local_path);
+                let _ = self.database.delete_media(media.id);
             }
+
+            // Request from peer if we know the message/peer
+            let message = self
+                .database
+                .get_message(&media.message_id)
+                .map_err(|e| MePassaError::Storage(e.to_string()))?;
+            let peer_id = if message.sender_peer_id == self.local_peer_id().to_string() {
+                message
+                    .recipient_peer_id
+                    .ok_or_else(|| MePassaError::Network("Missing recipient peer".to_string()))?
+            } else {
+                message.sender_peer_id
+            };
+            let peer_id: PeerId = peer_id
+                .parse()
+                .map_err(|_| MePassaError::Network("Invalid peer ID".to_string()))?;
+
+            let mut last_error: Option<MePassaError> = None;
+
+            for _ in 0..3 {
+                self.ensure_peer_connected(peer_id).await;
+
+                let request = MediaRequest {
+                    message_id: media.message_id.clone(),
+                    media_hash: media.media_hash.clone(),
+                    offset: 0,
+                    chunk_size: 64 * 1024,
+                };
+
+                let request_message = Message {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    sender_peer_id: self.local_peer_id().to_string(),
+                    recipient_peer_id: peer_id.to_string(),
+                    timestamp: chrono::Utc::now().timestamp_millis(),
+                    r#type: MessageType::MediaRequest as i32,
+                    payload: Some(Payload::MediaRequest(request)),
+                };
+
+                {
+                    let mut network = self.network.write().await;
+                    network.send_message(peer_id, request_message)?;
+                }
+
+                // Poll for file to appear
+                let wait_result = timeout(Duration::from_secs(10), async {
+                    loop {
+                        if let Ok(Some(updated)) = self.database.get_media_by_hash(media_hash) {
+                            if let Some(path) = updated.local_path {
+                                if Path::new(&path).exists() {
+                                    return Ok::<String, MePassaError>(path);
+                                }
+                            }
+                        }
+                        tokio::time::sleep(Duration::from_millis(200)).await;
+                    }
+                })
+                .await;
+
+                match wait_result {
+                    Ok(Ok(path)) => {
+                        let data = std::fs::read(&path)?;
+                        return Ok(data);
+                    }
+                    Ok(Err(e)) => {
+                        last_error = Some(e);
+                    }
+                    Err(_) => {
+                        last_error = Some(MePassaError::Network(
+                            "Timed out waiting for media".to_string(),
+                        ));
+                    }
+                }
+
+                tokio::time::sleep(Duration::from_millis(300)).await;
+            }
+
+            return Err(last_error.unwrap_or_else(|| {
+                MePassaError::Network("Timed out waiting for media".to_string())
+            }));
         }
 
         Err(MePassaError::NotFound(format!(

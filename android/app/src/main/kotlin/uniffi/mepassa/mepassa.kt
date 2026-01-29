@@ -820,6 +820,12 @@ internal open class UniffiVTableCallbackInterfaceFfiVideoFrameCallback(
 
 
 
+
+
+
+
+
+
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
@@ -878,6 +884,8 @@ internal interface UniffiLib : Library {
     ): Long
     fun uniffi_mepassa_core_fn_method_mepassaclient_get_message_reactions(`ptr`: Pointer,`messageId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_mepassa_core_fn_method_mepassaclient_get_prekey_bundle_json(`ptr`: Pointer,
+    ): Long
     fun uniffi_mepassa_core_fn_method_mepassaclient_hangup_call(`ptr`: Pointer,`callId`: RustBuffer.ByValue,
     ): Long
     fun uniffi_mepassa_core_fn_method_mepassaclient_join_group(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`groupName`: RustBuffer.ByValue,
@@ -888,12 +896,14 @@ internal interface UniffiLib : Library {
     ): RustBuffer.ByValue
     fun uniffi_mepassa_core_fn_method_mepassaclient_listen_on(`ptr`: Pointer,`multiaddr`: RustBuffer.ByValue,
     ): Long
+    fun uniffi_mepassa_core_fn_method_mepassaclient_listening_addresses(`ptr`: Pointer,
+    ): Long
     fun uniffi_mepassa_core_fn_method_mepassaclient_local_peer_id(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_mepassa_core_fn_method_mepassaclient_mark_conversation_read(`ptr`: Pointer,`peerId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_mepassa_core_fn_method_mepassaclient_register_video_frame_callback(`ptr`: Pointer,`callback`: Long,
-    ): Long
+    fun uniffi_mepassa_core_fn_method_mepassaclient_register_video_frame_callback(`ptr`: Pointer,`callback`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     fun uniffi_mepassa_core_fn_method_mepassaclient_reject_call(`ptr`: Pointer,`callId`: RustBuffer.ByValue,`reason`: RustBuffer.ByValue,
     ): Long
     fun uniffi_mepassa_core_fn_method_mepassaclient_remove_group_member(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`peerId`: RustBuffer.ByValue,
@@ -914,6 +924,8 @@ internal interface UniffiLib : Library {
     ): Long
     fun uniffi_mepassa_core_fn_method_mepassaclient_send_voice_message(`ptr`: Pointer,`toPeerId`: RustBuffer.ByValue,`audioData`: RustBuffer.ByValue,`fileName`: RustBuffer.ByValue,`durationSeconds`: Int,
     ): Long
+    fun uniffi_mepassa_core_fn_method_mepassaclient_set_contact_prekey_bundle(`ptr`: Pointer,`peerId`: RustBuffer.ByValue,`prekeyBundleJson`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     fun uniffi_mepassa_core_fn_method_mepassaclient_start_call(`ptr`: Pointer,`toPeerId`: RustBuffer.ByValue,
     ): Long
     fun uniffi_mepassa_core_fn_method_mepassaclient_switch_camera(`ptr`: Pointer,`callId`: RustBuffer.ByValue,
@@ -1068,6 +1080,8 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_mepassa_core_checksum_method_mepassaclient_get_message_reactions(
     ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_get_prekey_bundle_json(
+    ): Short
     fun uniffi_mepassa_core_checksum_method_mepassaclient_hangup_call(
     ): Short
     fun uniffi_mepassa_core_checksum_method_mepassaclient_join_group(
@@ -1077,6 +1091,8 @@ internal interface UniffiLib : Library {
     fun uniffi_mepassa_core_checksum_method_mepassaclient_list_conversations(
     ): Short
     fun uniffi_mepassa_core_checksum_method_mepassaclient_listen_on(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_listening_addresses(
     ): Short
     fun uniffi_mepassa_core_checksum_method_mepassaclient_local_peer_id(
     ): Short
@@ -1103,6 +1119,8 @@ internal interface UniffiLib : Library {
     fun uniffi_mepassa_core_checksum_method_mepassaclient_send_video_message(
     ): Short
     fun uniffi_mepassa_core_checksum_method_mepassaclient_send_voice_message(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_set_contact_prekey_bundle(
     ): Short
     fun uniffi_mepassa_core_checksum_method_mepassaclient_start_call(
     ): Short
@@ -1181,6 +1199,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_get_message_reactions() != 57499.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_get_prekey_bundle_json() != 54489.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_hangup_call() != 41033.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1196,13 +1217,16 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_listen_on() != 4155.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_listening_addresses() != 3054.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_local_peer_id() != 35327.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_mark_conversation_read() != 7782.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_register_video_frame_callback() != 57380.toShort()) {
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_register_video_frame_callback() != 25102.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_reject_call() != 59311.toShort()) {
@@ -1233,6 +1257,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_send_voice_message() != 15962.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_set_contact_prekey_bundle() != 54445.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_start_call() != 10921.toShort()) {
@@ -1731,6 +1758,8 @@ public interface MePassaClientInterface {
     
     fun `getMessageReactions`(`messageId`: kotlin.String): List<FfiReaction>
     
+    suspend fun `getPrekeyBundleJson`(): kotlin.String
+    
     suspend fun `hangupCall`(`callId`: kotlin.String)
     
     suspend fun `joinGroup`(`groupId`: kotlin.String, `groupName`: kotlin.String)
@@ -1741,11 +1770,13 @@ public interface MePassaClientInterface {
     
     suspend fun `listenOn`(`multiaddr`: kotlin.String)
     
+    suspend fun `listeningAddresses`(): List<kotlin.String>
+    
     fun `localPeerId`(): kotlin.String
     
     fun `markConversationRead`(`peerId`: kotlin.String)
     
-    suspend fun `registerVideoFrameCallback`(`callback`: FfiVideoFrameCallback)
+    fun `registerVideoFrameCallback`(`callback`: FfiVideoFrameCallback)
     
     suspend fun `rejectCall`(`callId`: kotlin.String, `reason`: kotlin.String?)
     
@@ -1766,6 +1797,8 @@ public interface MePassaClientInterface {
     suspend fun `sendVideoMessage`(`toPeerId`: kotlin.String, `videoData`: List<kotlin.UByte>, `fileName`: kotlin.String, `width`: kotlin.Int?, `height`: kotlin.Int?, `durationSeconds`: kotlin.Int, `thumbnailData`: List<kotlin.UByte>?): kotlin.String
     
     suspend fun `sendVoiceMessage`(`toPeerId`: kotlin.String, `audioData`: List<kotlin.UByte>, `fileName`: kotlin.String, `durationSeconds`: kotlin.Int): kotlin.String
+    
+    fun `setContactPrekeyBundle`(`peerId`: kotlin.String, `prekeyBundleJson`: kotlin.String)
     
     suspend fun `startCall`(`toPeerId`: kotlin.String): kotlin.String
     
@@ -2169,6 +2202,27 @@ open class MePassaClient: Disposable, AutoCloseable, MePassaClientInterface {
     
     @Throws(MePassaFfiException::class)
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `getPrekeyBundleJson`() : kotlin.String {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_get_prekey_bundle_json(
+                thisPtr,
+                
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterString.lift(it) },
+        // Error FFI converter
+        MePassaFfiException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(MePassaFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
     override suspend fun `hangupCall`(`callId`: kotlin.String) {
         return uniffiRustCallAsync(
         callWithPointer { thisPtr ->
@@ -2268,6 +2322,27 @@ open class MePassaClient: Disposable, AutoCloseable, MePassaClientInterface {
     }
 
     
+    @Throws(MePassaFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `listeningAddresses`() : List<kotlin.String> {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_listening_addresses(
+                thisPtr,
+                
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterSequenceString.lift(it) },
+        // Error FFI converter
+        MePassaFfiException.ErrorHandler,
+    )
+    }
+
+    
     @Throws(MePassaFfiException::class)override fun `localPeerId`(): kotlin.String {
             return FfiConverterString.lift(
     callWithPointer {
@@ -2293,26 +2368,16 @@ open class MePassaClient: Disposable, AutoCloseable, MePassaClientInterface {
     
 
     
-    @Throws(MePassaFfiException::class)
-    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
-    override suspend fun `registerVideoFrameCallback`(`callback`: FfiVideoFrameCallback) {
-        return uniffiRustCallAsync(
-        callWithPointer { thisPtr ->
-            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_register_video_frame_callback(
-                thisPtr,
-                FfiConverterTypeFfiVideoFrameCallback.lower(`callback`),
-            )
-        },
-        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_void(future, callback, continuation) },
-        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_void(future, continuation) },
-        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_void(future) },
-        // lift function
-        { Unit },
-        
-        // Error FFI converter
-        MePassaFfiException.ErrorHandler,
-    )
+    @Throws(MePassaFfiException::class)override fun `registerVideoFrameCallback`(`callback`: FfiVideoFrameCallback)
+        = 
+    callWithPointer {
+    uniffiRustCallWithError(MePassaFfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_register_video_frame_callback(
+        it, FfiConverterTypeFfiVideoFrameCallback.lower(`callback`),_status)
+}
     }
+    
+    
 
     
     @Throws(MePassaFfiException::class)
@@ -2509,6 +2574,18 @@ open class MePassaClient: Disposable, AutoCloseable, MePassaClientInterface {
         MePassaFfiException.ErrorHandler,
     )
     }
+
+    
+    @Throws(MePassaFfiException::class)override fun `setContactPrekeyBundle`(`peerId`: kotlin.String, `prekeyBundleJson`: kotlin.String)
+        = 
+    callWithPointer {
+    uniffiRustCallWithError(MePassaFfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_set_contact_prekey_bundle(
+        it, FfiConverterString.lower(`peerId`),FfiConverterString.lower(`prekeyBundleJson`),_status)
+}
+    }
+    
+    
 
     
     @Throws(MePassaFfiException::class)
@@ -3340,61 +3417,61 @@ public object FfiConverterTypeFfiVideoCodec: FfiConverterRustBuffer<FfiVideoCode
 
 
 sealed class MePassaFfiException: kotlin.Exception() {
-
+    
     class Identity(
-
-        val errorMessage: kotlin.String
+        
+        val `details`: kotlin.String
         ) : MePassaFfiException() {
-        override val message: kotlin.String
-            get() = errorMessage
+        override val message
+            get() = "details=${ `details` }"
     }
-
+    
     class Crypto(
-
-        val errorMessage: kotlin.String
+        
+        val `details`: kotlin.String
         ) : MePassaFfiException() {
-        override val message: kotlin.String
-            get() = errorMessage
+        override val message
+            get() = "details=${ `details` }"
     }
-
+    
     class Network(
-
-        val errorMessage: kotlin.String
+        
+        val `details`: kotlin.String
         ) : MePassaFfiException() {
-        override val message: kotlin.String
-            get() = errorMessage
+        override val message
+            get() = "details=${ `details` }"
     }
-
+    
     class Storage(
-
-        val errorMessage: kotlin.String
+        
+        val `details`: kotlin.String
         ) : MePassaFfiException() {
-        override val message: kotlin.String
-            get() = errorMessage
+        override val message
+            get() = "details=${ `details` }"
     }
-
+    
     class Protocol(
-
-        val errorMessage: kotlin.String
+        
+        val `details`: kotlin.String
         ) : MePassaFfiException() {
-        override val message: kotlin.String
-            get() = errorMessage
+        override val message
+            get() = "details=${ `details` }"
     }
-
+    
     class Io(
-
-        val errorMessage: kotlin.String
+        
+        val `details`: kotlin.String
         ) : MePassaFfiException() {
-        override val message: kotlin.String
-            get() = errorMessage
+        override val message
+            get() = "details=${ `details` }"
     }
-
+    
     class Other(
-
-        val errorMessage: kotlin.String
+        
+        val `details`: kotlin.String
         ) : MePassaFfiException() {
-        override val message: kotlin.String
-            get() = errorMessage
+        override val message
+            get() = "details=${ `details` }"
     }
     
 
@@ -3443,37 +3520,37 @@ public object FfiConverterTypeMePassaFfiError : FfiConverterRustBuffer<MePassaFf
             is MePassaFfiException.Identity -> (
                 // Add the size for the Int that specifies the variant plus the size needed for all fields
                 4UL
-                + FfiConverterString.allocationSize(value.`message`)
+                + FfiConverterString.allocationSize(value.`details`)
             )
             is MePassaFfiException.Crypto -> (
                 // Add the size for the Int that specifies the variant plus the size needed for all fields
                 4UL
-                + FfiConverterString.allocationSize(value.`message`)
+                + FfiConverterString.allocationSize(value.`details`)
             )
             is MePassaFfiException.Network -> (
                 // Add the size for the Int that specifies the variant plus the size needed for all fields
                 4UL
-                + FfiConverterString.allocationSize(value.`message`)
+                + FfiConverterString.allocationSize(value.`details`)
             )
             is MePassaFfiException.Storage -> (
                 // Add the size for the Int that specifies the variant plus the size needed for all fields
                 4UL
-                + FfiConverterString.allocationSize(value.`message`)
+                + FfiConverterString.allocationSize(value.`details`)
             )
             is MePassaFfiException.Protocol -> (
                 // Add the size for the Int that specifies the variant plus the size needed for all fields
                 4UL
-                + FfiConverterString.allocationSize(value.`message`)
+                + FfiConverterString.allocationSize(value.`details`)
             )
             is MePassaFfiException.Io -> (
                 // Add the size for the Int that specifies the variant plus the size needed for all fields
                 4UL
-                + FfiConverterString.allocationSize(value.`message`)
+                + FfiConverterString.allocationSize(value.`details`)
             )
             is MePassaFfiException.Other -> (
                 // Add the size for the Int that specifies the variant plus the size needed for all fields
                 4UL
-                + FfiConverterString.allocationSize(value.`message`)
+                + FfiConverterString.allocationSize(value.`details`)
             )
         }
     }
@@ -3482,37 +3559,37 @@ public object FfiConverterTypeMePassaFfiError : FfiConverterRustBuffer<MePassaFf
         when(value) {
             is MePassaFfiException.Identity -> {
                 buf.putInt(1)
-                FfiConverterString.write(value.`message`, buf)
+                FfiConverterString.write(value.`details`, buf)
                 Unit
             }
             is MePassaFfiException.Crypto -> {
                 buf.putInt(2)
-                FfiConverterString.write(value.`message`, buf)
+                FfiConverterString.write(value.`details`, buf)
                 Unit
             }
             is MePassaFfiException.Network -> {
                 buf.putInt(3)
-                FfiConverterString.write(value.`message`, buf)
+                FfiConverterString.write(value.`details`, buf)
                 Unit
             }
             is MePassaFfiException.Storage -> {
                 buf.putInt(4)
-                FfiConverterString.write(value.`message`, buf)
+                FfiConverterString.write(value.`details`, buf)
                 Unit
             }
             is MePassaFfiException.Protocol -> {
                 buf.putInt(5)
-                FfiConverterString.write(value.`message`, buf)
+                FfiConverterString.write(value.`details`, buf)
                 Unit
             }
             is MePassaFfiException.Io -> {
                 buf.putInt(6)
-                FfiConverterString.write(value.`message`, buf)
+                FfiConverterString.write(value.`details`, buf)
                 Unit
             }
             is MePassaFfiException.Other -> {
                 buf.putInt(7)
-                FfiConverterString.write(value.`message`, buf)
+                FfiConverterString.write(value.`details`, buf)
                 Unit
             }
         }.let { /* this makes the `when` an expression, which ensures it is exhaustive */ }
@@ -3888,6 +3965,34 @@ public object FfiConverterSequenceUByte: FfiConverterRustBuffer<List<kotlin.UByt
         buf.putInt(value.size)
         value.iterator().forEach {
             FfiConverterUByte.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceString: FfiConverterRustBuffer<List<kotlin.String>> {
+    override fun read(buf: ByteBuffer): List<kotlin.String> {
+        val len = buf.getInt()
+        return List<kotlin.String>(len) {
+            FfiConverterString.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<kotlin.String>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterString.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<kotlin.String>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterString.write(it, buf)
         }
     }
 }
