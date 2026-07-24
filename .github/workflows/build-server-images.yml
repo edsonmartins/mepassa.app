@@ -11,6 +11,10 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAMESPACE: integrall-tech
 
+# Configure INTEGRALL_REGISTRY_USERNAME and INTEGRALL_REGISTRY_TOKEN as
+# repository secrets. The token must have package write permission in the
+# integrall-tech organization.
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -38,8 +42,8 @@ jobs:
         if: github.event_name != 'pull_request'
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ secrets.INTEGRALL_REGISTRY_USERNAME }}
+          password: ${{ secrets.INTEGRALL_REGISTRY_TOKEN }}
       - id: meta
         uses: docker/metadata-action@v5
         with:
