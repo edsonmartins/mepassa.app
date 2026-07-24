@@ -255,7 +255,7 @@ DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
         -- Run cleanup every hour
-        PERFORM cron.schedule('cleanup-expired-messages', '0 * * * *', $$SELECT delete_expired_messages()$$);
+        PERFORM cron.schedule('cleanup-expired-messages', '0 * * * *', $job$SELECT delete_expired_messages()$job$);
     END IF;
 EXCEPTION
     WHEN OTHERS THEN
