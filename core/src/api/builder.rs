@@ -172,7 +172,9 @@ impl ClientBuilder {
             }
         };
         if !restored {
-            identity.init_prekey_pool(100);
+            // Keep first-run mobile initialization responsive. The pool is
+            // persisted and can be replenished as messages are processed.
+            identity.init_prekey_pool(1);
             if let Some(Ok(snapshot)) = identity.snapshot_prekey_pool() {
                 match crate::crypto::storage::encrypt_for_storage(&storage_key, &snapshot) {
                     Ok(encrypted) => {

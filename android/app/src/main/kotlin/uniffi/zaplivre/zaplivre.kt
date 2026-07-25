@@ -845,6 +845,8 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_local_peer_id(
     ): Int
+    external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_lookup_username(
+    ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_mark_conversation_read(
     ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_register_audio_frame_callback(
@@ -1006,6 +1008,8 @@ external fun uniffi_zaplivre_core_fn_method_zaplivreclient_listening_addresses(`
 ): Long
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_local_peer_id(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
+external fun uniffi_zaplivre_core_fn_method_zaplivreclient_lookup_username(`ptr`: Long,`username`: RustBuffer.ByValue,
+): Long
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_mark_conversation_read(`ptr`: Long,`peerId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
 ): Unit
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_register_audio_frame_callback(`ptr`: Long,`callback`: Long,uniffi_out_err: UniffiRustCallStatus, 
@@ -1269,6 +1273,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_local_peer_id() != 10820) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_lookup_username() != 53185) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_mark_conversation_read() != 53235) {
@@ -1966,6 +1973,8 @@ public interface ZapLivreClientInterface {
     
     fun `localPeerId`(): kotlin.String
     
+    suspend fun `lookupUsername`(`username`: kotlin.String): kotlin.String
+    
     fun `markConversationRead`(`peerId`: kotlin.String)
     
     fun `registerAudioFrameCallback`(`callback`: FfiAudioFrameCallback)
@@ -1975,7 +1984,7 @@ public interface ZapLivreClientInterface {
     fun `registerMessageEventCallback`(`callback`: FfiMessageEventCallback)
     
     suspend fun `registerUsername`(`username`: kotlin.String): kotlin.String
-
+    
     fun `registerVideoFrameCallback`(`callback`: FfiVideoFrameCallback)
     
     fun `registerVoipEventCallback`(`callback`: FfiVoipEventCallback)
@@ -2007,7 +2016,7 @@ public interface ZapLivreClientInterface {
     fun `setContactPrekeyBundle`(`peerId`: kotlin.String, `prekeyBundleJson`: kotlin.String)
     
     suspend fun `signAuthRequest`(`method`: kotlin.String, `path`: kotlin.String, `timestamp`: kotlin.Long, `body`: List<kotlin.UByte>): kotlin.String
-
+    
     suspend fun `startCall`(`toPeerId`: kotlin.String): kotlin.String
     
     suspend fun `switchCamera`(`callId`: kotlin.String)
@@ -2667,6 +2676,27 @@ open class ZapLivreClient: Disposable, AutoCloseable, ZapLivreClientInterface
     
 
     
+    @Throws(ZapLivreFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `lookupUsername`(`username`: kotlin.String) : kotlin.String {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_zaplivre_core_fn_method_zaplivreclient_lookup_username(
+                uniffiHandle,
+                FfiConverterString.lower(`username`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_zaplivre_core_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_zaplivre_core_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.ffi_zaplivre_core_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterString.lift(it) },
+        // Error FFI converter
+        ZapLivreFfiException.ErrorHandler,
+    )
+    }
+
+    
     @Throws(ZapLivreFfiException::class)override fun `markConversationRead`(`peerId`: kotlin.String)
         = 
     callWithHandle {
@@ -2739,7 +2769,7 @@ open class ZapLivreClient: Disposable, AutoCloseable, ZapLivreClientInterface
     )
     }
 
-
+    
     @Throws(ZapLivreFfiException::class)override fun `registerVideoFrameCallback`(`callback`: FfiVideoFrameCallback)
         = 
     callWithHandle {
@@ -3040,7 +3070,7 @@ open class ZapLivreClient: Disposable, AutoCloseable, ZapLivreClientInterface
     )
     }
 
-
+    
     @Throws(ZapLivreFfiException::class)
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
     override suspend fun `startCall`(`toPeerId`: kotlin.String) : kotlin.String {

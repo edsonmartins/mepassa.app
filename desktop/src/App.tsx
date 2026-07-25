@@ -24,6 +24,7 @@ function App() {
   console.log('🔵 App component mounted')
 
   const [isInitialized, setIsInitialized] = useState(false)
+  const [usernameRegistered, setUsernameRegistered] = useState(() => localStorage.getItem('zaplivre.username') !== null)
   const [isLoading, setIsLoading] = useState(true)
   const [localPeerId, setLocalPeerId] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string>('')
@@ -52,7 +53,10 @@ function App() {
 
         console.log('🔵 Initializing ZapLivre with data_dir:', dataDir)
 
-        const peerId = await invoke<string>('init_client', { dataDir })
+        const peerId = await Promise.race([
+          invoke<string>('init_client', { dataDir }),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Tempo limite ao inicializar o cliente')), 30000)),
+        ])
         console.log('🔵 init_client returned peer_id:', peerId)
         setLocalPeerId(peerId)
         setIsInitialized(true)
@@ -212,17 +216,17 @@ function App() {
   useEffect(() => {
     // Only auto-navigate if on root path or onboarding when should be elsewhere
     const shouldNavigate = location.pathname === '/' ||
-                          (location.pathname === '/onboarding' && isInitialized) ||
-                          (location.pathname === '/conversations' && !isInitialized)
+                          (location.pathname === '/onboarding' && isInitialized && usernameRegistered) ||
+                          (location.pathname === '/conversations' && (!isInitialized || !usernameRegistered))
 
     if (!isLoading && shouldNavigate) {
-      if (isInitialized) {
+      if (isInitialized && usernameRegistered) {
         navigate('/conversations')
       } else {
         navigate('/onboarding')
       }
     }
-  }, [isLoading, isInitialized, navigate, location.pathname])
+  }, [isLoading, isInitialized, usernameRegistered, navigate, location.pathname])
 
   if (isLoading) {
     return (
@@ -299,14 +303,14 @@ function App() {
         />
       )}
       <Routes>
-      <Route path="/onboarding" element={<OnboardingView localPeerId={localPeerId} />} />
+      <Route path="/onboarding" element={<OnboardingView localPeerId={localPeerId} onUsernameRegistered={(value) => { localStorage.setItem('zaplivre.username', value); setUsernameRegistered(true) }} />} />
       <Route path="/conversations" element={<ConversationsView localPeerId={localPeerId} />} />
       <Route path="/chat/:peerId" element={<ChatView localPeerId={localPeerId} />} />
       <Route path="/call/:callId/:remotePeerId" element={<CallView localPeerId={localPeerId} />} />
       <Route path="/video-call/:callId/:remotePeerId" element={<VideoCallView />} />
       <Route path="/groups" element={<GroupListView localPeerId={localPeerId} />} />
       <Route path="/group/:groupId" element={<GroupChatView />} />
-      <Route path="*" element={<Navigate to={isInitialized ? "/conversations" : "/onboarding"} replace />} />
+      <Route path="*" element={<Navigate to={isInitialized && usernameRegistered ? "/conversations" : "/onboarding"} replace />} />
       </Routes>
     </div>
   )

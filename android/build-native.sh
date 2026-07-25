@@ -96,21 +96,45 @@ echo -e "${GREEN}Building for Android ARM64 (aarch64-linux-android)...${NC}"
 cd "$CORE_DIR"
 export CC_aarch64_linux_android="$TOOLCHAIN_PATH/aarch64-linux-android24-clang"
 export CXX_aarch64_linux_android="$TOOLCHAIN_PATH/aarch64-linux-android24-clang++"
-cargo build --release --target aarch64-linux-android --features voip -p zaplivre-core
+# Override any machine-specific linker paths from .cargo/config.toml. This keeps
+# native builds reproducible when multiple NDK versions are installed.
+export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$TOOLCHAIN_PATH/aarch64-linux-android24-clang"
+export CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_LINKER="$TOOLCHAIN_PATH/armv7a-linux-androideabi24-clang"
+export CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER="$TOOLCHAIN_PATH/x86_64-linux-android24-clang"
+# audiopus_sys invokes CMake directly; provide the selected NDK explicitly so
+# CMake does not depend on a machine-wide Android SDK installation.
+export CMAKE_ANDROID_NDK="$NDK_PATH"
+export CMAKE_ANDROID_NDK_aarch64_linux_android="$NDK_PATH"
+export CMAKE_TOOLCHAIN_FILE_aarch64_linux_android="$NDK_PATH/build/cmake/android.toolchain.cmake"
+export CMAKE_TOOLCHAIN_FILE="$NDK_PATH/build/cmake/android.toolchain.cmake"
+export CMAKE_aarch64_linux_android="-DCMAKE_TOOLCHAIN_FILE=$NDK_PATH/build/cmake/android.toolchain.cmake -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-24"
+export CMAKE_MAKE_PROGRAM="/usr/bin/make"
+export CMAKE_GENERATOR="Unix Makefiles"
+cargo build --release --target aarch64-linux-android -p zaplivre-core
+mkdir -p "$JNILIBS_DIR/arm64-v8a"
+cp "$PROJECT_ROOT/target/aarch64-linux-android/release/libzaplivre_core.so" \
+   "$JNILIBS_DIR/arm64-v8a/libzaplivre_core.so"
+echo -e "  ✅ arm64-v8a/libzaplivre_core.so"
+
+# The connected test tablet is ARM64. Avoid compiling unused ABIs by default;
+# CI can set BUILD_ANDROID_ALL=1 to produce the complete multi-ABI package.
+if [ "${BUILD_ANDROID_ALL:-0}" != "1" ]; then
+    exit 0
+fi
 echo ""
 
 # Build for Android ARMv7 (32-bit ARM - older devices)
 echo -e "${GREEN}Building for Android ARMv7 (armv7-linux-androideabi)...${NC}"
 export CC_armv7_linux_androideabi="$TOOLCHAIN_PATH/armv7a-linux-androideabi24-clang"
 export CXX_armv7_linux_androideabi="$TOOLCHAIN_PATH/armv7a-linux-androideabi24-clang++"
-cargo build --release --target armv7-linux-androideabi --features voip -p zaplivre-core
+cargo build --release --target armv7-linux-androideabi -p zaplivre-core
 echo ""
 
 # Build for Android x86_64 (emulators)
 echo -e "${GREEN}Building for Android x86_64 (x86_64-linux-android)...${NC}"
 export CC_x86_64_linux_android="$TOOLCHAIN_PATH/x86_64-linux-android24-clang"
 export CXX_x86_64_linux_android="$TOOLCHAIN_PATH/x86_64-linux-android24-clang++"
-cargo build --release --target x86_64-linux-android --features voip -p zaplivre-core
+cargo build --release --target x86_64-linux-android -p zaplivre-core
 echo ""
 
 # Copy libraries to jniLibs

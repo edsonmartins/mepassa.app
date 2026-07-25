@@ -219,6 +219,9 @@ interface ZapLivreClient {
     string register_username(string username);
 
     [Throws=ZapLivreFfiError, Async]
+    string lookup_username(string username);
+
+    [Throws=ZapLivreFfiError, Async]
     string sign_auth_request(string method, string path, i64 timestamp, sequence<u8> body);
 
     [Throws=ZapLivreFfiError, Async]

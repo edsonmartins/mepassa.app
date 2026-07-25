@@ -136,6 +136,17 @@ impl Client {
         Ok(response.username)
     }
 
+    pub async fn lookup_username(&self, username: &str) -> Result<String> {
+        let base_url = self.identity_server_url.as_deref().ok_or_else(|| {
+            ZapLivreError::Network("Identity Server URL is not configured".to_string())
+        })?;
+        let client = crate::identity_client::IdentityClient::new(base_url)
+            .map_err(|e| ZapLivreError::Network(format!("Invalid identity server URL: {}", e)))?;
+        let response = client.lookup_username(username).await
+            .map_err(|e| ZapLivreError::Network(format!("Failed to lookup username: {}", e)))?;
+        serde_json::to_string(&response).map_err(|e| ZapLivreError::Other(e.to_string()))
+    }
+
     /// Sign a canonical HTTP request for backend authentication.
     pub async fn sign_auth_request(
         &self,
@@ -572,7 +583,7 @@ impl Client {
 
         let Some(rx) = rx else { return false };
 
-        let resolved = match timeout(Duration::from_secs(5), rx).await {
+        let resolved = match timeout(Duration::from_secs(1), rx).await {
             Ok(Ok(Some(addr))) => Some(addr),
             _ => None,
         };
@@ -592,7 +603,7 @@ impl Client {
         // do swarm, que roda em paralelo. Aguardar com deadline em vez de checar
         // imediatamente - senão a primeira mensagem para um peer alcançável cai
         // no caminho "offline".
-        let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(2);
         loop {
             {
                 let network = network.read().await;

@@ -76,20 +76,21 @@ sealed class Screen(val route: String) {
 @Composable
 fun ZapLivreNavHost(
     isClientInitialized: Boolean,
+    usernameRegistered: Boolean,
     pendingPeerId: String?,
     onPeerIdConsumed: () -> Unit,
     navController: NavHostController = rememberNavController()
 ) {
     // Determina tela inicial baseado no estado do client
-    val startDestination = if (isClientInitialized) {
+    val startDestination = if (isClientInitialized && usernameRegistered) {
         Screen.Conversations.route
     } else {
         Screen.Onboarding.route
     }
 
-    LaunchedEffect(pendingPeerId, isClientInitialized) {
+    LaunchedEffect(pendingPeerId, isClientInitialized, usernameRegistered) {
         val peerId = pendingPeerId?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
-        if (!isClientInitialized) return@LaunchedEffect
+        if (!isClientInitialized || !usernameRegistered) return@LaunchedEffect
         navController.navigate(Screen.Chat.createRoute(peerId)) {
             launchSingleTop = true
         }

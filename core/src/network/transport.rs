@@ -61,6 +61,7 @@ pub fn build_transport(
     // Resolver /dns4//dns6//dnsaddr antes de discar - sem isso TODOS os
     // endereços por domínio (bootstraps de produção) falham com
     // MultiaddrNotSupported (bug encontrado no primeiro run real)
+    #[cfg(not(target_os = "android"))]
     let transport = libp2p::dns::tokio::Transport::system(transport)
         .map_err(|e| ZapLivreError::Network(format!("Failed to create DNS transport: {}", e)))?
         .boxed();

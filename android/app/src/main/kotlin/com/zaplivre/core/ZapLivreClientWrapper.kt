@@ -11,6 +11,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import uniffi.zaplivre.*
 import java.io.File
 import android.util.Base64
@@ -31,8 +34,13 @@ object ZapLivreClientWrapper : ZapLivreClientApi {
     private const val GROUP_SENDER_KEY_PREFIX = "zaplivre-group-key:v1:"
 
     private var client: ZapLivreClient? = null
+    private val initializationMutex = Mutex()
     private val _isInitialized = MutableStateFlow(false)
     val isInitialized: StateFlow<Boolean> = _isInitialized.asStateFlow()
+    private val _usernameRegistered = MutableStateFlow(false)
+    val usernameRegistered: StateFlow<Boolean> = _usernameRegistered.asStateFlow()
+    fun loadUsername(context: Context) { _usernameRegistered.value = !AndroidIdentityStore.loadUsername(context).isNullOrBlank() }
+    fun markUsernameRegistered(context: Context, username: String) { AndroidIdentityStore.saveUsername(context, username); _usernameRegistered.value = true }
 
     private val _localPeerId = MutableStateFlow<String?>(null)
     override val localPeerId: StateFlow<String?> = _localPeerId.asStateFlow()
@@ -112,7 +120,8 @@ object ZapLivreClientWrapper : ZapLivreClientApi {
      * @param context Application context
      * @return true se inicializado com sucesso
      */
-    suspend fun initialize(context: Context): Boolean = withContext(Dispatchers.IO) {
+    suspend fun initialize(context: Context): Boolean = initializationMutex.withLock {
+        withContext(Dispatchers.IO) {
         if (client != null) {
             Log.w(TAG, "Client already initialized")
             return@withContext true
@@ -137,10 +146,12 @@ object ZapLivreClientWrapper : ZapLivreClientApi {
             }
 
             // Criar client via UniFFI
-            client = ZapLivreClient(dataDir.absolutePath)
+            client = withTimeout(30_000L) {
+                ZapLivreClient(dataDir.absolutePath)
+            }
 
             // Obter peer ID local
-            val peerId = client!!.localPeerId()
+            val peerId = withTimeout(30_000L) { client!!.localPeerId() }
             _localPeerId.value = peerId
             _isInitialized.value = true
 
@@ -165,7 +176,7 @@ object ZapLivreClientWrapper : ZapLivreClientApi {
             try {
                 registerVoipEventCallback(VoipEventHandler(context))
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to register VoIP event callback", e)
+                if (!e.message.orEmpty().contains("VoIP/video feature disabled")) Log.e(TAG, "Failed to register VoIP event callback", e)
             }
 
             // Register call lifecycle callback (incoming/state/ended) - sem isso
@@ -173,7 +184,7 @@ object ZapLivreClientWrapper : ZapLivreClientApi {
             try {
                 client!!.registerCallEventCallback(callEventCallback)
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to register call event callback", e)
+                if (!e.message.orEmpty().contains("VoIP/video feature disabled")) Log.e(TAG, "Failed to register call event callback", e)
             }
 
             // Eventos de mensagem (EVT-01): substitui o polling das telas
@@ -187,8 +198,11 @@ object ZapLivreClientWrapper : ZapLivreClientApi {
             true
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize client", e)
+            client = null
+            try { Os.unsetenv("ZAPLIVRE_IDENTITY_B64") } catch (_: Exception) { }
             _isInitialized.value = false
             false
+        }
         }
     }
 
@@ -222,6 +236,10 @@ object ZapLivreClientWrapper : ZapLivreClientApi {
 
     suspend fun registerUsername(username: String): String = withContext(Dispatchers.IO) {
         getClient().registerUsername(username)
+    }
+
+    suspend fun lookupUsername(username: String): String = withContext(Dispatchers.IO) {
+        getClient().lookupUsername(username)
     }
 
     /**

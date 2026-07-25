@@ -36,22 +36,22 @@ android {
 
         val messageStoreUrl = (project.findProperty("MESSAGE_STORE_URL") as String?)
             ?: System.getenv("MESSAGE_STORE_URL")
-            ?: "https://store.associahub.com.br"
+            ?: "https://store.zaplivre.app"
         buildConfigField("String", "MESSAGE_STORE_URL", "\"$messageStoreUrl\"")
 
         val pushServerUrl = (project.findProperty("PUSH_SERVER_URL") as String?)
             ?: System.getenv("PUSH_SERVER_URL")
-            ?: "https://push.associahub.com.br"
+            ?: "https://push.zaplivre.app"
         buildConfigField("String", "PUSH_SERVER_URL", "\"$pushServerUrl\"")
 
         val signalingServerUrl = (project.findProperty("SIGNALING_SERVER_URL") as String?)
             ?: System.getenv("SIGNALING_SERVER_URL")
-            ?: "wss://signaling.associahub.com.br/ws"
+            ?: "wss://signal.zaplivre.app/ws"
         buildConfigField("String", "SIGNALING_SERVER_URL", "\"$signalingServerUrl\"")
 
         val identityServerUrl = (project.findProperty("IDENTITY_SERVER_URL") as String?)
             ?: System.getenv("IDENTITY_SERVER_URL")
-            ?: "https://identity.associahub.com.br"
+            ?: "https://identity.zaplivre.app"
         buildConfigField("String", "IDENTITY_SERVER_URL", "\"$identityServerUrl\"")
     }
 

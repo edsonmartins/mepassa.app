@@ -46,16 +46,14 @@ fun OnboardingScreen(
     // Observar estado de inicialização
     val isInitialized by ZapLivreClientWrapper.isInitialized.collectAsState()
     val clientPeerId by ZapLivreClientWrapper.localPeerId.collectAsState()
+    val usernameRegistered by ZapLivreClientWrapper.usernameRegistered.collectAsState()
 
     // Auto-complete quando inicializado
     LaunchedEffect(isInitialized) {
         if (isInitialized) {
             localPeerId = clientPeerId
             isInitializing = false
-            showUsernameDialog = true
-            // Iniciar o foreground service (na primeira execução ele parou
-            // aguardando o onboarding decidir criar/restaurar identidade)
-            com.zaplivre.service.ZapLivreService.start(context)
+            showUsernameDialog = !usernameRegistered
             // Pequeno delay para usuário ver o peer ID
             kotlinx.coroutines.delay(500)
         }
@@ -256,6 +254,8 @@ fun OnboardingScreen(
                         scope.launch {
                             try {
                                 ZapLivreClientWrapper.registerUsername(value)
+                                ZapLivreClientWrapper.markUsernameRegistered(context, value)
+                                com.zaplivre.service.ZapLivreService.start(context)
                                 showUsernameDialog = false
                                 onOnboardingComplete()
                             } catch (error: Exception) {
@@ -267,12 +267,6 @@ fun OnboardingScreen(
                     }
                 ) { Text("Registrar") }
             },
-            dismissButton = {
-                TextButton(onClick = {
-                    showUsernameDialog = false
-                    onOnboardingComplete()
-                }) { Text("Continuar sem username") }
-            }
         )
     }
 }

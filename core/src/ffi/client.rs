@@ -116,6 +116,7 @@ enum ClientCommand {
         username: String,
         response: oneshot::Sender<Result<String, ZapLivreFfiError>>,
     },
+    LookupUsername { username: String, response: oneshot::Sender<Result<String, ZapLivreFfiError>> },
     GetPrekeyBundleJson {
         response: oneshot::Sender<Result<String, ZapLivreFfiError>>,
     },
@@ -411,6 +412,10 @@ async fn run_client_task_arc(
                     .register_username(&username)
                     .await
                     .map_err(Into::into);
+                let _ = response.send(result);
+            }
+            ClientCommand::LookupUsername { username, response } => {
+                let result = client.lookup_username(&username).await.map_err(Into::into);
                 let _ = response.send(result);
             }
             ClientCommand::GetPrekeyBundleJson { response } => {
@@ -968,7 +973,9 @@ impl ZapLivreClient {
                 let local = LocalSet::new();
 
                 // Build and run the client task
-                local.block_on(rt, async move {
+                let panic_data_dir = data_dir_clone.clone();
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    local.block_on(rt, async move {
                     let mut builder = ClientBuilder::new()
                         .data_dir(PathBuf::from(&data_dir_clone));
                     if let Ok(identity_url) = std::env::var("ZAPLIVRE_IDENTITY_SERVER_URL") {
@@ -1055,6 +1062,11 @@ impl ZapLivreClient {
                         Ok(client) => std::sync::Arc::new(client),
                         Err(e) => {
                             tracing::error!("Failed to build client: {e:?}");
+                            eprintln!("ZapLivre client build failed: {e:?}");
+                            let _ = std::fs::write(
+                                PathBuf::from(&data_dir_clone).join("client_build_error.log"),
+                                format!("{e:?}"),
+                            );
                             return;
                         }
                     };
@@ -1096,15 +1108,25 @@ impl ZapLivreClient {
                     // Run client command task (processes API commands)
                     // Note: We use Arc<Client> but run_client_task expects Client
                     // We need to keep client alive for the network task
-                    tokio::select! {
-                        _ = run_client_task_arc(receiver, client) => {
-                            tracing::info!("Client task completed");
-                        }
-                        _ = network_handle => {
-                            tracing::info!("Network event loop completed");
-                        }
-                    }
-                });
+                    // Keep the FFI command channel alive even if the network
+                    // task terminates unexpectedly (for example on a mobile
+                    // transport error). A completed network task must not make
+                    // localPeerId/initialization fail with a closed channel.
+                    let _ = network_handle;
+                    run_client_task_arc(receiver, client).await;
+                    });
+                }));
+                if let Err(panic) = result {
+                    let message = panic
+                        .downcast_ref::<&str>()
+                        .copied()
+                        .or_else(|| panic.downcast_ref::<String>().map(String::as_str))
+                        .unwrap_or("unknown panic");
+                    let _ = std::fs::write(
+                        PathBuf::from(&panic_data_dir).join("client_build_panic.log"),
+                        message,
+                    );
+                }
             });
 
             ClientHandle { sender }
@@ -1175,6 +1197,13 @@ impl ZapLivreClient {
         rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
+    }
+
+    pub async fn lookup_username(&self, username: String) -> Result<String, ZapLivreFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle().sender.send(ClientCommand::LookupUsername { username, response: tx })
+            .map_err(|_| ZapLivreFfiError::Other { details: "Failed to send command".to_string() })?;
+        rx.await.map_err(|_| ZapLivreFfiError::Other { details: "Failed to receive response".to_string() })?
     }
 
     /// Export prekey bundle as JSON (for sharing)

@@ -126,7 +126,7 @@ pub struct RegisterResponse {
 }
 
 /// Lookup response
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct LookupResponse {
     pub username: String,
     pub peer_id: String,

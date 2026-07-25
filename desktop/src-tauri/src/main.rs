@@ -20,10 +20,13 @@ fn main() {
         Arc::new(Mutex::new(None));
 
     if std::env::var("MESSAGE_STORE_URL").is_err() {
-        std::env::set_var("MESSAGE_STORE_URL", "https://store.associahub.com.br");
+        std::env::set_var("MESSAGE_STORE_URL", "https://store.zaplivre.app");
     }
     if std::env::var("SIGNALING_SERVER_URL").is_err() {
-        std::env::set_var("SIGNALING_SERVER_URL", "wss://signaling.associahub.com.br/ws");
+        std::env::set_var("SIGNALING_SERVER_URL", "wss://signal.zaplivre.app/ws");
+    }
+    if std::env::var("ZAPLIVRE_IDENTITY_SERVER_URL").is_err() {
+        std::env::set_var("ZAPLIVRE_IDENTITY_SERVER_URL", "https://identity.zaplivre.app");
     }
 
     tauri::Builder::default()
@@ -34,6 +37,9 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             commands::init_client,
             commands::get_local_peer_id,
+            commands::lookup_username,
+            commands::register_username,
+            commands::store_peer_prekey_bundle,
             commands::listen_on,
             commands::connect_to_peer,
             commands::send_text_message,
