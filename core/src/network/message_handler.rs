@@ -455,7 +455,7 @@ impl MessageHandler {
     }
 
     async fn handle_media_offer(&self, message: &Message, offer: &MediaOffer) -> Result<()> {
-        let media_type = MediaType::from_str(&offer.media_type);
+        let media_type = MediaType::from_db_str(&offer.media_type);
         let summary = crate::media::media_summary(
             media_type.as_str(),
             Some(&offer.file_name),
@@ -531,9 +531,12 @@ impl MessageHandler {
         std::fs::create_dir_all(&tmp_dir)
             .map_err(|e| ZapLivreError::Storage(format!("Failed to create tmp dir: {}", e)))?;
         let tmp_path = tmp_dir.join(format!("{}.part", chunk.media_hash));
-        let mut file = std::fs::OpenOptions::new()
-            .create(true)
-            .write(true)
+        let mut opts = std::fs::OpenOptions::new();
+        opts.create(true).write(true);
+        if chunk.offset == 0 {
+            opts.truncate(true);
+        }
+        let mut file = opts
             .open(&tmp_path)
             .map_err(|e| ZapLivreError::Storage(format!("Failed to open temp file: {}", e)))?;
         file.seek(SeekFrom::Start(chunk.offset as u64))
@@ -728,7 +731,7 @@ impl MessageHandler {
             return Err(ZapLivreError::Protocol("Media hash mismatch".to_string()));
         }
 
-        let media_type = MediaType::from_str(&envelope.media_type);
+        let media_type = MediaType::from_db_str(&envelope.media_type);
         let message_type = match media_type {
             MediaType::VoiceMessage => "voice",
             MediaType::Audio => "audio",

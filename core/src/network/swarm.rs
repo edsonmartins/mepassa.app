@@ -2,7 +2,6 @@
 //!
 //! Manages the libp2p Swarm for P2P networking.
 
-use chrono::Utc;
 use futures::stream::StreamExt;
 use libp2p::{
     identity::Keypair,
@@ -15,7 +14,6 @@ use tokio::select;
 #[cfg(any(feature = "voip", feature = "video"))]
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
-use uuid::Uuid;
 
 use super::{
     behaviour::ZapLivreBehaviour,
@@ -27,10 +25,7 @@ use super::{
     transport::build_transport,
 };
 use crate::group::GroupManager;
-use crate::{
-    protocol::{pb::message::Payload, Message, MessageType},
-    utils::error::{Result, ZapLivreError},
-};
+use crate::utils::error::{Result, ZapLivreError};
 
 /// P2P Network Manager
 /// CORE-04: request inbound aguardando processamento fora do lock

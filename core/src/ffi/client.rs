@@ -116,7 +116,10 @@ enum ClientCommand {
         username: String,
         response: oneshot::Sender<Result<String, ZapLivreFfiError>>,
     },
-    LookupUsername { username: String, response: oneshot::Sender<Result<String, ZapLivreFfiError>> },
+    LookupUsername {
+        username: String,
+        response: oneshot::Sender<Result<String, ZapLivreFfiError>>,
+    },
     GetPrekeyBundleJson {
         response: oneshot::Sender<Result<String, ZapLivreFfiError>>,
     },
@@ -380,6 +383,8 @@ enum ClientCommand {
 
 /// Run the client task (processes commands) - takes owned Client
 #[allow(dead_code)]
+// Arc<Client> é !Send por libp2p (Swarm !Send); arquitetura LocalSet single-thread (FASE 5)
+#[allow(clippy::arc_with_non_send_sync)]
 async fn run_client_task(receiver: mpsc::UnboundedReceiver<ClientCommand>, client: Client) {
     run_client_task_arc(receiver, std::sync::Arc::new(client)).await
 }
@@ -1058,6 +1063,8 @@ impl ZapLivreClient {
                     // On build failure, exit this thread gracefully instead of panicking:
                     // the command receiver is dropped, so every subsequent FFI call gets a
                     // controlled "Failed to send command" error instead of a process abort.
+                    // Arc<Client> !Send (libp2p); LocalSet single-thread (FASE 5).
+                    #[allow(clippy::arc_with_non_send_sync)]
                     let client = match builder.build().await {
                         Ok(client) => std::sync::Arc::new(client),
                         Err(e) => {
@@ -1112,7 +1119,7 @@ impl ZapLivreClient {
                     // task terminates unexpectedly (for example on a mobile
                     // transport error). A completed network task must not make
                     // localPeerId/initialization fail with a closed channel.
-                    let _ = network_handle;
+                    std::mem::drop(network_handle);
                     run_client_task_arc(receiver, client).await;
                     });
                 }));
@@ -1201,9 +1208,18 @@ impl ZapLivreClient {
 
     pub async fn lookup_username(&self, username: String) -> Result<String, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
-        self.handle().sender.send(ClientCommand::LookupUsername { username, response: tx })
-            .map_err(|_| ZapLivreFfiError::Other { details: "Failed to send command".to_string() })?;
-        rx.await.map_err(|_| ZapLivreFfiError::Other { details: "Failed to receive response".to_string() })?
+        self.handle()
+            .sender
+            .send(ClientCommand::LookupUsername {
+                username,
+                response: tx,
+            })
+            .map_err(|_| ZapLivreFfiError::Other {
+                details: "Failed to send command".to_string(),
+            })?;
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
+            details: "Failed to receive response".to_string(),
+        })?
     }
 
     /// Export prekey bundle as JSON (for sharing)
@@ -2279,6 +2295,7 @@ impl ZapLivreClient {
     }
 
     /// Send a video message
+    #[allow(clippy::too_many_arguments)] // bindings geradas (UniFFI) espelham a API
     pub async fn send_video_message(
         &self,
         to_peer_id: String,

@@ -141,7 +141,7 @@ impl GroupRole {
     }
 
     /// Parse from string (database)
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn from_db_str(s: &str) -> Option<Self> {
         match s {
             "creator" => Some(GroupRole::Creator),
             "admin" => Some(GroupRole::Admin),
@@ -310,7 +310,7 @@ mod tests {
         assert!(!GroupRole::Member.can_admin());
 
         assert_eq!(GroupRole::Creator.as_str(), "creator");
-        assert_eq!(GroupRole::from_str("admin"), Some(GroupRole::Admin));
-        assert_eq!(GroupRole::from_str("invalid"), None);
+        assert_eq!(GroupRole::from_db_str("admin"), Some(GroupRole::Admin));
+        assert_eq!(GroupRole::from_db_str("invalid"), None);
     }
 }

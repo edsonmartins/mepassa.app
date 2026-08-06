@@ -108,7 +108,7 @@ pub fn load_group(db: &Database, group_id: &str) -> Result<Group> {
         let (peer_id, role_str) = row?;
         members.insert(peer_id.clone());
 
-        if let Some(role) = GroupRole::from_str(&role_str) {
+        if let Some(role) = GroupRole::from_db_str(&role_str) {
             if role.can_admin() {
                 admins.insert(peer_id);
             }

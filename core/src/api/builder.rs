@@ -197,6 +197,8 @@ impl ClientBuilder {
 
         // Create network manager
         let network = NetworkManager::new(keypair)?;
+        // Arc<RwLock<NetworkManager>> !Send/Sync (libp2p Swarm); LocalSet single-thread (FASE 5).
+        #[allow(clippy::arc_with_non_send_sync)]
         let network_arc = Arc::new(RwLock::new(network));
 
         let callbacks: Arc<RwLock<Vec<Box<dyn super::events::EventCallback>>>> =

@@ -7,6 +7,8 @@ use libp2p::PeerId;
 use crate::protocol::Message;
 
 /// Events that can be emitted by the ZapLivre client
+// MessageReceived carrega Message completa (API pública); boxed quebraria os callers.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone)]
 pub enum ClientEvent {
     /// A new message was received

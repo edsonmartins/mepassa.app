@@ -24,6 +24,12 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
+      - name: Format check (AGENTS.md gate)
+        run: cargo fmt --all --check
+
+      - name: Clippy (AGENTS.md gate)
+        run: cargo clippy --workspace -- -D warnings
+
       - name: Check workspace (default features)
         run: cargo check --workspace
 

@@ -27,7 +27,7 @@ impl MessageStatus {
         }
     }
 
-    pub fn from_str(s: &str) -> Self {
+    pub fn from_db_str(s: &str) -> Self {
         match s {
             "pending" => MessageStatus::Pending,
             "sent" => MessageStatus::Sent,
@@ -392,7 +392,7 @@ impl Database {
             sent_at: row.get(9)?,
             received_at: row.get(10)?,
             read_at: row.get(11)?,
-            status: MessageStatus::from_str(&row.get::<_, String>(12)?),
+            status: MessageStatus::from_db_str(&row.get::<_, String>(12)?),
             is_deleted: row.get::<_, i32>(13)? != 0,
             parent_message_id: row.get(14)?,
         })

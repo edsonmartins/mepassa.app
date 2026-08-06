@@ -53,6 +53,17 @@ async fn test_offline_send_queues_and_retry_delivers() {
             );
             let peer_b = client_b.local_peer_id();
 
+            // SEC-01: sem sessão E2E o envio falha por padrão (nunca
+            // plaintext). Estabelecer sessão trocando o prekey bundle de B
+            // (papel do identity server em produção).
+            let bundle_b = client_b
+                .get_prekey_bundle_json()
+                .await
+                .expect("prekey bundle B");
+            client_a
+                .set_contact_prekey_bundle(peer_b.to_string(), bundle_b)
+                .expect("set bundle B on A");
+
             client_a
                 .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
                 .await

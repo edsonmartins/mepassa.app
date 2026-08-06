@@ -330,7 +330,7 @@ impl IdentityKeyStore for SignalStoreHandle {
         &self,
     ) -> libsignal_protocol_syft::error::Result<IdentityKeyPair> {
         let identity = self.inner.identity.read().await;
-        IdentityKeyPair::try_from(identity.signal_identity_keypair_record()).map_err(|e| e)
+        IdentityKeyPair::try_from(identity.signal_identity_keypair_record())
     }
 
     async fn get_local_registration_id(&self) -> libsignal_protocol_syft::error::Result<u32> {

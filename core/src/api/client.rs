@@ -74,6 +74,7 @@ pub struct Client {
 
 impl Client {
     /// Create a new client (use ClientBuilder instead)
+    #[allow(clippy::too_many_arguments)] // builder interno; refactor arriscado agora
     pub(crate) fn new(
         peer_id: PeerId,
         identity: Arc<RwLock<Identity>>,
@@ -142,7 +143,9 @@ impl Client {
         })?;
         let client = crate::identity_client::IdentityClient::new(base_url)
             .map_err(|e| ZapLivreError::Network(format!("Invalid identity server URL: {}", e)))?;
-        let response = client.lookup_username(username).await
+        let response = client
+            .lookup_username(username)
+            .await
             .map_err(|e| ZapLivreError::Network(format!("Failed to lookup username: {}", e)))?;
         serde_json::to_string(&response).map_err(|e| ZapLivreError::Other(e.to_string()))
     }
@@ -290,6 +293,7 @@ impl Client {
         size_bytes <= MAX_INLINE_MEDIA_BYTES
     }
 
+    #[allow(clippy::too_many_arguments)] // envelope de mídia: todos os campos são obrigatórios
     fn build_media_envelope(
         media_type: MediaType,
         media_hash: String,
@@ -417,14 +421,6 @@ impl Client {
         Ok(message_id)
     }
 
-    async fn encrypt_message_for_peer(
-        &self,
-        to: &PeerId,
-        plaintext: &[u8],
-    ) -> Result<Option<ProtoEncryptedMessage>> {
-        Self::encrypt_for_peer_with(&self.database, &self.session_manager, to, plaintext).await
-    }
-
     /// Versão associada do encrypt E2E (usada também pela task de orquestração
     /// de grupo no builder, que não tem `&self` do Client)
     pub(crate) async fn encrypt_for_peer_with(
@@ -471,7 +467,7 @@ impl Client {
     /// - Falha na criptografia (`Err`) → **erro, mensagem NÃO é enviada**
     ///   (antes havia downgrade silencioso para plaintext)
     /// - Sem sessão/bundle E2E (`Ok(None)`) → plaintext com warning, a menos
-    ///   que `ZAPLIVRE_REQUIRE_E2E=true` (aí o envio falha)
+    ///   que `ZAPLIVRE_ALLOW_PLAINTEXT` não esteja definida (aí o envio falha)
     async fn prepare_outgoing_payload(
         &self,
         to: &PeerId,
@@ -528,13 +524,13 @@ impl Client {
                 if e2e_required() {
                     return Err(ZapLivreError::Crypto(format!(
                         "No E2E session with {} and plaintext fallback is disabled \
-                         (ZAPLIVRE_REQUIRE_E2E)",
+                         (set ZAPLIVRE_ALLOW_PLAINTEXT=true to allow downgrade)",
                         to
                     )));
                 }
                 tracing::warn!(
-                    "⚠️ No E2E session with {} - sending PLAINTEXT \
-                     (set ZAPLIVRE_REQUIRE_E2E=true to forbid)",
+                    "⚠️ No E2E session with {} - sending PLAINTEXT (allowed by \
+                     ZAPLIVRE_ALLOW_PLAINTEXT=true)",
                     to
                 );
                 Ok((
@@ -1327,6 +1323,7 @@ impl Client {
     }
 
     /// Send a video message
+    #[allow(clippy::too_many_arguments)] // API pública de mídia; refactor alteraria bindings
     pub async fn send_video_message(
         &self,
         to: PeerId,
