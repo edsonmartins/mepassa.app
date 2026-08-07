@@ -59,6 +59,6 @@ describe('ConversationsView', () => {
     const newChatButton = await screen.findByRole('button', { name: /new chat/i })
     await user.click(newChatButton)
 
-    expect(await screen.findByPlaceholderText(/peer id/i)).toBeInTheDocument()
+    expect(await screen.findByPlaceholderText(/username/i)).toBeInTheDocument()
   })
 })

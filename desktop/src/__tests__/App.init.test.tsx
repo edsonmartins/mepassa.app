@@ -11,11 +11,16 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import { emit } from '@tauri-apps/api/event'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import AppWithProviders from '../App'
 import { setupTauri } from '../test/tauriMock'
 
 type Handlers = Parameters<typeof setupTauri>[0]
+
+beforeEach(() => {
+  // A branch exigiu username registrado antes de navegar para as conversas.
+  localStorage.setItem('zaplivre.username', 'testuser')
+})
 
 function setupAppMocks(overrides: Handlers = {}) {
   return setupTauri({

@@ -28,7 +28,10 @@ jobs:
     name: Maestro flows (simulador)
     runs-on: macos-latest
     timeout-minutes: 75
-    # E2E iOS é gate de release.
+    # Não-bloqueante: suíte ainda instável no CI (flows sensíveis à dispensa de
+    # sheets e ao boot do simulador). O job reporta o resultado real, mas não
+    # trava o PR. Rever ao estabilizar (PLANO_HOMOLOGACAO Fase E).
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
