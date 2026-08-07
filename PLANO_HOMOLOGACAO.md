@@ -19,11 +19,11 @@
 
 ## Fase B — Stack dev funcional (P1) — 1-2 dias
 
-- [ ] **B1.** Corrigir healthcheck do Redis em `docker-compose.yml:36`: usar `redis-cli -a $REDIS_PASSWORD ping` (espelhar `stack.yml:39`) ou `--no-auth-warning`.
-- [ ] **B2.** Corrigir `server/coturn/healthcheck.sh`: testar só porta 3478 (remover 5349/TLS enquanto `no-tls`); usar `nc` compatível com Alpine (`open` em vez de `succeeded`).
-- [ ] **B3.** Criar `server/monitoring/prometheus.yml` e dashboards Grafana, **ou** remover as referências de `docker-compose.yml:260,279-280`, `stack.yml:338,361-362` e do alvo `make up-monitoring` (Makefile:37).
-- [ ] **B4.** Validar `make up` de ponta a ponta: postgres, redis, coturn, turn-credentials, bootstrap, store, push, identity, signaling todos `healthy`.
-- [ ] **B5.** Definir/decidir estratégia de migração de schema Postgres (init.sql só roda em volume vazio) — documentar processo de evolução.
+- [x] **B1.** Corrigir healthcheck do Redis em `docker-compose.yml:36`: usar `redis-cli -a $REDIS_PASSWORD ping` (espelhar `stack.yml:39`) ou `--no-auth-warning`. **Feito** — healthcheck com `CMD-SHELL redis-cli -a "$$REDIS_PASSWORD" --no-auth-warning --raw incr ping` + env `REDIS_PASSWORD` exposta ao container (também corrigido no `stack.yml`).
+- [x] **B2.** Corrigir `server/coturn/healthcheck.sh`: testar só porta 3478 (remover 5349/TLS enquanto `no-tls`); usar `nc` compatível com Alpine. **Feito** — a imagem coturn não tem `nc`; healthcheck reescrito com `/dev/tcp` do bash, só porta 3478. Healthcheck do coturn no compose trocado para `CMD-SHELL` (o formato `["/bin/sh", ...]` era inválido).
+- [x] **B3.** Criar `server/monitoring/prometheus.yml` e dashboards Grafana, **ou** remover as referências. **Feito** — criado `server/monitoring/` com `prometheus.yml`, `blackbox.yml` (endpoints `/health` retornam JSON, não métricas → usa blackbox-exporter para probe HTTP), `grafana/datasources/` e `grafana/dashboards/`. Adicionado serviço `blackbox-exporter` (profile monitoring). Validado: todos os targets `up` e dashboard "ZapLivre Services" provisionado.
+- [x] **B4.** Validar `make up` de ponta a ponta. **Feito** — 9 serviços `healthy` (postgres, redis, coturn, turn-credentials, bootstrap, store, push, identity, signaling). Observação: `TURN_RELAY_PORT_RANGE` parametrizado no compose (default 49152-65535) porque o Colima/macOS não suporta publicar 16k portas UDP.
+- [x] **B5.** Definir/decidir estratégia de migração de schema Postgres. **Feito** — `server/postgres/MIGRATIONS.md` documenta adoção de `sqlx::migrate!` no message-store, seed `0001_init.sql` e processo de evolução.
 
 ## Fase C — Produção P2P/DevOps (P0/P1) — 3-5 dias
 

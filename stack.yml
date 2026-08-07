@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL - Message Store Database
   postgres:
@@ -33,6 +31,9 @@ services:
   redis:
     image: redis:7-alpine
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD obrigatório}
+    environment:
+      # Expõe a senha ao healthcheck (que usa $$REDIS_PASSWORD no shell)
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD obrigatório}
     volumes:
       - redis_data:/data
     healthcheck:
@@ -67,7 +68,7 @@ services:
       - ./server/coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
       - ./server/coturn/healthcheck.sh:/healthcheck.sh:ro
     healthcheck:
-      test: ["/bin/sh", "/healthcheck.sh"]
+      test: ["CMD-SHELL", "/healthcheck.sh"]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -1,0 +1,29 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "zaplivre-health"
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - "http://identity-server:8083/health"
+          - "http://message-store:8080/health"
+          - "http://push-server:8081/health"
+          - "http://signaling-server:8086/health"
+          - "http://turn-credentials:8082/health"
+          - "http://bootstrap-node-1:8000/health"
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  - job_name: "zaplivre-coturn"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["coturn:9641"]

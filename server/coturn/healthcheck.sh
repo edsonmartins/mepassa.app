@@ -1,14 +1,10 @@
-#!/bin/bash
-# Health check for coturn TURN server
+#!/usr/bin/bash
+# Health check for coturn TURN server.
+# A imagem coturn/coturn não tem `nc`; usamos /dev/tcp do bash.
+# TLS/DTLS está desligado em dev (no-tls/no-dtls) - só checamos a porta 3478.
 
-# Check if TURN ports are listening
-if ! nc -zv localhost 3478 2>&1 | grep -q succeeded; then
+if ! bash -c 'exec 3<>/dev/tcp/127.0.0.1/3478' 2>/dev/null; then
     echo "ERROR: TURN port 3478 (UDP/TCP) not listening"
-    exit 1
-fi
-
-if ! nc -zv localhost 5349 2>&1 | grep -q succeeded; then
-    echo "ERROR: TURNS port 5349 (TLS) not listening"
     exit 1
 fi
 

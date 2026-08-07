@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL - Message Store Database
   postgres:
@@ -28,12 +26,15 @@ services:
     image: redis:7-alpine
     container_name: zaplivre-redis
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-zaplivre_redis_dev}
+    environment:
+      # Expõe a senha ao healthcheck (que usa $$REDIS_PASSWORD no shell)
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-zaplivre_redis_dev}
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" --no-auth-warning --raw incr ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -54,12 +55,12 @@ services:
       - "3478:3478/tcp"
       - "5349:5349/tcp"
       - "5349:5349/udp"
-      - "49152-65535:49152-65535/udp"
+      - "${TURN_RELAY_PORT_RANGE:-49152-65535}:${TURN_RELAY_PORT_RANGE:-49152-65535}/udp"
     volumes:
       - ./server/coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
       - ./server/coturn/healthcheck.sh:/healthcheck.sh:ro
     healthcheck:
-      test: ["/bin/sh", "/healthcheck.sh"]
+      test: ["CMD-SHELL", "/healthcheck.sh"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -246,6 +247,21 @@ services:
     networks:
       - zaplivre-network
     restart: unless-stopped
+
+  # Blackbox Exporter - Health probes (Optional)
+  blackbox-exporter:
+    image: prom/blackbox-exporter:latest
+    container_name: zaplivre-blackbox-exporter
+    command:
+      - '--config.file=/etc/blackbox/blackbox.yml'
+    ports:
+      - "9115:9115"
+    volumes:
+      - ./server/monitoring/blackbox.yml:/etc/blackbox/blackbox.yml:ro
+    networks:
+      - zaplivre-network
+    profiles:
+      - monitoring
 
   # Prometheus - Metrics (Optional)
   prometheus:
