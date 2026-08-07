@@ -12,6 +12,9 @@ Cargo.lock
 *~
 .DS_Store
 
+# opencode (config local de IA)
+opencode.json
+
 # Build artifacts
 *.so
 *.dylib
