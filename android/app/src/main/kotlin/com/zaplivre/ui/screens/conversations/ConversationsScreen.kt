@@ -30,6 +30,9 @@ import com.zaplivre.ui.theme.ZapColor
 import com.zaplivre.ui.theme.ZapMetric
 import com.zaplivre.ui.theme.ZapType
 import uniffi.zaplivre.FfiConversation
+import com.zaplivre.core.ZapLivreClientWrapper
+import kotlinx.coroutines.launch
+import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -245,26 +248,46 @@ fun NewConversationDialog(
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit
 ) {
-    var peerIdInput by remember { mutableStateOf("") }
+    var usernameInput by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var loading by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.conversations_new)) },
         text = {
             OutlinedTextField(
-                value = peerIdInput,
-                onValueChange = { peerIdInput = it },
-                label = { Text("Peer ID") },
-                placeholder = { Text("12D3KooW...") },
+                value = usernameInput,
+                onValueChange = { usernameInput = it.removePrefix("@").lowercase(); error = null },
+                label = { Text("Username") },
+                placeholder = { Text("exemplo") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().testTag("new_chat_peer_input")
             )
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         },
         confirmButton = {
             TextButton(
-                onClick = { onConfirm(peerIdInput.trim()) },
-                enabled = peerIdInput.trim().isNotEmpty(),
+                onClick = {
+                    loading = true
+                    scope.launch {
+                        try {
+                            val result = ZapLivreClientWrapper.lookupUsername(usernameInput.trim())
+                            val json = JSONObject(result)
+                            val peerId = json.getString("peer_id")
+                            ZapLivreClientWrapper.storePeerPrekeyBundle(
+                                peerId,
+                                json.getJSONObject("prekey_bundle").toString()
+                            )
+                            onConfirm(peerId)
+                        } catch (e: Exception) {
+                            error = e.message ?: "Usuário não encontrado"
+                        } finally { loading = false }
+                    }
+                },
+                enabled = usernameInput.trim().isNotEmpty() && !loading,
                 modifier = Modifier.testTag("new_chat_confirm")
-            ) { Text(stringResource(R.string.ok)) }
+            ) { Text(if (loading) "Buscando…" else "Adicionar") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }

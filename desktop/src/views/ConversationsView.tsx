@@ -27,6 +27,8 @@ export default function ConversationsView({ localPeerId }: ConversationsViewProp
   const [showNewChatDialog, setShowNewChatDialog] = useState(false)
   const [showQRModal, setShowQRModal] = useState(false)
   const [newPeerId, setNewPeerId] = useState('')
+  const [newUsername, setNewUsername] = useState('')
+  const [lookupError, setLookupError] = useState('')
   const [newMultiaddr, setNewMultiaddr] = useState('')
   const [showSearchModal, setShowSearchModal] = useState(false)
   const [showBackupModal, setShowBackupModal] = useState(false)
@@ -105,7 +107,21 @@ export default function ConversationsView({ localPeerId }: ConversationsViewProp
   }
 
   const handleNewChat = async () => {
-    const peerId = newPeerId.trim()
+    let peerId = newPeerId.trim()
+    if (!peerId && newUsername.trim()) {
+      try {
+        const result = await invoke<{ peer_id: string; prekey_bundle?: unknown }>('lookup_username', { username: newUsername.trim().replace(/^@/, '') })
+        peerId = result.peer_id
+        if (result.prekey_bundle) {
+          await invoke('store_peer_prekey_bundle', {
+            peerId,
+            prekeyBundle: result.prekey_bundle,
+          })
+        }
+      } catch (error) {
+        setLookupError(String(error)); return
+      }
+    }
     if (!peerId) return
 
     try {
@@ -264,13 +280,14 @@ export default function ConversationsView({ localPeerId }: ConversationsViewProp
             <h2 className="text-xl font-bold text-gray-900 mb-4">New Chat</h2>
             <input
               type="text"
-              value={newPeerId}
-              onChange={(e) => setNewPeerId(e.target.value)}
-              placeholder="Peer ID..."
+              value={newUsername}
+              onChange={(e) => { setNewUsername(e.target.value); setLookupError('') }}
+              placeholder="Username (ex.: @ana)"
               className="input-base mb-3"
               autoFocus
               onKeyPress={(e) => e.key === 'Enter' && handleNewChat()}
             />
+            {lookupError && <p className="text-sm text-red-600 mb-3">{lookupError}</p>}
             <input
               type="text"
               value={newMultiaddr}
@@ -288,7 +305,7 @@ export default function ConversationsView({ localPeerId }: ConversationsViewProp
               </button>
               <button
                 onClick={handleNewChat}
-                disabled={!newPeerId.trim()}
+                disabled={!newUsername.trim() && !newPeerId.trim()}
                 className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Start Chat

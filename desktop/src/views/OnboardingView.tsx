@@ -5,17 +5,36 @@ import { homeDir } from '@tauri-apps/api/path'
 
 interface OnboardingViewProps {
   localPeerId: string | null
+  onUsernameRegistered?: (username: string) => void
 }
 
-export default function OnboardingView({ localPeerId }: OnboardingViewProps) {
+export default function OnboardingView({ localPeerId, onUsernameRegistered }: OnboardingViewProps) {
   const navigate = useNavigate()
   const [showRestore, setShowRestore] = useState(false)
   const [restoreText, setRestoreText] = useState('')
   const [restoreError, setRestoreError] = useState<string | null>(null)
   const [isRestoring, setIsRestoring] = useState(false)
+  const [username, setUsername] = useState('')
+  const [usernameError, setUsernameError] = useState<string | null>(null)
+  const [isRegistering, setIsRegistering] = useState(false)
 
-  const handleGetStarted = () => {
-    navigate('/conversations')
+  const handleGetStarted = async () => {
+    const value = username.trim().toLowerCase()
+    if (!/^[a-z0-9_]{3,20}$/.test(value)) {
+      setUsernameError('Use de 3 a 20 caracteres: letras minúsculas, números ou _.')
+      return
+    }
+    setIsRegistering(true)
+    setUsernameError(null)
+    try {
+      await invoke('register_username', { username: value })
+      onUsernameRegistered?.(value)
+      navigate('/conversations')
+    } catch (error) {
+      setUsernameError(String(error))
+    } finally {
+      setIsRegistering(false)
+    }
   }
 
   // DSK-09: restaurar backup - salva no keychain e o app REINICIA sozinho
@@ -132,13 +151,14 @@ export default function OnboardingView({ localPeerId }: OnboardingViewProps) {
             </div>
           </div>
 
-          {/* Get Started Button - desabilitado enquanto o client não inicializou */}
+          <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Escolha seu username" className="w-full border border-gray-300 rounded-lg p-3 mb-2" />
+          {usernameError && <p className="text-sm text-red-600 mb-3">{usernameError}</p>}
           <button
             onClick={handleGetStarted}
-            disabled={!localPeerId}
+            disabled={!localPeerId || isRegistering}
             className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {localPeerId ? 'Get Started' : 'Initializing...'}
+            {!localPeerId ? 'Initializing...' : isRegistering ? 'Registrando...' : 'Começar'}
           </button>
 
           {/* Restaurar backup (DSK-09) */}

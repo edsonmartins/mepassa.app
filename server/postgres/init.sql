@@ -50,10 +50,10 @@ CREATE TABLE IF NOT EXISTS offline_messages (
 );
 
 -- Indexes for offline_messages
-CREATE INDEX idx_offline_messages_recipient ON offline_messages(recipient_peer_id) WHERE status = 'pending';
-CREATE INDEX idx_offline_messages_created_at ON offline_messages(created_at DESC);
-CREATE INDEX idx_offline_messages_expires_at ON offline_messages(expires_at) WHERE status = 'pending';
-CREATE INDEX idx_offline_messages_status ON offline_messages(status);
+CREATE INDEX IF NOT EXISTS idx_offline_messages_recipient ON offline_messages(recipient_peer_id) WHERE status = 'pending';
+CREATE INDEX IF NOT EXISTS idx_offline_messages_created_at ON offline_messages(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_offline_messages_expires_at ON offline_messages(expires_at) WHERE status = 'pending';
+CREATE INDEX IF NOT EXISTS idx_offline_messages_status ON offline_messages(status);
 
 -- Push Notification Tokens
 CREATE TABLE IF NOT EXISTS push_tokens (
@@ -83,8 +83,8 @@ CREATE TABLE IF NOT EXISTS push_tokens (
 );
 
 -- Indexes for push_tokens
-CREATE INDEX idx_push_tokens_peer_id ON push_tokens(peer_id) WHERE is_active = TRUE;
-CREATE INDEX idx_push_tokens_platform ON push_tokens(platform);
+CREATE INDEX IF NOT EXISTS idx_push_tokens_peer_id ON push_tokens(peer_id) WHERE is_active = TRUE;
+CREATE INDEX IF NOT EXISTS idx_push_tokens_platform ON push_tokens(platform);
 
 -- User Presence (tracked by Redis primarily, but DB for backup)
 CREATE TABLE IF NOT EXISTS user_presence (
@@ -102,8 +102,8 @@ CREATE TABLE IF NOT EXISTS user_presence (
 );
 
 -- Index for user_presence
-CREATE INDEX idx_user_presence_status ON user_presence(status);
-CREATE INDEX idx_user_presence_last_seen ON user_presence(last_seen_at DESC);
+CREATE INDEX IF NOT EXISTS idx_user_presence_status ON user_presence(status);
+CREATE INDEX IF NOT EXISTS idx_user_presence_last_seen ON user_presence(last_seen_at DESC);
 
 -- Message Delivery Stats (for monitoring)
 CREATE TABLE IF NOT EXISTS message_stats (
@@ -129,7 +129,7 @@ CREATE TABLE IF NOT EXISTS message_stats (
 );
 
 -- Index for message_stats
-CREATE INDEX idx_message_stats_date ON message_stats(date DESC);
+CREATE INDEX IF NOT EXISTS idx_message_stats_date ON message_stats(date DESC);
 
 -- Usernames (Identity Server) - ADR 001
 CREATE TABLE IF NOT EXISTS usernames (
@@ -154,8 +154,8 @@ CREATE TABLE IF NOT EXISTS usernames (
 );
 
 -- Indexes for usernames
-CREATE INDEX idx_usernames_peer_id ON usernames(peer_id);
-CREATE INDEX idx_usernames_created_at ON usernames(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_usernames_peer_id ON usernames(peer_id);
+CREATE INDEX IF NOT EXISTS idx_usernames_created_at ON usernames(created_at DESC);
 
 -- ============================================================================
 -- FUNCTIONS
@@ -250,12 +250,26 @@ EXCEPTION
 END
 $$;
 
+-- Runtime role grants when an administrative role applies this schema.
+DO $$
+BEGIN
+    IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'zaplivre') THEN
+        GRANT USAGE ON SCHEMA public TO zaplivre;
+        GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO zaplivre;
+        GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO zaplivre;
+        GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO zaplivre;
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO zaplivre;
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO zaplivre;
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO zaplivre;
+    END IF;
+END $$;
+
 -- Schedule cleanup job (if pg_cron available)
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
         -- Run cleanup every hour
-        PERFORM cron.schedule('cleanup-expired-messages', '0 * * * *', $$SELECT delete_expired_messages()$$);
+        PERFORM cron.schedule('cleanup-expired-messages', '0 * * * *', $job$SELECT delete_expired_messages()$job$);
     END IF;
 EXCEPTION
     WHEN OTHERS THEN

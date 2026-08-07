@@ -27,7 +27,7 @@ impl MessageStatus {
         }
     }
 
-    pub fn from_str(s: &str) -> Self {
+    pub fn from_db_str(s: &str) -> Self {
         match s {
             "pending" => MessageStatus::Pending,
             "sent" => MessageStatus::Sent,
@@ -325,7 +325,11 @@ impl Database {
     }
 
     /// Update conversation last message
-    pub fn update_conversation_last_message(&self, conversation_id: &str, message_id: &str) -> Result<()> {
+    pub fn update_conversation_last_message(
+        &self,
+        conversation_id: &str,
+        message_id: &str,
+    ) -> Result<()> {
         let conn = self.conn();
         conn.execute(
             r#"
@@ -388,7 +392,7 @@ impl Database {
             sent_at: row.get(9)?,
             received_at: row.get(10)?,
             read_at: row.get(11)?,
-            status: MessageStatus::from_str(&row.get::<_, String>(12)?),
+            status: MessageStatus::from_db_str(&row.get::<_, String>(12)?),
             is_deleted: row.get::<_, i32>(13)? != 0,
             parent_message_id: row.get(14)?,
         })
@@ -519,7 +523,9 @@ mod tests {
             db.insert_message(&msg).unwrap();
         }
 
-        let messages = db.get_conversation_messages("conv1", Some(10), None).unwrap();
+        let messages = db
+            .get_conversation_messages("conv1", Some(10), None)
+            .unwrap();
         assert_eq!(messages.len(), 5);
     }
 

@@ -7,6 +7,7 @@ import androidx.security.crypto.MasterKey
 object AndroidIdentityStore {
     private const val PREFS_NAME = "zaplivre_secure"
     private const val KEY_IDENTITY = "identity_b64"
+    private const val KEY_USERNAME = "registered_username"
 
     private fun prefs(context: Context) = EncryptedSharedPreferences.create(
         context,
@@ -27,6 +28,9 @@ object AndroidIdentityStore {
     }
 
     fun deleteIdentity(context: Context) {
-        prefs(context).edit().remove(KEY_IDENTITY).apply()
+        prefs(context).edit().remove(KEY_IDENTITY).remove(KEY_USERNAME).apply()
     }
+
+    fun loadUsername(context: Context): String? = prefs(context).getString(KEY_USERNAME, null)
+    fun saveUsername(context: Context, username: String) { prefs(context).edit().putString(KEY_USERNAME, username).apply() }
 }

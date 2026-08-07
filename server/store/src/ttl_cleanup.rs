@@ -20,11 +20,6 @@ impl TtlCleanupJob {
         }
     }
 
-    /// Create with custom interval
-    pub fn with_interval(db: Database, interval: Duration) -> Self {
-        Self { db, interval }
-    }
-
     /// Start the cleanup job
     pub async fn start(self) {
         tracing::info!(

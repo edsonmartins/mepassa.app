@@ -83,11 +83,9 @@ where
     // Try to use current runtime handle (for Desktop/Tauri)
     if let Ok(handle) = tokio::runtime::Handle::try_current() {
         // We're already in a runtime context, spawn and block on a new task
-        std::thread::spawn(move || {
-            handle.block_on(future)
-        })
-        .join()
-        .expect("Thread join failed")
+        std::thread::spawn(move || handle.block_on(future))
+            .join()
+            .expect("Thread join failed")
     } else {
         // No runtime, use the global one (for Mobile FFI)
         runtime().block_on(future)
@@ -106,6 +104,21 @@ struct ClientHandle {
 enum ClientCommand {
     LocalPeerId {
         response: oneshot::Sender<String>,
+    },
+    SignAuthRequest {
+        method: String,
+        path: String,
+        timestamp: i64,
+        body: Vec<u8>,
+        response: oneshot::Sender<Result<String, ZapLivreFfiError>>,
+    },
+    RegisterUsername {
+        username: String,
+        response: oneshot::Sender<Result<String, ZapLivreFfiError>>,
+    },
+    LookupUsername {
+        username: String,
+        response: oneshot::Sender<Result<String, ZapLivreFfiError>>,
     },
     GetPrekeyBundleJson {
         response: oneshot::Sender<Result<String, ZapLivreFfiError>>,
@@ -370,10 +383,9 @@ enum ClientCommand {
 
 /// Run the client task (processes commands) - takes owned Client
 #[allow(dead_code)]
-async fn run_client_task(
-    receiver: mpsc::UnboundedReceiver<ClientCommand>,
-    client: Client,
-) {
+// Arc<Client> é !Send por libp2p (Swarm !Send); arquitetura LocalSet single-thread (FASE 5)
+#[allow(clippy::arc_with_non_send_sync)]
+async fn run_client_task(receiver: mpsc::UnboundedReceiver<ClientCommand>, client: Client) {
     run_client_task_arc(receiver, std::sync::Arc::new(client)).await
 }
 
@@ -387,11 +399,32 @@ async fn run_client_task_arc(
             ClientCommand::LocalPeerId { response } => {
                 let _ = response.send(client.local_peer_id().to_string());
             }
-            ClientCommand::GetPrekeyBundleJson { response } => {
+            ClientCommand::SignAuthRequest {
+                method,
+                path,
+                timestamp,
+                body,
+                response,
+            } => {
                 let result = client
-                    .get_prekey_bundle_json()
+                    .sign_auth_request(&method, &path, timestamp, &body)
                     .await
-                    .map_err(|e| e.into());
+                    .map_err(Into::into);
+                let _ = response.send(result);
+            }
+            ClientCommand::RegisterUsername { username, response } => {
+                let result = client
+                    .register_username(&username)
+                    .await
+                    .map_err(Into::into);
+                let _ = response.send(result);
+            }
+            ClientCommand::LookupUsername { username, response } => {
+                let result = client.lookup_username(&username).await.map_err(Into::into);
+                let _ = response.send(result);
+            }
+            ClientCommand::GetPrekeyBundleJson { response } => {
+                let result = client.get_prekey_bundle_json().await.map_err(|e| e.into());
                 let _ = response.send(result);
             }
             ClientCommand::SetContactPrekeyBundle {
@@ -408,10 +441,7 @@ async fn run_client_task_arc(
                 multiaddr,
                 response,
             } => {
-                let result = client
-                    .listen_on(multiaddr)
-                    .await
-                    .map_err(|e| e.into());
+                let result = client.listen_on(multiaddr).await.map_err(|e| e.into());
                 let _ = response.send(result);
             }
             ClientCommand::ConnectToPeer {
@@ -425,7 +455,11 @@ async fn run_client_task_arc(
                     .map_err(|e| e.into());
                 let _ = response.send(result);
             }
-            ClientCommand::SendTextMessage { to, content, response } => {
+            ClientCommand::SendTextMessage {
+                to,
+                content,
+                response,
+            } => {
                 let result = client
                     .send_text_message(to, content)
                     .await
@@ -499,7 +533,10 @@ async fn run_client_task_arc(
                 reason,
                 response,
             } => {
-                let result = client.reject_call(call_id, reason).await.map_err(|e| e.into());
+                let result = client
+                    .reject_call(call_id, reason)
+                    .await
+                    .map_err(|e| e.into());
                 let _ = response.send(result);
             }
             #[cfg(feature = "voip")]
@@ -536,7 +573,11 @@ async fn run_client_task_arc(
             }
             // Video command handlers (FASE 14)
             #[cfg(any(feature = "voip", feature = "video"))]
-            ClientCommand::EnableVideo { call_id, codec, response } => {
+            ClientCommand::EnableVideo {
+                call_id,
+                codec,
+                response,
+            } => {
                 let result = client
                     .enable_video(call_id, codec.into())
                     .await
@@ -545,10 +586,7 @@ async fn run_client_task_arc(
             }
             #[cfg(any(feature = "voip", feature = "video"))]
             ClientCommand::DisableVideo { call_id, response } => {
-                let result = client
-                    .disable_video(call_id)
-                    .await
-                    .map_err(|e| e.into());
+                let result = client.disable_video(call_id).await.map_err(|e| e.into());
                 let _ = response.send(result);
             }
             #[cfg(any(feature = "voip", feature = "video"))]
@@ -567,10 +605,7 @@ async fn run_client_task_arc(
             }
             #[cfg(any(feature = "voip", feature = "video"))]
             ClientCommand::SwitchCamera { call_id, response } => {
-                let result = client
-                    .switch_camera(call_id)
-                    .await
-                    .map_err(|e| e.into());
+                let result = client.switch_camera(call_id).await.map_err(|e| e.into());
                 let _ = response.send(result);
             }
             #[cfg(any(feature = "voip", feature = "video"))]
@@ -636,10 +671,7 @@ async fn run_client_task_arc(
                 let _ = response.send(result);
             }
             ClientCommand::LeaveGroup { group_id, response } => {
-                let result = client
-                    .leave_group(group_id)
-                    .await
-                    .map_err(|e| e.into());
+                let result = client.leave_group(group_id).await.map_err(|e| e.into());
                 let _ = response.send(result);
             }
             ClientCommand::AddGroupMember {
@@ -665,10 +697,7 @@ async fn run_client_task_arc(
                 let _ = response.send(result);
             }
             ClientCommand::GetGroups { response } => {
-                let result = client
-                    .get_groups()
-                    .await
-                    .map_err(|e| e.into());
+                let result = client.get_groups().await.map_err(|e| e.into());
                 let _ = response.send(result);
             }
             ClientCommand::GetGroupMembers { group_id, response } => {
@@ -859,9 +888,7 @@ async fn run_client_task_arc(
                         internal_media_type,
                         limit.map(|l| l as usize),
                     )
-                    .map(|media_vec| {
-                        media_vec.into_iter().map(|m| m.into()).collect()
-                    })
+                    .map(|media_vec| media_vec.into_iter().map(|m| m.into()).collect())
                     .map_err(|e| e.into());
                 let _ = response.send(result);
             }
@@ -870,9 +897,7 @@ async fn run_client_task_arc(
                 message_id,
                 response,
             } => {
-                let result = client
-                    .delete_message(&message_id)
-                    .map_err(|e| e.into());
+                let result = client.delete_message(&message_id).map_err(|e| e.into());
                 let _ = response.send(result);
             }
             ClientCommand::ForwardMessage {
@@ -925,9 +950,7 @@ async fn run_client_task_arc(
             } => {
                 let result = client
                     .get_message_reactions(&message_id)
-                    .map(|reactions| {
-                        reactions.into_iter().map(|r| r.into()).collect()
-                    })
+                    .map(|reactions| reactions.into_iter().map(|r| r.into()).collect())
                     .map_err(|e| e.into());
                 let _ = response.send(result);
             }
@@ -955,9 +978,14 @@ impl ZapLivreClient {
                 let local = LocalSet::new();
 
                 // Build and run the client task
-                local.block_on(rt, async move {
+                let panic_data_dir = data_dir_clone.clone();
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    local.block_on(rt, async move {
                     let mut builder = ClientBuilder::new()
                         .data_dir(PathBuf::from(&data_dir_clone));
+                    if let Ok(identity_url) = std::env::var("ZAPLIVRE_IDENTITY_SERVER_URL") {
+                        builder = builder.identity_server_url(identity_url);
+                    }
 
                     if let Ok(url) = std::env::var("MESSAGE_STORE_URL") {
                         if !url.trim().is_empty() {
@@ -1035,10 +1063,17 @@ impl ZapLivreClient {
                     // On build failure, exit this thread gracefully instead of panicking:
                     // the command receiver is dropped, so every subsequent FFI call gets a
                     // controlled "Failed to send command" error instead of a process abort.
+                    // Arc<Client> !Send (libp2p); LocalSet single-thread (FASE 5).
+                    #[allow(clippy::arc_with_non_send_sync)]
                     let client = match builder.build().await {
                         Ok(client) => std::sync::Arc::new(client),
                         Err(e) => {
                             tracing::error!("Failed to build client: {e:?}");
+                            eprintln!("ZapLivre client build failed: {e:?}");
+                            let _ = std::fs::write(
+                                PathBuf::from(&data_dir_clone).join("client_build_error.log"),
+                                format!("{e:?}"),
+                            );
                             return;
                         }
                     };
@@ -1080,15 +1115,25 @@ impl ZapLivreClient {
                     // Run client command task (processes API commands)
                     // Note: We use Arc<Client> but run_client_task expects Client
                     // We need to keep client alive for the network task
-                    tokio::select! {
-                        _ = run_client_task_arc(receiver, client) => {
-                            tracing::info!("Client task completed");
-                        }
-                        _ = network_handle => {
-                            tracing::info!("Network event loop completed");
-                        }
-                    }
-                });
+                    // Keep the FFI command channel alive even if the network
+                    // task terminates unexpectedly (for example on a mobile
+                    // transport error). A completed network task must not make
+                    // localPeerId/initialization fail with a closed channel.
+                    std::mem::drop(network_handle);
+                    run_client_task_arc(receiver, client).await;
+                    });
+                }));
+                if let Err(panic) = result {
+                    let message = panic
+                        .downcast_ref::<&str>()
+                        .copied()
+                        .or_else(|| panic.downcast_ref::<String>().map(String::as_str))
+                        .unwrap_or("unknown panic");
+                    let _ = std::fs::write(
+                        PathBuf::from(&panic_data_dir).join("client_build_panic.log"),
+                        message,
+                    );
+                }
             });
 
             ClientHandle { sender }
@@ -1115,6 +1160,66 @@ impl ZapLivreClient {
         execute_future(rx).map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })
+    }
+
+    /// Sign a backend HTTP request without exposing the private identity key.
+    pub async fn sign_auth_request(
+        &self,
+        method: String,
+        path: String,
+        timestamp: i64,
+        body: Vec<u8>,
+    ) -> Result<String, ZapLivreFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::SignAuthRequest {
+                method,
+                path,
+                timestamp,
+                body,
+                response: tx,
+            })
+            .map_err(|_| ZapLivreFfiError::Other {
+                details: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
+            details: "Failed to receive response".to_string(),
+        })?
+    }
+
+    /// Register the local identity and prekey bundle with the Identity Server.
+    pub async fn register_username(&self, username: String) -> Result<String, ZapLivreFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::RegisterUsername {
+                username,
+                response: tx,
+            })
+            .map_err(|_| ZapLivreFfiError::Other {
+                details: "Failed to send command".to_string(),
+            })?;
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
+            details: "Failed to receive response".to_string(),
+        })?
+    }
+
+    pub async fn lookup_username(&self, username: String) -> Result<String, ZapLivreFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::LookupUsername {
+                username,
+                response: tx,
+            })
+            .map_err(|_| ZapLivreFfiError::Other {
+                details: "Failed to send command".to_string(),
+            })?;
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
+            details: "Failed to receive response".to_string(),
+        })?
     }
 
     /// Export prekey bundle as JSON (for sharing)
@@ -1403,7 +1508,11 @@ impl ZapLivreClient {
 
     #[cfg(feature = "voip")]
     /// Reject an incoming call
-    pub async fn reject_call(&self, call_id: String, reason: Option<String>) -> Result<(), ZapLivreFfiError> {
+    pub async fn reject_call(
+        &self,
+        call_id: String,
+        reason: Option<String>,
+    ) -> Result<(), ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -1749,7 +1858,11 @@ impl ZapLivreClient {
 
     #[cfg(not(feature = "voip"))]
     /// Reject an incoming call (stub - VoIP feature disabled)
-    pub async fn reject_call(&self, _call_id: String, _reason: Option<String>) -> Result<(), ZapLivreFfiError> {
+    pub async fn reject_call(
+        &self,
+        _call_id: String,
+        _reason: Option<String>,
+    ) -> Result<(), ZapLivreFfiError> {
         Err(ZapLivreFfiError::Other {
             details: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
         })
@@ -1795,7 +1908,11 @@ impl ZapLivreClient {
 
     #[cfg(not(any(feature = "voip", feature = "video")))]
     /// Enable video (stub - VoIP/video features disabled)
-    pub async fn enable_video(&self, _call_id: String, _codec: types::FfiVideoCodec) -> Result<(), ZapLivreFfiError> {
+    pub async fn enable_video(
+        &self,
+        _call_id: String,
+        _codec: types::FfiVideoCodec,
+    ) -> Result<(), ZapLivreFfiError> {
         Err(ZapLivreFfiError::Other {
             details: "VoIP/video features are not enabled. Rebuild with --features voip or --features video".to_string(),
         })
@@ -1958,11 +2075,17 @@ impl ZapLivreClient {
         })?
     }
 
-    pub async fn get_group_members(&self, group_id: String) -> Result<Vec<String>, ZapLivreFfiError> {
+    pub async fn get_group_members(
+        &self,
+        group_id: String,
+    ) -> Result<Vec<String>, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
-            .send(ClientCommand::GetGroupMembers { group_id, response: tx })
+            .send(ClientCommand::GetGroupMembers {
+                group_id,
+                response: tx,
+            })
             .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
@@ -2172,6 +2295,7 @@ impl ZapLivreClient {
     }
 
     /// Send a video message
+    #[allow(clippy::too_many_arguments)] // bindings geradas (UniFFI) espelham a API
     pub async fn send_video_message(
         &self,
         to_peer_id: String,
@@ -2297,11 +2421,7 @@ impl ZapLivreClient {
     // ═════════════════════════════════════════════════════════════════════
 
     /// Add a reaction to a message
-    pub fn add_reaction(
-        &self,
-        message_id: String,
-        emoji: String,
-    ) -> Result<(), ZapLivreFfiError> {
+    pub fn add_reaction(&self, message_id: String, emoji: String) -> Result<(), ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender

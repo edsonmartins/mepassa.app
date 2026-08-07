@@ -845,6 +845,8 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_local_peer_id(
     ): Int
+    external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_lookup_username(
+    ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_mark_conversation_read(
     ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_register_audio_frame_callback(
@@ -852,6 +854,8 @@ internal object IntegrityCheckingUniffiLib {
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_register_call_event_callback(
     ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_register_message_event_callback(
+    ): Int
+    external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_register_username(
     ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_register_video_frame_callback(
     ): Int
@@ -882,6 +886,8 @@ internal object IntegrityCheckingUniffiLib {
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_send_voice_message(
     ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_set_contact_prekey_bundle(
+    ): Int
+    external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_sign_auth_request(
     ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_start_call(
     ): Int
@@ -1002,6 +1008,8 @@ external fun uniffi_zaplivre_core_fn_method_zaplivreclient_listening_addresses(`
 ): Long
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_local_peer_id(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
+external fun uniffi_zaplivre_core_fn_method_zaplivreclient_lookup_username(`ptr`: Long,`username`: RustBuffer.ByValue,
+): Long
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_mark_conversation_read(`ptr`: Long,`peerId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
 ): Unit
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_register_audio_frame_callback(`ptr`: Long,`callback`: Long,uniffi_out_err: UniffiRustCallStatus, 
@@ -1010,6 +1018,8 @@ external fun uniffi_zaplivre_core_fn_method_zaplivreclient_register_call_event_c
 ): Unit
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_register_message_event_callback(`ptr`: Long,`callback`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): Unit
+external fun uniffi_zaplivre_core_fn_method_zaplivreclient_register_username(`ptr`: Long,`username`: RustBuffer.ByValue,
+): Long
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_register_video_frame_callback(`ptr`: Long,`callback`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): Unit
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_register_voip_event_callback(`ptr`: Long,`callback`: Long,uniffi_out_err: UniffiRustCallStatus, 
@@ -1040,6 +1050,8 @@ external fun uniffi_zaplivre_core_fn_method_zaplivreclient_send_voice_message(`p
 ): Long
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_set_contact_prekey_bundle(`ptr`: Long,`peerId`: RustBuffer.ByValue,`prekeyBundleJson`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
 ): Unit
+external fun uniffi_zaplivre_core_fn_method_zaplivreclient_sign_auth_request(`ptr`: Long,`method`: RustBuffer.ByValue,`path`: RustBuffer.ByValue,`timestamp`: Long,`body`: RustBuffer.ByValue,
+): Long
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_start_call(`ptr`: Long,`toPeerId`: RustBuffer.ByValue,
 ): Long
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_switch_camera(`ptr`: Long,`callId`: RustBuffer.ByValue,
@@ -1263,6 +1275,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_local_peer_id() != 10820) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_lookup_username() != 53185) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_mark_conversation_read() != 53235) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1273,6 +1288,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_register_message_event_callback() != 40193) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_register_username() != 23257) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_register_video_frame_callback() != 31564) {
@@ -1318,6 +1336,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_set_contact_prekey_bundle() != 40860) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_sign_auth_request() != 10088) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_start_call() != 62308) {
@@ -1952,6 +1973,8 @@ public interface ZapLivreClientInterface {
     
     fun `localPeerId`(): kotlin.String
     
+    suspend fun `lookupUsername`(`username`: kotlin.String): kotlin.String
+    
     fun `markConversationRead`(`peerId`: kotlin.String)
     
     fun `registerAudioFrameCallback`(`callback`: FfiAudioFrameCallback)
@@ -1959,6 +1982,8 @@ public interface ZapLivreClientInterface {
     fun `registerCallEventCallback`(`callback`: FfiCallEventCallback)
     
     fun `registerMessageEventCallback`(`callback`: FfiMessageEventCallback)
+    
+    suspend fun `registerUsername`(`username`: kotlin.String): kotlin.String
     
     fun `registerVideoFrameCallback`(`callback`: FfiVideoFrameCallback)
     
@@ -1989,6 +2014,8 @@ public interface ZapLivreClientInterface {
     suspend fun `sendVoiceMessage`(`toPeerId`: kotlin.String, `audioData`: List<kotlin.UByte>, `fileName`: kotlin.String, `durationSeconds`: kotlin.Int): kotlin.String
     
     fun `setContactPrekeyBundle`(`peerId`: kotlin.String, `prekeyBundleJson`: kotlin.String)
+    
+    suspend fun `signAuthRequest`(`method`: kotlin.String, `path`: kotlin.String, `timestamp`: kotlin.Long, `body`: List<kotlin.UByte>): kotlin.String
     
     suspend fun `startCall`(`toPeerId`: kotlin.String): kotlin.String
     
@@ -2649,6 +2676,27 @@ open class ZapLivreClient: Disposable, AutoCloseable, ZapLivreClientInterface
     
 
     
+    @Throws(ZapLivreFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `lookupUsername`(`username`: kotlin.String) : kotlin.String {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_zaplivre_core_fn_method_zaplivreclient_lookup_username(
+                uniffiHandle,
+                FfiConverterString.lower(`username`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_zaplivre_core_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_zaplivre_core_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.ffi_zaplivre_core_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterString.lift(it) },
+        // Error FFI converter
+        ZapLivreFfiException.ErrorHandler,
+    )
+    }
+
+    
     @Throws(ZapLivreFfiException::class)override fun `markConversationRead`(`peerId`: kotlin.String)
         = 
     callWithHandle {
@@ -2699,6 +2747,27 @@ open class ZapLivreClient: Disposable, AutoCloseable, ZapLivreClientInterface
     }
     
     
+
+    
+    @Throws(ZapLivreFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `registerUsername`(`username`: kotlin.String) : kotlin.String {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_zaplivre_core_fn_method_zaplivreclient_register_username(
+                uniffiHandle,
+                FfiConverterString.lower(`username`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_zaplivre_core_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_zaplivre_core_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.ffi_zaplivre_core_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterString.lift(it) },
+        // Error FFI converter
+        ZapLivreFfiException.ErrorHandler,
+    )
+    }
 
     
     @Throws(ZapLivreFfiException::class)override fun `registerVideoFrameCallback`(`callback`: FfiVideoFrameCallback)
@@ -2979,6 +3048,27 @@ open class ZapLivreClient: Disposable, AutoCloseable, ZapLivreClientInterface
     }
     
     
+
+    
+    @Throws(ZapLivreFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `signAuthRequest`(`method`: kotlin.String, `path`: kotlin.String, `timestamp`: kotlin.Long, `body`: List<kotlin.UByte>) : kotlin.String {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_zaplivre_core_fn_method_zaplivreclient_sign_auth_request(
+                uniffiHandle,
+                FfiConverterString.lower(`method`),FfiConverterString.lower(`path`),FfiConverterLong.lower(`timestamp`),FfiConverterSequenceUByte.lower(`body`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_zaplivre_core_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_zaplivre_core_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.ffi_zaplivre_core_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterString.lift(it) },
+        // Error FFI converter
+        ZapLivreFfiException.ErrorHandler,
+    )
+    }
 
     
     @Throws(ZapLivreFfiException::class)

@@ -10,24 +10,25 @@
 use libp2p::PeerId;
 use std::{path::PathBuf, sync::Arc};
 
+use crate::identity::Identity;
 use crate::{
     crypto::{
-        decrypt_for_storage, encrypt_for_storage,
-        SignalEncryptedMessage, SignalSessionManager,
+        decrypt_for_storage, encrypt_for_storage, SignalEncryptedMessage, SignalSessionManager,
     },
     media::MediaEnvelope,
-    reactions::ReactionEnvelope,
     protocol::{
         pb::message::Payload, AckMessage, AckStatus, EncryptedMessage as ProtoEncryptedMessage,
         MediaChunk, MediaOffer, MediaRequest, Message, MessageType, ReadReceipt, TextMessage,
         TypingIndicator,
     },
-    storage::{Database, MediaType, MessageStatus, NewMedia, NewMessage, NewReaction, UpdateMessage},
-    utils::error::{ZapLivreError, Result},
+    reactions::ReactionEnvelope,
+    storage::{
+        Database, MediaType, MessageStatus, NewMedia, NewMessage, NewReaction, UpdateMessage,
+    },
+    utils::error::{Result, ZapLivreError},
 };
-use tokio::sync::RwLock;
-use crate::identity::Identity;
 use sha2::{Digest, Sha256};
+use tokio::sync::RwLock;
 
 /// Message handler
 ///
@@ -101,12 +102,8 @@ impl MessageHandler {
 
         // Process based on message type
         let result = match message.payload {
-            Some(Payload::Text(ref text_msg)) => {
-                self.handle_text_message(&message, text_msg).await
-            }
-            Some(Payload::Ack(ref ack_msg)) => {
-                self.handle_ack_message(&message, ack_msg).await
-            }
+            Some(Payload::Text(ref text_msg)) => self.handle_text_message(&message, text_msg).await,
+            Some(Payload::Ack(ref ack_msg)) => self.handle_ack_message(&message, ack_msg).await,
             Some(Payload::Typing(ref typing_msg)) => {
                 self.handle_typing_indicator(&message, typing_msg).await
             }
@@ -116,12 +113,8 @@ impl MessageHandler {
             Some(Payload::Encrypted(ref enc_msg)) => {
                 self.handle_encrypted_message(&message, enc_msg).await
             }
-            Some(Payload::MediaOffer(ref offer)) => {
-                self.handle_media_offer(&message, offer).await
-            }
-            Some(Payload::MediaChunk(ref chunk)) => {
-                self.handle_media_chunk(&message, chunk).await
-            }
+            Some(Payload::MediaOffer(ref offer)) => self.handle_media_offer(&message, offer).await,
+            Some(Payload::MediaChunk(ref chunk)) => self.handle_media_chunk(&message, chunk).await,
             Some(Payload::MediaRequest(_)) => {
                 // Media requests are handled in NetworkManager to enable chunk sending.
                 Ok(())
@@ -187,7 +180,11 @@ impl MessageHandler {
     /// Re-enfileira uma mensagem cujo request outbound falhou (conexão caiu
     /// entre o send e o ACK). O worker de retry (builder) fará a reentrega;
     /// o status da mensagem regride para Pending em vez de ficar Sent.
-    pub fn requeue_failed_outbound(&self, peer_id: &libp2p::PeerId, message: crate::protocol::Message) {
+    pub fn requeue_failed_outbound(
+        &self,
+        peer_id: &libp2p::PeerId,
+        message: crate::protocol::Message,
+    ) {
         use prost::Message as _;
 
         let proto_bytes = message.encode_to_vec();
@@ -278,7 +275,9 @@ impl MessageHandler {
         }
 
         // Get or create conversation (Database has internal Mutex for thread-safety)
-        let conversation_id = self.database.get_or_create_conversation(&message.sender_peer_id)?;
+        let conversation_id = self
+            .database
+            .get_or_create_conversation(&message.sender_peer_id)?;
 
         // Store message in database
         let new_msg = NewMessage {
@@ -300,9 +299,14 @@ impl MessageHandler {
         self.database.insert_message(&new_msg)?;
 
         // Update conversation last message
-        self.database.update_conversation_last_message(&conversation_id, &message.id)?;
+        self.database
+            .update_conversation_last_message(&conversation_id, &message.id)?;
 
-        tracing::info!("💾 Stored message {} in conversation {}", message.id, conversation_id);
+        tracing::info!(
+            "💾 Stored message {} in conversation {}",
+            message.id,
+            conversation_id
+        );
 
         // Emit event to UI
         self.emit_event(MessageEvent::MessageReceived {
@@ -377,7 +381,8 @@ impl MessageHandler {
         };
 
         self.database.insert_message(&new_msg)?;
-        self.database.update_conversation_last_message(&conversation_id, &message.id)?;
+        self.database
+            .update_conversation_last_message(&conversation_id, &message.id)?;
 
         let mut display_message = message.clone();
         display_message.payload = Some(Payload::Text(TextMessage {
@@ -450,7 +455,7 @@ impl MessageHandler {
     }
 
     async fn handle_media_offer(&self, message: &Message, offer: &MediaOffer) -> Result<()> {
-        let media_type = MediaType::from_str(&offer.media_type);
+        let media_type = MediaType::from_db_str(&offer.media_type);
         let summary = crate::media::media_summary(
             media_type.as_str(),
             Some(&offer.file_name),
@@ -461,7 +466,9 @@ impl MessageHandler {
             },
         );
 
-        let conversation_id = self.database.get_or_create_conversation(&message.sender_peer_id)?;
+        let conversation_id = self
+            .database
+            .get_or_create_conversation(&message.sender_peer_id)?;
 
         let new_msg = NewMessage {
             message_id: message.id.clone(),
@@ -476,7 +483,8 @@ impl MessageHandler {
         };
 
         self.database.insert_message(&new_msg)?;
-        self.database.update_conversation_last_message(&conversation_id, &message.id)?;
+        self.database
+            .update_conversation_last_message(&conversation_id, &message.id)?;
 
         let new_media = NewMedia {
             media_hash: offer.media_hash.clone(),
@@ -487,8 +495,16 @@ impl MessageHandler {
             mime_type: Some(offer.mime_type.clone()),
             local_path: None,
             thumbnail_path: None,
-            width: if offer.width > 0 { Some(offer.width) } else { None },
-            height: if offer.height > 0 { Some(offer.height) } else { None },
+            width: if offer.width > 0 {
+                Some(offer.width)
+            } else {
+                None
+            },
+            height: if offer.height > 0 {
+                Some(offer.height)
+            } else {
+                None
+            },
             duration_seconds: if offer.duration_seconds > 0 {
                 Some(offer.duration_seconds)
             } else {
@@ -515,9 +531,12 @@ impl MessageHandler {
         std::fs::create_dir_all(&tmp_dir)
             .map_err(|e| ZapLivreError::Storage(format!("Failed to create tmp dir: {}", e)))?;
         let tmp_path = tmp_dir.join(format!("{}.part", chunk.media_hash));
-        let mut file = std::fs::OpenOptions::new()
-            .create(true)
-            .write(true)
+        let mut opts = std::fs::OpenOptions::new();
+        opts.create(true).write(true);
+        if chunk.offset == 0 {
+            opts.truncate(true);
+        }
+        let mut file = opts
             .open(&tmp_path)
             .map_err(|e| ZapLivreError::Storage(format!("Failed to open temp file: {}", e)))?;
         file.seek(SeekFrom::Start(chunk.offset as u64))
@@ -571,10 +590,12 @@ impl MessageHandler {
                 None => chunk.media_hash.clone(),
             };
             let final_path = self.data_dir.join("media").join(file_name);
-            std::fs::create_dir_all(self.data_dir.join("media"))
-                .map_err(|e| ZapLivreError::Storage(format!("Failed to create media dir: {}", e)))?;
-            std::fs::rename(&tmp_path, &final_path)
-                .map_err(|e| ZapLivreError::Storage(format!("Failed to finalize media file: {}", e)))?;
+            std::fs::create_dir_all(self.data_dir.join("media")).map_err(|e| {
+                ZapLivreError::Storage(format!("Failed to create media dir: {}", e))
+            })?;
+            std::fs::rename(&tmp_path, &final_path).map_err(|e| {
+                ZapLivreError::Storage(format!("Failed to finalize media file: {}", e))
+            })?;
 
             self.database
                 .update_media_local_path(media.id, &final_path.to_string_lossy())
@@ -697,7 +718,11 @@ impl MessageHandler {
         Ok(text)
     }
 
-    async fn handle_media_envelope(&self, message: &Message, envelope: MediaEnvelope) -> Result<()> {
+    async fn handle_media_envelope(
+        &self,
+        message: &Message,
+        envelope: MediaEnvelope,
+    ) -> Result<()> {
         let media_bytes = envelope.media_bytes()?;
         let mut hasher = Sha256::new();
         hasher.update(&media_bytes);
@@ -706,7 +731,7 @@ impl MessageHandler {
             return Err(ZapLivreError::Protocol("Media hash mismatch".to_string()));
         }
 
-        let media_type = MediaType::from_str(&envelope.media_type);
+        let media_type = MediaType::from_db_str(&envelope.media_type);
         let message_type = match media_type {
             MediaType::VoiceMessage => "voice",
             MediaType::Audio => "audio",
@@ -716,7 +741,9 @@ impl MessageHandler {
         }
         .to_string();
 
-        let conversation_id = self.database.get_or_create_conversation(&message.sender_peer_id)?;
+        let conversation_id = self
+            .database
+            .get_or_create_conversation(&message.sender_peer_id)?;
 
         let summary = crate::media::media_summary(
             media_type.as_str(),
@@ -760,16 +787,15 @@ impl MessageHandler {
             sender_peer_id: message.sender_peer_id.clone(),
             recipient_peer_id: Some(message.recipient_peer_id.clone()),
             message_type: message_type.clone(),
-            content_encrypted: self
-                .encrypt_for_storage(envelope.encode()?.as_bytes())
-                .ok(),
+            content_encrypted: self.encrypt_for_storage(envelope.encode()?.as_bytes()).ok(),
             content_plaintext: Some(summary.clone()),
             status: MessageStatus::Delivered,
             parent_message_id: None,
         };
 
         self.database.insert_message(&new_msg)?;
-        self.database.update_conversation_last_message(&conversation_id, &message.id)?;
+        self.database
+            .update_conversation_last_message(&conversation_id, &message.id)?;
 
         let new_media = NewMedia {
             media_hash: envelope.media_hash.clone(),

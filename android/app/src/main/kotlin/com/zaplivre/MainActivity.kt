@@ -17,6 +17,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
+import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.zaplivre.core.ZapLivreClientWrapper
@@ -81,8 +82,9 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Solicitar permissões e iniciar service
-        requestPermissionsAndStartService()
+        // A primeira execução pertence ao onboarding. Iniciar o service aqui
+        // pode criar uma segunda inicialização concorrente do FFI.
+        Log.i(TAG, "Service startup deferred until onboarding completes")
 
         handleIntent(intent)
 
@@ -179,9 +181,13 @@ fun ZapLivreApp(
     onPeerIdConsumed: () -> Unit
 ) {
     val isInitialized by ZapLivreClientWrapper.isInitialized.collectAsState()
+    val usernameRegistered by ZapLivreClientWrapper.usernameRegistered.collectAsState()
+    val appContext = LocalContext.current
+    LaunchedEffect(Unit) { ZapLivreClientWrapper.loadUsername(appContext) }
 
     ZapLivreNavHost(
         isClientInitialized = isInitialized,
+        usernameRegistered = usernameRegistered,
         pendingPeerId = pendingPeerId,
         onPeerIdConsumed = onPeerIdConsumed
     )

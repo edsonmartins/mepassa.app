@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 use crate::identity::{Keypair, PublicKey};
-use crate::utils::error::{ZapLivreError, Result};
+use crate::utils::error::{Result, ZapLivreError};
 
 /// Group metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -141,7 +141,7 @@ impl GroupRole {
     }
 
     /// Parse from string (database)
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn from_db_str(s: &str) -> Option<Self> {
         match s {
             "creator" => Some(GroupRole::Creator),
             "admin" => Some(GroupRole::Admin),
@@ -210,14 +210,10 @@ pub enum GroupMessageType {
     },
 
     /// System message (member joined/left, name changed, etc.)
-    System {
-        system_type: SystemMessageType,
-    },
+    System { system_type: SystemMessageType },
 
     /// Admin action (add/remove member, promote/demote)
-    AdminAction {
-        action: AdminAction,
-    },
+    AdminAction { action: AdminAction },
 }
 
 /// System message type
@@ -314,7 +310,7 @@ mod tests {
         assert!(!GroupRole::Member.can_admin());
 
         assert_eq!(GroupRole::Creator.as_str(), "creator");
-        assert_eq!(GroupRole::from_str("admin"), Some(GroupRole::Admin));
-        assert_eq!(GroupRole::from_str("invalid"), None);
+        assert_eq!(GroupRole::from_db_str("admin"), Some(GroupRole::Admin));
+        assert_eq!(GroupRole::from_db_str("invalid"), None);
     }
 }

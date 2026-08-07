@@ -77,8 +77,7 @@ fi
 echo -e "${GREEN}Generating Kotlin bindings...${NC}"
 uniffi-bindgen generate "$UDL_FILE" \
   --language kotlin \
-  --out-dir "$GENERATED_DIR" \
-  --lib-file "$LIB_FILE"
+  --out-dir "$GENERATED_DIR"
 
 # Check if generation was successful
 if [ $? -eq 0 ]; then

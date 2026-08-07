@@ -100,5 +100,7 @@ jobs:
         run: chmod +x android/gradlew
 
       - name: Run ktlint
+        # Ktlint ainda não tem plugin instalado nem baseline (3.6k violations).
+        # Tolerante até o baseline ser zerado (ver PLANO_HOMOLOGACAO F5).
         run: cd android && ./gradlew ktlintCheck
         continue-on-error: true

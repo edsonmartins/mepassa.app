@@ -6,6 +6,9 @@
 //! - Testes do MessageHandler (processamento + ACK) com a API atual
 
 use libp2p::PeerId;
+use std::{sync::Arc, time::Duration};
+use tokio::{sync::RwLock, time::sleep};
+use uuid::Uuid;
 use zaplivre_core::{
     api::ClientBuilder,
     crypto::SignalSessionManager,
@@ -14,9 +17,6 @@ use zaplivre_core::{
     protocol::{pb::message::Payload, AckStatus, Message, MessageType, TextMessage},
     storage::{schema::init_schema, Database, MessageStatus},
 };
-use std::{sync::Arc, time::Duration};
-use tokio::{sync::RwLock, time::sleep};
-use uuid::Uuid;
 
 /// TST-02: troca de mensagem ponta a ponta entre dois Clients reais.
 /// Roda em LocalSet (requisito do ClientBuilder) com um driver de rede por
@@ -85,6 +85,18 @@ async fn test_end_to_end_message_exchange() {
             };
 
             let peer_b: PeerId = client_b.local_peer_id();
+
+            // SEC-01: sem sessão E2E o envio falha por padrão (nunca plaintext).
+            // Estabelecer sessão trocando o prekey bundle de B (papel do
+            // identity server em produção).
+            let bundle_b = client_b
+                .get_prekey_bundle_json()
+                .await
+                .expect("prekey bundle B");
+            client_a
+                .set_contact_prekey_bundle(peer_b.to_string(), bundle_b)
+                .expect("set bundle B on A");
+
             client_a
                 .connect_to_peer(peer_b, addr_b.parse().unwrap())
                 .await
@@ -173,7 +185,8 @@ async fn test_message_handler_processing() {
         public_key: vec![1, 2, 3],
         prekey_bundle_json: None,
     };
-    db.insert_contact(&contact).expect("Failed to insert contact");
+    db.insert_contact(&contact)
+        .expect("Failed to insert contact");
 
     let (event_tx, mut event_rx) = tokio::sync::mpsc::channel(64);
     let tmp = tempfile::TempDir::new().unwrap();

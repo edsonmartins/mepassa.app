@@ -15,7 +15,7 @@ describe('OnboardingView', () => {
     expect(button).toBeDisabled()
   })
 
-  it('habilita "Get Started" e mostra o peer ID quando inicializado', () => {
+  it('habilita "Começar" e mostra o peer ID quando inicializado', () => {
     render(
       <MemoryRouter>
         <OnboardingView localPeerId="12D3KooWTestPeer" />
@@ -23,7 +23,7 @@ describe('OnboardingView', () => {
     )
 
     expect(screen.getByText('12D3KooWTestPeer')).toBeInTheDocument()
-    const button = screen.getByRole('button', { name: /get started/i })
+    const button = screen.getByRole('button', { name: /começar/i })
     expect(button).toBeEnabled()
   })
 })

@@ -71,7 +71,7 @@ enum ZapColor {
     static let avatarPalette: [Color] = [
         Color(hex6: 0x2F6BFF), Color(hex6: 0x7C5CFF), Color(hex6: 0x00A6A6),
         Color(hex6: 0xE8618C), Color(hex6: 0xF2884B), Color(hex6: 0x1FA971),
-        Color(hex6: 0x4B7BEC), Color(hex6: 0xB8449B),
+        Color(hex6: 0x4B7BEC), Color(hex6: 0xB8449B)
     ]
 
     /// Cor estável derivada de um id — mesma lógica dos avatares. Usada para

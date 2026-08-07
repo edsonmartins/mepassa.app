@@ -86,6 +86,8 @@ jobs:
         run: brew install swiftlint
 
       - name: Run SwiftLint
+        # 172 violations pendentes (sem baseline/config). Tolerante até o
+        # baseline ser zerado (ver PLANO_HOMOLOGACAO F5).
         run: |
           cd ios
           swiftlint lint --strict

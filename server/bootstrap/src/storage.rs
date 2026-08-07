@@ -92,29 +92,6 @@ impl DhtStorage {
         .await?
     }
 
-    /// Remove a specific peer address
-    pub async fn remove_peer(&self, peer_id: &PeerId, addr: &Multiaddr) -> Result<()> {
-        let peer_id_str = peer_id.to_string();
-        let addr_str = addr.to_string();
-        let conn = self.conn.clone();
-
-        tokio::task::spawn_blocking(move || {
-            let conn = conn.lock().unwrap();
-
-            conn.execute(
-                r#"
-                DELETE FROM dht_peers
-                WHERE peer_id = ?1 AND multiaddr = ?2
-                "#,
-                params![&peer_id_str, &addr_str],
-            )?;
-
-            tracing::debug!("🗑️ Removed peer: {} → {}", peer_id_str, addr_str);
-            Ok::<_, anyhow::Error>(())
-        })
-        .await?
-    }
-
     /// Load all stored peers
     ///
     /// Returns a vector of (PeerId, Vec<Multiaddr>) tuples
@@ -203,37 +180,6 @@ impl DhtStorage {
         })
         .await?
     }
-
-    /// Get statistics about stored peers
-    pub async fn get_stats(&self) -> Result<StorageStats> {
-        let conn = self.conn.clone();
-
-        tokio::task::spawn_blocking(move || {
-            let conn = conn.lock().unwrap();
-
-            let peer_count: i64 = conn.query_row(
-                "SELECT COUNT(DISTINCT peer_id) FROM dht_peers",
-                [],
-                |row| row.get(0),
-            )?;
-
-            let address_count: i64 =
-                conn.query_row("SELECT COUNT(*) FROM dht_peers", [], |row| row.get(0))?;
-
-            Ok::<_, anyhow::Error>(StorageStats {
-                peer_count: peer_count as usize,
-                address_count: address_count as usize,
-            })
-        })
-        .await?
-    }
-}
-
-/// Storage statistics
-#[derive(Debug, Clone)]
-pub struct StorageStats {
-    pub peer_count: usize,
-    pub address_count: usize,
 }
 
 /// Get current unix timestamp in seconds

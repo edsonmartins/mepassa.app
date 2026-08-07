@@ -7,6 +7,8 @@ use libp2p::PeerId;
 use crate::protocol::Message;
 
 /// Events that can be emitted by the ZapLivre client
+// MessageReceived carrega Message completa (API pública); boxed quebraria os callers.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone)]
 pub enum ClientEvent {
     /// A new message was received
@@ -17,16 +19,10 @@ pub enum ClientEvent {
     },
 
     /// A message was successfully sent
-    MessageSent {
-        message_id: String,
-        to: PeerId,
-    },
+    MessageSent { message_id: String, to: PeerId },
 
     /// A message delivery confirmation (ACK) was received
-    MessageDelivered {
-        message_id: String,
-        to: PeerId,
-    },
+    MessageDelivered { message_id: String, to: PeerId },
 
     /// A message was read by the recipient
     MessageRead {
@@ -36,24 +32,16 @@ pub enum ClientEvent {
     },
 
     /// A peer started typing
-    TypingStarted {
-        peer_id: PeerId,
-    },
+    TypingStarted { peer_id: PeerId },
 
     /// A peer stopped typing
-    TypingStopped {
-        peer_id: PeerId,
-    },
+    TypingStopped { peer_id: PeerId },
 
     /// Connected to a peer
-    PeerConnected {
-        peer_id: PeerId,
-    },
+    PeerConnected { peer_id: PeerId },
 
     /// Disconnected from a peer
-    PeerDisconnected {
-        peer_id: PeerId,
-    },
+    PeerDisconnected { peer_id: PeerId },
 
     /// A peer was discovered via mDNS
     PeerDiscovered {
@@ -68,9 +56,7 @@ pub enum ClientEvent {
     NetworkOffline,
 
     /// An error occurred
-    Error {
-        error: String,
-    },
+    Error { error: String },
 }
 
 /// Callback trait for handling events

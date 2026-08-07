@@ -244,6 +244,41 @@ pub async fn get_local_peer_id(state: State<'_, ClientState>) -> Result<String, 
 }
 
 #[tauri::command]
+pub async fn register_username(state: State<'_, ClientState>, username: String) -> Result<String, String> {
+    let client = state.lock().map_err(|e| e.to_string())?.clone()
+        .ok_or_else(|| "Client not initialized".to_string())?;
+    client.register_username(username).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn lookup_username(state: State<'_, ClientState>, username: String) -> Result<serde_json::Value, String> {
+    let client = state.lock().map_err(|e| e.to_string())?.as_ref().cloned()
+        .ok_or_else(|| "Client not initialized".to_string())?;
+    let json = client.lookup_username(username).await.map_err(|e| e.to_string())?;
+    serde_json::from_str(&json).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn store_peer_prekey_bundle(state: State<'_, ClientState>, peer_id: String, prekey_bundle: serde_json::Value) -> Result<(), String> {
+    let client = state.lock().map_err(|e| e.to_string())?.as_ref().cloned()
+        .ok_or_else(|| "Client not initialized".to_string())?;
+    let mut bundle = prekey_bundle;
+    for field in ["identity_key", "signal_identity_key", "signed_prekey", "signed_prekey_signature", "kyber_prekey", "kyber_prekey_signature"] {
+        if let Some(encoded) = bundle.get(field).and_then(|v| v.as_str()) {
+            let bytes = base64::engine::general_purpose::STANDARD.decode(encoded).map_err(|e| e.to_string())?;
+            bundle[field] = serde_json::json!(bytes);
+        }
+    }
+    if let Some(opk) = bundle.get_mut("one_time_prekey").and_then(|v| v.as_object_mut()) {
+        if let Some(encoded) = opk.get("public_key").and_then(|v| v.as_str()) {
+            let bytes = base64::engine::general_purpose::STANDARD.decode(encoded).map_err(|e| e.to_string())?;
+            opk.insert("public_key".into(), serde_json::json!(bytes));
+        }
+    }
+    client.set_contact_prekey_bundle(peer_id, bundle.to_string()).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn listen_on(
     state: State<'_, ClientState>,
     multiaddr: String,

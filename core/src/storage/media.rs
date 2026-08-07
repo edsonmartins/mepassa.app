@@ -61,7 +61,7 @@ impl MediaType {
         }
     }
 
-    pub fn from_str(s: &str) -> Self {
+    pub fn from_db_str(s: &str) -> Self {
         match s {
             "image" => MediaType::Image,
             "video" => MediaType::Video,
@@ -264,7 +264,7 @@ impl Database {
             id: row.get(0)?,
             media_hash: row.get(1)?,
             message_id: row.get(2)?,
-            media_type: MediaType::from_str(&row.get::<_, String>(3)?),
+            media_type: MediaType::from_db_str(&row.get::<_, String>(3)?),
             file_name: row.get(4)?,
             file_size: row.get(5)?,
             mime_type: row.get(6)?,
