@@ -2106,19 +2106,46 @@ impl Client {
     ) -> Result<()> {
         let content = envelope.encode()?;
 
-        // Mesma política SEC-01 das mensagens: falha de criptografia aborta o
-        // envio; sem sessão E2E cai em plaintext apenas se permitido (com
-        // warning extra quando o envelope carrega uma sender key seed).
+        // SEC-02: envelopes que carregam uma sender key seed NUNCA trafegam em
+        // plaintext, mesmo com ZAPLIVRE_ALLOW_PLAINTEXT=true. A seed é a chave
+        // do grupo; vazá-la anula a criptografia E2E de todas as mensagens.
+        if envelope.sender_key_seed.is_some() {
+            let encrypted =
+                Self::encrypt_for_peer_with(database, session_manager, &to, content.as_bytes())
+                    .await?
+                    .ok_or_else(|| {
+                        ZapLivreError::Crypto(format!(
+                            "Refusing to send group sender key seed to {}: no E2E session",
+                            to
+                        ))
+                    })?;
+
+            let proto_message = Message {
+                id: uuid::Uuid::new_v4().to_string(),
+                sender_peer_id: local_peer_id.to_string(),
+                recipient_peer_id: to.to_string(),
+                timestamp: chrono::Utc::now().timestamp_millis(),
+                r#type: MessageType::Encrypted as i32,
+                payload: Some(Payload::Encrypted(encrypted)),
+            };
+
+            return Client::deliver_message_with(
+                network,
+                identity,
+                to,
+                proto_message,
+                "group_control",
+                message_store_url,
+                message_store_http,
+            )
+            .await;
+        }
+
+        // Demais ações de controle (invite sem seed nova, member_added/removed,
+        // leave): mesma política SEC-01 das mensagens.
         let (message_type, payload) =
             Self::prepare_payload_with(database, session_manager, &to, &content, String::new())
                 .await?;
-
-        if message_type == MessageType::Text && envelope.sender_key_seed.is_some() {
-            tracing::warn!(
-                "⚠️ Group control with sender key seed to {} sent WITHOUT E2E (no session)",
-                to
-            );
-        }
 
         let proto_message = Message {
             id: uuid::Uuid::new_v4().to_string(),
@@ -2280,6 +2307,16 @@ impl Client {
             .map_err(|e| ZapLivreError::Other(format!("Failed to remove member: {}", e)))?;
 
         let my_id = self.local_peer_id().to_string();
+
+        // SEC: rotação de sender key após remoção. O admin rotaciona a própria
+        // chave e distribui a nova seed aos membros restantes (E2E), de forma
+        // que o removido não consiga mais decifrar mensagens futuras.
+        let rotated_seed = self
+            .group_manager
+            .rotate_my_sender_key(&group_id)
+            .ok()
+            .map(|seed| general_purpose::STANDARD.encode(&seed));
+
         let envelope = crate::group::GroupControlEnvelope {
             version: 1,
             action: crate::group::envelope::actions::MEMBER_REMOVED.to_string(),
@@ -2292,12 +2329,37 @@ impl Client {
             sender_key_seed: None,
         };
         for member in &members {
-            if *member == my_id {
+            if *member == my_id || *member == peer_id {
                 continue;
             }
             if let Ok(peer) = PeerId::from_str(member) {
                 if let Err(e) = self.send_group_control(peer, &envelope).await {
                     tracing::warn!("Failed to notify {} about member_removed: {}", member, e);
+                }
+            }
+        }
+
+        // Distribuir a NOVA seed apenas aos membros restantes (nunca ao removido)
+        if let Some(seed_b64) = rotated_seed {
+            let rotation = crate::group::GroupControlEnvelope {
+                version: 1,
+                action: crate::group::envelope::actions::SENDER_KEY.to_string(),
+                group_id: group_id.clone(),
+                group_name: None,
+                group_description: None,
+                creator_peer_id: None,
+                members: None,
+                member_peer_id: None,
+                sender_key_seed: Some(seed_b64),
+            };
+            for member in &members {
+                if *member == my_id || *member == peer_id {
+                    continue;
+                }
+                if let Ok(peer) = PeerId::from_str(member) {
+                    if let Err(e) = self.send_group_control(peer, &rotation).await {
+                        tracing::warn!("Failed to send rotated sender key to {}: {}", member, e);
+                    }
                 }
             }
         }

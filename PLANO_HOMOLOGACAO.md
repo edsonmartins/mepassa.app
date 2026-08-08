@@ -38,10 +38,10 @@
 
 ## Fase D — Segurança de grupos + escopo sync (P0/P1) — 2-4 dias
 
-- [ ] **D1.** Implementar rotação de sender key ao remover/sair de membro (`core/src/crypto/group.rs`, `core/src/group/manager.rs`).
-- [ ] **D2.** Bloquear envio do `GroupControlEnvelope` (contém seed) em plaintext sem sessão E2E — remover fallback em `core/src/api/client.rs:2112-2124` ou exigir `ZAPLIVRE_ALLOW_PLAINTEXT`.
-- [ ] **D3.** Decidir escopo do módulo `sync` (`core/src/sync/`): implementar CRDT multi-device ou remover do anúncio no `lib.rs`/README.
-- [ ] **D4.** Registrar avaliação/auditoria da dependência `libsignal-protocol-syft 0.85.3-beta.5` (fork beta) e considerar pin + plano de upgrade.
+- [x] **D1.** Implementar rotação de sender key ao remover/sair de membro (`core/src/crypto/group.rs`, `core/src/group/manager.rs`). **Feito** — `rotate_sender_key`/`replace_member_sender_key` no `GroupSessionManager`; `rotate_my_sender_key` no `GroupManager`; admin rotaciona e distribui nova seed (E2E) após `remove_group_member`; `rotate_and_distribute` no `builder.rs` dispara para MEMBER_REMOVED/LEAVE; testes de rotação.
+- [x] **D2.** Bloquear envio do `GroupControlEnvelope` (contém seed) em plaintext sem sessão E2E — remover fallback em `core/src/api/client.rs:2112-2124` ou exigir `ZAPLIVRE_ALLOW_PLAINTEXT`. **Feito** — envelopes com `sender_key_seed` agora exigem E2E obrigatoriamente (erro se sem sessão), mesmo com `ZAPLIVRE_ALLOW_PLAINTEXT=true` (SEC-02).
+- [x] **D3.** Decidir escopo do módulo `sync` (`core/src/sync/`): implementar CRDT multi-device ou remover do anúncio no `lib.rs`/README. **Feito** — adiado (fora da homologação); módulo vira placeholder documentado e o anúncio "CRDTs for multi-device sync" foi removido do `lib.rs` (doc drift).
+- [x] **D4.** Registrar avaliação/auditoria da dependência `libsignal-protocol-syft 0.85.3-beta.5` (fork beta) e considerar pin + plano de upgrade. **Feito** — `docs/AUDIT_LIBSIGNAL_SYFT.md`: veredito aceitável para beta fechado com pin no Cargo.lock, revisão do consumo e plano de upgrade.
 
 ## Fase E — Validação de homologação (P0/P1) — 3-5 dias
 

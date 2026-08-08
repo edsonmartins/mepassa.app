@@ -644,23 +644,124 @@ async fn handle_group_control(
                             let _ = network.unsubscribe_gossipsub(&topic);
                         }
                     }
-                    Ok(false) => {}
+                    Ok(false) => {
+                        // Um membro foi removido e EU continuo no grupo: rotacionar
+                        // minha sender key e distribuir a nova seed aos restantes
+                        // (E2E), para que o removido perca acesso a mensagens futuras.
+                        rotate_and_distribute(
+                            group_id.as_str(),
+                            removed,
+                            group_manager,
+                            database,
+                            session_manager,
+                            identity,
+                            network,
+                            message_store_url,
+                            http,
+                            local_peer_id,
+                        )
+                        .await;
+                    }
                     Err(e) => tracing::warn!("Rejected remote member_removed: {}", e),
                 }
             }
         }
 
         actions::LEAVE => {
-            if let Err(e) = group_manager
-                .remote_member_left(&group_id, &from_peer_id)
-                .await
-            {
+            let leaver = from_peer_id.clone();
+            if let Err(e) = group_manager.remote_member_left(&group_id, &leaver).await {
                 tracing::warn!("Failed to process member leave: {}", e);
             }
+            // O membro saiu por conta própria: os demais rotacionam a própria
+            // chave e redistribuem aos restantes (E2E).
+            rotate_and_distribute(
+                group_id.as_str(),
+                &leaver,
+                group_manager,
+                database,
+                session_manager,
+                identity,
+                network,
+                message_store_url,
+                http,
+                local_peer_id,
+            )
+            .await;
         }
 
         other => {
             tracing::warn!("Unknown group control action: {}", other);
+        }
+    }
+}
+
+/// Rota MINHA sender key após a remoção/saída de `gone_peer` e distribui a
+/// nova seed (E2E) aos membros restantes - o membro que saiu não pode mais
+/// decifrar mensagens futuras. Ignorado se o grupo já não existir mais.
+#[allow(clippy::too_many_arguments)]
+async fn rotate_and_distribute(
+    group_id: &str,
+    gone_peer: &str,
+    group_manager: &Arc<crate::group::GroupManager>,
+    database: &crate::storage::Database,
+    session_manager: &crate::crypto::SignalSessionManager,
+    identity: &Arc<RwLock<Identity>>,
+    network: &Arc<RwLock<NetworkManager>>,
+    message_store_url: &Option<String>,
+    http: &reqwest::Client,
+    local_peer_id: &str,
+) {
+    use crate::group::envelope::actions;
+    use base64::{engine::general_purpose, Engine as _};
+
+    // A remoção/saída já foi validada no handle (ator admin ou membro). O guard
+    // correto aqui é: só rotaciono se EU ainda sou membro do grupo (não fui o
+    // removido e o grupo continua existindo).
+    if !group_manager.is_group_member(group_id, local_peer_id).await {
+        return;
+    }
+
+    let Some(group) = group_manager.get_group(group_id).await else {
+        return;
+    };
+
+    let Ok(new_seed) = group_manager.rotate_my_sender_key(group_id) else {
+        return;
+    };
+
+    let envelope = crate::group::GroupControlEnvelope {
+        version: 1,
+        action: actions::SENDER_KEY.to_string(),
+        group_id: group_id.to_string(),
+        group_name: None,
+        group_description: None,
+        creator_peer_id: None,
+        members: None,
+        member_peer_id: None,
+        sender_key_seed: Some(general_purpose::STANDARD.encode(&new_seed)),
+    };
+
+    for member in &group.members {
+        if member == local_peer_id || member == gone_peer {
+            continue;
+        }
+        let Ok(peer) = member.parse::<libp2p::PeerId>() else {
+            continue;
+        };
+        if let Err(e) = Client::send_group_control_with(
+            database,
+            session_manager,
+            Arc::clone(network),
+            Arc::clone(identity),
+            message_store_url.clone(),
+            http.clone(),
+            local_peer_id,
+            peer,
+            &envelope,
+        )
+        .await
+        {
+            tracing::warn!("Failed to send rotated sender key to {}: {}", member, e);
         }
     }
 }

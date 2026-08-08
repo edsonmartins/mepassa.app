@@ -1,10 +1,13 @@
-//! Synchronization module
+//! Synchronization module (placeholder)
 //!
-//! Multi-device sync using CRDTs (Automerge).
-
-// pub mod crdt;
-// pub mod device;
-// pub mod protocol;
+//! Multi-device sync foi adiado: este módulo hoje só define o tipo de erro e
+//! serve de ponto de entrada para a implementação futura. O anúncio de
+//! "CRDTs for multi-device sync" foi removido do `lib.rs` (doc drift).
+//!
+//! Para implementar de fato (fora do escopo de homologação):
+//! - CRDT via Automerge (`automerge = "0.5"`, hoje comentado no Cargo.toml)
+//! - link de devices e protocolo de sincronização
+//! - decidir o quê sincronizar (conversas, contatos, prekeys, configurações)
 
 use thiserror::Error;
 

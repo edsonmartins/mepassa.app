@@ -14,7 +14,7 @@
 //! - `crypto`: Signal Protocol E2E encryption
 //! - `network`: libp2p P2P networking
 //! - `storage`: SQLite local storage
-//! - `sync`: CRDTs for multi-device sync
+//! - `sync`: placeholder para multi-device sync (ainda não implementado)
 //! - `voip`: WebRTC voice/video calls
 //! - `protocol`: Protobuf message definitions
 //! - `api`: Public Client API

@@ -480,6 +480,49 @@ impl GroupSessionManager {
         Ok(session.my_sender_key_seed())
     }
 
+    /// Rotaciona MINHA sender key para um grupo: gera uma nova seed aleatória
+    /// e zera o counter. Chamada quando um membro é removido/sai, para que o
+    /// membro removido não consiga mais decifrar mensagens futuras.
+    pub fn rotate_sender_key(&self, group_id: &str) -> Result<[u8; 32]> {
+        let mut sessions = self
+            .sessions
+            .write()
+            .map_err(|e| ZapLivreError::Crypto(format!("Lock error: {}", e)))?;
+
+        let session = sessions
+            .get_mut(group_id)
+            .ok_or_else(|| ZapLivreError::Crypto(format!("Group not found: {}", group_id)))?;
+
+        let new_seed = SenderKey::generate(session.my_sender_key.sender_id.clone())?.seed();
+        session.my_sender_key =
+            SenderKey::from_seed_with_counter(session.my_sender_key.sender_id.clone(), new_seed, 0);
+
+        Ok(new_seed)
+    }
+
+    /// Substitui a seed do membro `sender_id` por uma seed nova (usado quando
+    /// o membro rotaciona após a remoção de outro). Preserva o counter se a
+    /// seed for a mesma.
+    pub fn replace_member_sender_key(
+        &self,
+        group_id: &str,
+        sender_id: &str,
+        new_seed: [u8; 32],
+    ) -> Result<()> {
+        let mut sessions = self
+            .sessions
+            .write()
+            .map_err(|e| ZapLivreError::Crypto(format!("Lock error: {}", e)))?;
+
+        let session = sessions
+            .get_mut(group_id)
+            .ok_or_else(|| ZapLivreError::Crypto(format!("Group not found: {}", group_id)))?;
+
+        session.add_member(sender_id.to_string(), new_seed);
+
+        Ok(())
+    }
+
     /// Encrypt a message to a group
     pub fn encrypt_to_group(
         &self,
@@ -837,5 +880,75 @@ mod tests {
         // Seed diferente (rotação) reseta
         session.add_member("bob".to_string(), [8u8; 32]);
         assert_eq!(session.member_sender_keys.get("bob").unwrap().counter, 0);
+    }
+
+    #[test]
+    fn test_rotate_sender_key_generates_new_seed() {
+        let manager = GroupSessionManager::new("alice".to_string());
+        let group_id = "g1".to_string();
+
+        let original_seed = manager.create_group(group_id.clone()).unwrap();
+        assert_eq!(
+            manager.my_sender_key_seed(&group_id).unwrap(),
+            original_seed
+        );
+
+        let new_seed = manager.rotate_sender_key(&group_id).unwrap();
+        assert_ne!(new_seed, original_seed);
+        assert_eq!(manager.my_sender_key_seed(&group_id).unwrap(), new_seed);
+    }
+
+    #[test]
+    fn test_rotated_sender_key_rejects_old_messages() {
+        // Alice e Bob têm as seeds originais; após a rotação, a seed antiga de
+        // Alice não decifra mais as mensagens novas (o Bob deve receber a seed
+        // nova para continuar decifrando).
+        let alice_manager = GroupSessionManager::new("alice".to_string());
+        let bob_manager = GroupSessionManager::new("bob".to_string());
+
+        let alice_seed_old = alice_manager.create_group("g1".to_string()).unwrap();
+        let bob_seed = bob_manager
+            .join_group(
+                "g1".to_string(),
+                vec![("alice".to_string(), alice_seed_old)],
+            )
+            .unwrap();
+
+        alice_manager
+            .add_member_to_group("g1", "bob".to_string(), bob_seed)
+            .unwrap();
+        bob_manager
+            .add_member_to_group("g1", "alice".to_string(), alice_seed_old)
+            .unwrap();
+
+        // Alice envia antes da rotação - Bob (com seed antiga) decifra
+        let (sender_id, enc_old) = alice_manager.encrypt_to_group("g1", b"before").unwrap();
+        assert_eq!(
+            bob_manager
+                .decrypt_from_group("g1", &sender_id, &enc_old)
+                .unwrap(),
+            b"before"
+        );
+
+        // Bob é removido do grupo; Alice rotaciona a própria chave
+        let alice_seed_new = alice_manager.rotate_sender_key("g1").unwrap();
+        assert_ne!(alice_seed_new, alice_seed_old);
+
+        // Alice envia após a rotação - Bob (que ainda tem a seed antiga) NÃO decifra
+        let (_sender_id, enc_new) = alice_manager.encrypt_to_group("g1", b"after").unwrap();
+        assert!(bob_manager
+            .decrypt_from_group("g1", &sender_id, &enc_new)
+            .is_err());
+
+        // Bob recebe a seed nova e volta a decifrar
+        bob_manager
+            .add_member_to_group("g1", "alice".to_string(), alice_seed_new)
+            .unwrap();
+        assert_eq!(
+            bob_manager
+                .decrypt_from_group("g1", &sender_id, &enc_new)
+                .unwrap(),
+            b"after"
+        );
     }
 }

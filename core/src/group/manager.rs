@@ -771,6 +771,22 @@ impl GroupManager {
         Ok(seed.to_vec())
     }
 
+    /// Rotaciona MINHA sender key do grupo: gera nova seed, zera o counter e
+    /// persiste. Deve ser chamado por todos os membros restantes quando um
+    /// membro é removido/sai, para que o removido perca a capacidade de
+    /// decifrar mensagens futuras (forward secrecy por rotação de membro).
+    pub fn rotate_my_sender_key(&self, group_id: &str) -> Result<Vec<u8>> {
+        let new_seed = self.group_sessions.rotate_sender_key(group_id)?;
+        storage::save_sender_key_seed(
+            &self.db,
+            &self.storage_key,
+            group_id,
+            &self.local_peer_id,
+            &new_seed,
+        )?;
+        Ok(new_seed.to_vec())
+    }
+
     pub fn add_group_sender_key(
         &self,
         group_id: &str,
