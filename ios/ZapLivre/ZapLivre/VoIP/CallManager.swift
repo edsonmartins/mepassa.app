@@ -24,6 +24,7 @@ class CallManager: NSObject, ObservableObject {
 
     // MARK: - Audio
     private let audioManager = AudioManager()
+    private var audioStarted = false
     private var audioSession: AVAudioSession {
         AVAudioSession.sharedInstance()
     }
@@ -158,6 +159,7 @@ class CallManager: NSObject, ObservableObject {
 
     private func cleanupCall() {
         stopAudio()
+        audioStarted = false
 
         DispatchQueue.main.async {
             self.currentCall = nil
@@ -318,12 +320,35 @@ class CallManager: NSObject, ObservableObject {
     }
 
     private func startAudio() {
+        // Guard: CallKit (didActivate) e handleCallStateChanged podem disparar
+        // este fluxo - iniciar o AVAudioEngine duas vezes instala tap duplicado.
+        guard !audioStarted else { return }
+        audioStarted = true
+
         do {
             try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetooth, .defaultToSpeaker])
             try audioSession.setActive(true)
 
-            // TODO: Connect AVAudioEngine to WebRTC audio tracks
-            // This will use AVAudioEngine for audio I/O similar to Android's CallAudioManager
+            // Áudio I/O real: inicia o AVAudioEngine e conecta o microfone
+            // ao core (sendAudioFrame). Antes isso era um TODO - o áudio só
+            // funcionava quando o CallKit ativava o session via didActivate.
+            try audioManager.start()
+
+            // Callback: captura do mic (48kHz mono 16-bit) -> core -> Opus
+            audioManager.onAudioCaptured = { [weak self] audioData in
+                guard let self = self, !self.isMuted else { return }
+                guard let coreCallId = self.currentCall?.coreCallId else { return }
+
+                let audioBytes = [UInt8](audioData)
+                Task {
+                    try? await ZapLivreCore.shared.sendAudioFrame(
+                        callId: coreCallId,
+                        audioData: audioBytes,
+                        sampleRate: 48_000,
+                        channels: 1
+                    )
+                }
+            }
 
             print("🎤 Audio session started")
         } catch {
@@ -333,6 +358,7 @@ class CallManager: NSObject, ObservableObject {
 
     private func stopAudio() {
         do {
+            audioManager.stop()
             try audioSession.setActive(false)
             print("🎤 Audio session stopped")
         } catch {
@@ -404,31 +430,7 @@ extension CallManager: CXProviderDelegate {
 
     func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
         print("🎤 Audio session activated")
-
-        do {
-            try audioManager.start()
-
-            // Setup audio callback to send to WebRTC
-            audioManager.onAudioCaptured = { [weak self] audioData in
-                guard let self = self else { return }
-                guard !self.isMuted else { return }
-                guard let coreCallId = self.currentCall?.coreCallId else { return }
-
-                let audioBytes = [UInt8](audioData)
-                Task {
-                    try? await ZapLivreCore.shared.sendAudioFrame(
-                        callId: coreCallId,
-                        audioData: audioBytes,
-                        sampleRate: 48_000,
-                        channels: 1
-                    )
-                }
-            }
-
-            print("✅ Audio I/O started")
-        } catch {
-            print("❌ Error starting audio: \(error)")
-        }
+        startAudio()
     }
 
     func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {

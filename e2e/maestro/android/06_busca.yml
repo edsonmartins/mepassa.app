@@ -5,7 +5,7 @@ appId: com.zaplivre
 - runFlow: common/_setup_identity.yml
 - tapOn:
     id: "conversations_search"
-- assertVisible: "Buscar mensagens"
+- assertVisible: "Digite para buscar mensagens"
 - tapOn:
     id: "search_input"
 - inputText: "maestro"
@@ -13,7 +13,10 @@ appId: com.zaplivre
 # nunca crash) — o campo de busca segue presente
 - assertVisible:
     id: "search_input"
+# Teclado aberto: o primeiro back só o fecha; esconde antes de sair da busca
+- hideKeyboard
 - back
 - extendedWaitUntil:
-    visible: "Conversas"
+    visible:
+      id: "conversations_settings"
     timeout: 10000

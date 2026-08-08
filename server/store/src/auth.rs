@@ -22,6 +22,30 @@ static PEER_REQUESTS: OnceLock<Mutex<HashMap<String, Vec<i64>>>> = OnceLock::new
 
 pub struct AuthError(pub &'static str);
 
+/// Verifica um Bearer token de serviço (ex.: /api/stats) em tempo constante.
+///
+/// Usa `subtle::ConstantTimeEq` para evitar vazamento de timing na comparação
+/// do secret (mesma política do push-server).
+pub fn verify_service_token(req: &HttpRequest, expected_secret: &str) -> Result<(), AuthError> {
+    use subtle::ConstantTimeEq;
+
+    let supplied = req
+        .headers()
+        .get(actix_web::http::header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .ok_or(AuthError("missing service authentication"))?;
+
+    let supplied_bytes = supplied.as_bytes();
+    let expected_bytes = expected_secret.as_bytes();
+    if supplied_bytes.len() != expected_bytes.len()
+        || !bool::from(supplied_bytes.ct_eq(expected_bytes))
+    {
+        return Err(AuthError("invalid service authentication"));
+    }
+    Ok(())
+}
+
 /// Verifica a assinatura da requisição e retorna o peer ID autenticado.
 pub fn verify_request(req: &HttpRequest, body: &[u8]) -> Result<String, AuthError> {
     let peer = header(req, "x-zaplivre-peer").ok_or(AuthError("missing x-zaplivre-peer"))?;

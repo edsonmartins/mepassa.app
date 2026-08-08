@@ -212,7 +212,25 @@ pub async fn health_check(
 /// Get statistics
 ///
 /// GET /api/stats
-pub async fn get_stats(db: web::Data<Database>) -> impl Responder {
+///
+/// Endpoint interno (ops/monitoração): exige `Authorization: Bearer <PUSH_SERVICE_SECRET>`
+/// para evitar exposição de métricas para qualquer pessoa na rede.
+pub async fn get_stats(
+    req: HttpRequest,
+    db: web::Data<Database>,
+    push: web::Data<PushNotifier>,
+) -> impl Responder {
+    let Some(secret) = push.service_secret() else {
+        return HttpResponse::ServiceUnavailable().json(json!({
+            "error": "stats endpoint disabled (PUSH_SERVICE_SECRET not configured)"
+        }));
+    };
+
+    if let Err(e) = crate::auth::verify_service_token(&req, secret) {
+        tracing::warn!("🚫 Unauthorized /api/stats: {}", e.0);
+        return HttpResponse::Unauthorized().json(json!({ "error": e.0 }));
+    }
+
     match db.count_pending_messages().await {
         Ok(pending) => HttpResponse::Ok().json(json!({
             "pending_messages": pending,

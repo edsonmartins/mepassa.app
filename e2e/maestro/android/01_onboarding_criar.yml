@@ -5,6 +5,7 @@
 appId: com.zaplivre
 ---
 - clearState
+- evalScript: ${output.e2e_username = 'u' + Date.now()}
 # Pré-concede notificações (Android 13+): o diálogo cobriria o onboarding
 - launchApp:
     permissions:
@@ -13,9 +14,20 @@ appId: com.zaplivre
 - assertVisible: "ZapLivre"
 - tapOn:
     id: "onboarding_create"
-# Peer ID gerado deve aparecer
-- assertVisible: "Seu Peer ID:"
-# Auto-navega para conversas
+# Registro de username (diálogo) antes do Peer ID
 - extendedWaitUntil:
-    visible: "Conversas"
+    visible: "Escolha seu username"
+    timeout: 15000
+# O AlertDialog do Compose cria uma janela própria: o testTag precisa de
+# testTagsAsResourceId no conteúdo do diálogo (onboarding_username_input/
+# onboarding_register), que não herda o flag da raiz do MainActivity.
+- tapOn:
+    id: "onboarding_username_input"
+- inputText: ${output.e2e_username}
+- tapOn:
+    id: "onboarding_register"
+# Registro concluído: auto-navega para Conversas (identidade + username criados)
+- extendedWaitUntil:
+    visible:
+      id: "conversations_settings"
     timeout: 30000

@@ -7,6 +7,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -27,6 +30,7 @@ import kotlinx.coroutines.launch
  * - Mostrar mensagem de boas-vindas
  * - Redirecionar para Conversations após setup
  */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun OnboardingScreen(
     onOnboardingComplete: () -> Unit
@@ -229,43 +233,49 @@ fun OnboardingScreen(
             onDismissRequest = { },
             title = { Text("Escolha seu username") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.semantics { testTagsAsResourceId = true }
+                ) {
                     Text("Use 3 a 20 caracteres: letras minúsculas, números e underscore.")
                     OutlinedTextField(
                         value = username,
                         onValueChange = { username = it.lowercase(); usernameError = null },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().testTag("onboarding_username_input"),
                         placeholder = { Text("seu_username") }
                     )
                     usernameError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 }
             },
             confirmButton = {
-                TextButton(
-                    enabled = !isInitializing,
-                    onClick = {
-                        val value = username.trim()
-                        if (!Regex("^[a-z0-9_]{3,20}$").matches(value)) {
-                            usernameError = "Username inválido"
-                            return@TextButton
-                        }
-                        isInitializing = true
-                        scope.launch {
-                            try {
-                                ZapLivreClientWrapper.registerUsername(value)
-                                ZapLivreClientWrapper.markUsernameRegistered(context, value)
-                                com.zaplivre.service.ZapLivreService.start(context)
-                                showUsernameDialog = false
-                                onOnboardingComplete()
-                            } catch (error: Exception) {
-                                usernameError = error.message ?: "Não foi possível registrar o username"
-                            } finally {
-                                isInitializing = false
+                Box(modifier = Modifier.semantics { testTagsAsResourceId = true }) {
+                    TextButton(
+                        enabled = !isInitializing,
+                        modifier = Modifier.testTag("onboarding_register"),
+                        onClick = {
+                            val value = username.trim()
+                            if (!Regex("^[a-z0-9_]{3,20}$").matches(value)) {
+                                usernameError = "Username inválido"
+                                return@TextButton
+                            }
+                            isInitializing = true
+                            scope.launch {
+                                try {
+                                    ZapLivreClientWrapper.registerUsername(value)
+                                    ZapLivreClientWrapper.markUsernameRegistered(context, value)
+                                    com.zaplivre.service.ZapLivreService.start(context)
+                                    showUsernameDialog = false
+                                    onOnboardingComplete()
+                                } catch (error: Exception) {
+                                    usernameError = error.message ?: "Não foi possível registrar o username"
+                                } finally {
+                                    isInitializing = false
+                                }
                             }
                         }
-                    }
-                ) { Text("Registrar") }
+                    ) { Text("Registrar") }
+                }
             },
         )
     }

@@ -189,6 +189,13 @@ export default function ConversationsView({ localPeerId }: ConversationsViewProp
               Backup
             </button>
             <button
+              onClick={() => navigate('/settings')}
+              className="btn-secondary text-sm"
+              title="Configurações"
+            >
+              Settings
+            </button>
+            <button
               onClick={() => navigate('/groups')}
               className="btn-secondary text-sm"
             >

@@ -11,6 +11,7 @@ import CallView from './views/CallView'
 import VideoCallView from './views/VideoCallView'
 import GroupListView from './views/GroupListView'
 import GroupChatView from './views/GroupChatView'
+import SettingsView from './views/SettingsView'
 import { VoipStateProvider, useVoipState } from './state/voipState'
 import './styles/voipToast.css'
 
@@ -310,6 +311,7 @@ function App() {
       <Route path="/video-call/:callId/:remotePeerId" element={<VideoCallView />} />
       <Route path="/groups" element={<GroupListView localPeerId={localPeerId} />} />
       <Route path="/group/:groupId" element={<GroupChatView />} />
+      <Route path="/settings" element={<SettingsView localPeerId={localPeerId} />} />
       <Route path="*" element={<Navigate to={isInitialized && usernameRegistered ? "/conversations" : "/onboarding"} replace />} />
       </Routes>
     </div>

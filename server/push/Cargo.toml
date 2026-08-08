@@ -23,6 +23,7 @@ hex = { workspace = true }
 chrono = { workspace = true }
 ed25519-dalek = { workspace = true }
 libp2p-identity = { version = "0.2", features = ["ed25519", "peerid", "rand"] }
+subtle = { workspace = true }
 
 # Database (PostgreSQL only; workspace version to avoid compiling two sqlx trees)
 sqlx = { workspace = true, features = ["postgres", "macros"] }

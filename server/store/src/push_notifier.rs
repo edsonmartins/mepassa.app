@@ -24,6 +24,12 @@ impl PushNotifier {
         }
     }
 
+    /// Acesso ao service secret (usado para autenticar endpoints internos
+    /// como /api/stats). Sem exposição pública fora do crate.
+    pub(crate) fn service_secret(&self) -> Option<&str> {
+        self.service_secret.as_deref()
+    }
+
     /// Fire-and-forget: notifica o destinatário de uma mensagem offline
     pub fn notify_offline_message(&self, recipient_peer_id: &str, sender_peer_id: &str) {
         let Some(base_url) = self.push_server_url.clone() else {

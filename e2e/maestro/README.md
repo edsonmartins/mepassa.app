@@ -10,18 +10,14 @@ sem injeção de dependência (mockar exigiria refatoração).
 | Plataforma | Flows | Estado |
 |---|---|---|
 | **iOS** | 8 (`01,02,03,04,05,07,08,09`) | **Executados e verdes** (8/8, ~2m25s) no simulador iPhone 17 / iOS 26.3 |
-| **Android** | 10 (`01`–`10`) | **Validados só por sintaxe** (`maestro check-syntax`); execução ponta-a-ponta pendente de emulador/CI |
+| **Android** | 10 (`01`–`10`) | **Executados e verdes** (10/10, ~5m53s) no device físico Samsung SM-X115 |
 
 - iOS: suíte inteira roda verde no simulador (`maestro test e2e/maestro/ios/`).
   Os números 06 e 10 **não existem** no iOS (busca e galeria só vivem dentro da
   conversa 1:1 — ver "Limitações conhecidas com 1 device").
-- Android: os 10 flows foram escritos a partir do código real e passam no
-  `check-syntax`, mas **ainda não rodaram num device**. Ao executá-los pela
-  primeira vez, espere que os flows que envolvem envio/conversa
-  (`03_enviar_mensagem`, `07_grupo_chat`, `10_media_gallery`) possam precisar de
-  adaptação análoga à feita no iOS, conforme o comportamento offline do app
-  Android (ver "Limitações conhecidas com 1 device" e a nota de bug de produto
-  no fim).
+- Android: 10/10 verdes em device físico (Samsung SM-X115, arm64-v8a). Requer a
+  stack local (ver "Android: stack local") com `adb reverse` das portas
+  8083/8080/8081/8086 e o peer E2E seedado no identity server.
 
 ## Setup
 
@@ -131,15 +127,45 @@ helper; o `01_onboarding_criar` valida o onboarding em si.
 ```bash
 # Suíte inteira de uma plataforma
 maestro test e2e/maestro/ios/          # 8/8 verde no simulador
-maestro test e2e/maestro/android/      # ainda não executado em device
+maestro test e2e/maestro/android/      # 10/10 verde no device físico
 
 # Um flow isolado — funciona para QUALQUER flow, em qualquer ordem:
 # todos são independentes (cada um faz clearState + cria identidade fresca)
-maestro test e2e/maestro/ios/07_grupo_chat.yml
+maestro test e2e/maestro/android/07_grupo_chat.yml
 
 # Checar sintaxe sem device
 maestro check-syntax e2e/maestro/android/03_enviar_mensagem.yml
 ```
+
+### Android: stack local
+
+Os flows Android apontam o app para a stack **local** (`localhost` no device),
+não para produção `*.zaplivre.app`. Para rodar:
+
+```bash
+# 1. APK com URLs locais (JAVA_HOME=Temurin 17; o Gradle 8.5 quebra com GraalVM)
+cd android && ./gradlew assembleDebug \
+  -Dorg.gradle.java.home=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home
+
+# 2. Instalar + espelhar as portas do host para o device
+adb -s R9XY7023XLL install -r app/build/outputs/apk/debug/app-debug.apk
+adb -s R9XY7023XLL reverse tcp:8083 tcp:8083   # identity
+adb -s R9XY7023XLL reverse tcp:8080 tcp:8080   # message-store
+adb -s R9XY7023XLL reverse tcp:8081 tcp:8081   # push
+adb -s R9XY7023XLL reverse tcp:8086 tcp:8086   # signaling
+
+# 3. Stack local de pé (docker compose up -d) com rate limit desligado:
+#    RATE_LIMIT_DISABLED=1 docker compose up -d identity-server
+#    (o limite de 5/hora do /api/v1/register quebrava a suíte com 429)
+
+# 4. Seedar o peer E2E dos flows 03/10 (envio para peer OFFLINE → Pending)
+IDENTITY_SERVER_URL=http://localhost:8083 cargo run --example seed_peer
+```
+
+O `seed_peer` registra o username fixo `maestro_e2e_peer` no identity server com
+o **peer ID libp2p real** (`12D3KooW…`) — registros com o ID de identidade
+`zaplivre_…` não são parseáveis como `PeerId` e fazem o envio falhar. É
+idempotente: se o username já existir, mantém o registro atual.
 
 > **Independência de ordem**: nenhum flow depende de outro ter rodado antes —
 > cada um recria a identidade via `common/_setup_identity.yml` (com `clearState`).
@@ -159,34 +185,42 @@ maestro check-syntax e2e/maestro/android/03_enviar_mensagem.yml
 | 08_group_info | GroupInfo acessível: nome + "Sair do grupo" visíveis | tela de info órfã/quebrada |
 | 09_settings_toggles | Alternar switches de Settings sem crash | crash nos toggles |
 
-### Android (só sintaxe até agora)
+### Android (executados, 10/10 verde)
 
 | Flow | O que valida | Regressão que pegaria |
 |---|---|---|
-| 01_onboarding_criar | Primeira execução → criar identidade → chegar em Conversas | corrida do auto-init |
+| 01_onboarding_criar | Primeira execução → criar identidade → chegar em Conversas | corrida do auto-init; diálogo de username inacessível |
 | 02_navegacao_telas | Toda tela alcançável pela navegação (anti-órfã) | Settings/Search órfãs |
-| 03_enviar_mensagem | Digitar + enviar → mensagem no chat **e input limpo** | fiação UI→FFI de envio (pode precisar de adaptação: ver limitações) |
+| 03_enviar_mensagem | Digitar + enviar → mensagem no chat **e input limpo** | fiação UI→FFI de envio; bundle de prekeys DTO não normalizado; envio para peer offline |
 | 04_backup_identidade | Settings → exportar backup → conteúdo Base64 visível | backup inacessível |
 | 05_criar_grupo | Criar grupo → grupo aparece na lista | lista mockada vazia |
-| 06_busca | Busca **global** (a partir da lista) aceita query sem crashar | crash na tela de busca |
-| 07_grupo_chat | Criar grupo (nome único) → enviar mensagem em grupo | fiação de envio em grupo (pode precisar de adaptação: ver limitações) |
+| 06_busca | Busca **global** (a partir da lista) aceita query sem crashar | crash na tela de busca; texto de empty state errado |
+| 07_grupo_chat | Criar grupo (nome único) → enviar mensagem em grupo | fiação de envio em grupo |
 | 08_group_info | GroupInfo acessível: nome + "Sair do grupo" visíveis | tela de info órfã/quebrada |
 | 09_settings_toggles | Alternar switches de Settings sem crash | crash nos toggles |
-| 10_media_gallery | Galeria de mídia abre com empty state ("Nenhuma mídia") | crash/galeria órfã (pode precisar de adaptação: ver limitações) |
+| 10_media_gallery | Galeria de mídia abre com empty state ("Nenhuma mídia") | crash/galeria órfã |
+
+> **Diálogos no Android (Compose)**: o `AlertDialog` cria uma janela própria de
+> acessibilidade e **não herda** o `testTagsAsResourceId` da raiz do
+> `MainActivity`. Os testTags dentro de diálogos só resolvem porque o conteúdo
+> de cada diálogo usado pelos flows aplica
+> `Modifier.semantics { testTagsAsResourceId = true }`
+> (`onboarding_username_input`/`onboarding_register`,
+> `new_chat_peer_input`/`new_chat_confirm`,
+> `grouplist_create_name_input`/`grouplist_create_confirm`).
 
 ## Limitações conhecidas com 1 device
 
 Estes cenários **não são cobríveis com um único device** e vivem só em
 `docs/guides/testing-manual.md` (roteiros de 2 dispositivos):
 
-- **Envio de mensagem 1:1** — exige um peer real alcançável. Confirmado por
-  inspeção do SQLite do app: com o peer offline o envio **nem persiste
-  localmente** e a UI mostra erro `ZapLivreFfiError.Network`. Por isso o iOS `04`
-  virou "nova conversa" (valida a NewChatView + tratamento de peer offline, não a
-  entrega).
-- **Envio de mensagem em grupo** — mesma limitação: com 1 device a mensagem
-  própria **não é salva** (tabela `messages` fica vazia após o envio). Por isso
-  o iOS `07` valida só o compositor de grupo (sem crash), não a entrega.
+- **Envio de mensagem 1:1 com ENTREGA** — o peer seedado (`maestro_e2e_peer`)
+  fica **offline**: o flow `03` valida que a mensagem é **persistida como
+  Pending** (fica visível como bolha, input limpo), não a entrega em tempo real.
+  A entrega de fato exige um segundo device com o app aberto.
+- **Envio de mensagem em grupo com ENTREGA** — mesmo caso: o flow `07` valida
+  que a mensagem própria **persiste localmente** na tabela do grupo (regressão
+  4b), não a distribuição aos membros.
 - **Recebimento de mensagem** e **chamadas (VoIP)** — exigem um segundo device
   enviando/ligando.
 - **iOS: busca e galeria de mídia** — vivem **dentro da conversa 1:1**

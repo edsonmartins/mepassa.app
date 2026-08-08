@@ -38,8 +38,8 @@ ios/
 ├── generate-bindings.sh      # Generate Swift bindings via UniFFI
 ├── project.yml               # Xcode project specification (xcodegen)
 ├── Libraries/                # Compiled Rust static libraries
-│   ├── libzaplivre_core_ios.a     # iOS device (ARM64) - 96MB
-│   └── libzaplivre_core_sim.a     # Simulator (ARM64 + x86_64) - 192MB
+│   ├── libzaplivre_core_ios.a     # iOS device (ARM64) - ~215MB (build-rust.sh)
+│   └── libzaplivre_core_sim.a     # Simulator (ARM64 + x86_64) - ~190MB (build-rust.sh)
 ├── ZapLivre.xcodeproj/        # Generated Xcode project (via xcodegen)
 └── ZapLivre/
     ├── ZapLivreApp.swift      # App entry point + SwiftUI lifecycle

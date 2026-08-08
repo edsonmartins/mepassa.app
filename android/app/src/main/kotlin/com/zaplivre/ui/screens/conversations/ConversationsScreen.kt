@@ -19,6 +19,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -244,6 +247,7 @@ fun ConversationRow(row: ConversationUi, onClick: () -> Unit) {
 }
 
 @Composable
+@OptIn(ExperimentalComposeUiApi::class)
 fun NewConversationDialog(
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit
@@ -256,6 +260,7 @@ fun NewConversationDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.conversations_new)) },
         text = {
+            Column(modifier = Modifier.semantics { testTagsAsResourceId = true }) {
             OutlinedTextField(
                 value = usernameInput,
                 onValueChange = { usernameInput = it.removePrefix("@").lowercase(); error = null },
@@ -265,29 +270,32 @@ fun NewConversationDialog(
                 modifier = Modifier.fillMaxWidth().testTag("new_chat_peer_input")
             )
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            }
         },
         confirmButton = {
-            TextButton(
-                onClick = {
-                    loading = true
-                    scope.launch {
-                        try {
-                            val result = ZapLivreClientWrapper.lookupUsername(usernameInput.trim())
-                            val json = JSONObject(result)
-                            val peerId = json.getString("peer_id")
-                            ZapLivreClientWrapper.storePeerPrekeyBundle(
-                                peerId,
-                                json.getJSONObject("prekey_bundle").toString()
-                            )
-                            onConfirm(peerId)
-                        } catch (e: Exception) {
-                            error = e.message ?: "Usuário não encontrado"
-                        } finally { loading = false }
-                    }
-                },
-                enabled = usernameInput.trim().isNotEmpty() && !loading,
-                modifier = Modifier.testTag("new_chat_confirm")
-            ) { Text(if (loading) "Buscando…" else "Adicionar") }
+            Box(modifier = Modifier.semantics { testTagsAsResourceId = true }) {
+                TextButton(
+                    onClick = {
+                        loading = true
+                        scope.launch {
+                            try {
+                                val result = ZapLivreClientWrapper.lookupUsername(usernameInput.trim())
+                                val json = JSONObject(result)
+                                val peerId = json.getString("peer_id")
+                                ZapLivreClientWrapper.storePeerPrekeyBundle(
+                                    peerId,
+                                    json.getJSONObject("prekey_bundle").toString()
+                                )
+                                onConfirm(peerId)
+                            } catch (e: Exception) {
+                                error = e.message ?: "Usuário não encontrado"
+                            } finally { loading = false }
+                        }
+                    },
+                    enabled = usernameInput.trim().isNotEmpty() && !loading,
+                    modifier = Modifier.testTag("new_chat_confirm")
+                ) { Text(if (loading) "Buscando…" else "Adicionar") }
+            }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }

@@ -43,6 +43,7 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 # Auth (SEC-09): verificação Ed25519 com chave extraída do peer ID
 ed25519-dalek = "2.1"
 libp2p-identity = { version = "0.2", features = ["ed25519", "peerid"] }
+subtle = { workspace = true }
 
 [[bin]]
 name = "zaplivre-store"

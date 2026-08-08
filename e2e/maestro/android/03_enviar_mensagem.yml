@@ -1,26 +1,28 @@
-# Enviar mensagem: nova conversa por peer ID → digitar → enviar → aparece
-# Valida a fiação UI -> wrapper -> FFI de envio
-# NOTA: use um peer ID real de um segundo device para teste completo;
-# com peer offline a mensagem deve ficar Pending (fila de retry do core)
+# Enviar mensagem: nova conversa por username → digitar → enviar → aparece
+# Valida a fiação UI -> wrapper -> FFI de envio.
+# O peer é seedado via `core/examples/seed_peer.rs` no identity-server local
+# (username fixo maestro_e2e_peer). Ele fica OFFLINE: a mensagem é persistida
+# como Pending (fila de retry do core, regressão 4b) e ainda aparece como
+# bolha — nunca deve "sumir" da tabela nem propagar erro.
 appId: com.zaplivre
 env:
-  PEER_ID: "12D3KooWSubstituaPorUmPeerIdRealDeTeste000000000"
+  PEER_USERNAME: "maestro_e2e_peer"
 ---
 - runFlow: common/_setup_identity.yml
 
-# Nova conversa (dialog: título "Nova conversa", confirmar = "OK")
+# Nova conversa (dialog: título "Nova conversa", confirmar = "Adicionar")
 - tapOn:
     id: "conversations_fab"
 - tapOn:
     id: "new_chat_peer_input"
-- inputText: ${PEER_ID}
+- inputText: ${PEER_USERNAME}
 - tapOn:
     id: "new_chat_confirm"
 
 # Enviar mensagem — chat_send só existe quando o campo tem texto
 - tapOn:
     id: "chat_input"
-- inputText: "olá do teste maestro"
+- inputText: "ola do teste maestro"
 - assertVisible:
     id: "chat_send"
 - tapOn:
@@ -28,7 +30,7 @@ env:
 
 # Envio real: a mensagem aparece como bolha no chat...
 - extendedWaitUntil:
-    visible: "olá do teste maestro"
+    visible: "ola do teste maestro"
     timeout: 10000
 # ...e o campo de input foi limpo (chat_send some quando o campo está vazio;
 # o placeholder "Mensagem…" volta a aparecer)

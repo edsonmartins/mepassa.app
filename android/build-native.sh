@@ -91,6 +91,15 @@ if [ ! -d "$TOOLCHAIN_PATH" ]; then
 fi
 export AR="$TOOLCHAIN_PATH/llvm-ar"
 
+# NDK 28+ só distribui llvm-ar (não os wrappers <triple>-ar). cc-rs de algumas
+# dependências (sha2-asm, ring) procuram por "<triple>-ar" na PATH - criar
+# symlinks locais para o llvm-ar evita falha nesses build scripts.
+for triple in x86_64-linux-android aarch64-linux-android armv7a-linux-androideabi; do
+    if [ ! -e "$TOOLCHAIN_PATH/$triple-ar" ]; then
+        ln -sf "$TOOLCHAIN_PATH/llvm-ar" "$TOOLCHAIN_PATH/$triple-ar"
+    fi
+done
+
 # Build for Android ARM64 (64-bit ARM - most modern devices)
 echo -e "${GREEN}Building for Android ARM64 (aarch64-linux-android)...${NC}"
 cd "$CORE_DIR"

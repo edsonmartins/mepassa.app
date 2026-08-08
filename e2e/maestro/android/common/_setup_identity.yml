@@ -7,6 +7,8 @@
 appId: com.zaplivre
 ---
 - clearState
+# Username único por execução (timestamp) — evita colisão entre runs.
+- evalScript: ${output.e2e_username = 'u' + Date.now()}
 # Pré-concede notificações (POST_NOTIFICATIONS no Android 13+): o diálogo
 # do sistema cobriria a tela de onboarding e interceptaria os toques.
 - launchApp:
@@ -18,6 +20,22 @@ appId: com.zaplivre
     timeout: 30000
 - tapOn:
     id: "onboarding_create"
+# Onboarding com registro de username (diálogo "Escolha seu username").
+# O Peer ID é gerado após registrar; username único evita colisão.
 - extendedWaitUntil:
-    visible: "Conversas"
+    visible: "Escolha seu username"
+    timeout: 15000
+# O AlertDialog do Compose cria uma janela própria: os testTags só resolvem
+# com testTagsAsResourceId no conteúdo do diálogo (onboarding_username_input/
+# onboarding_register), que não herda o flag da raiz do MainActivity.
+- tapOn:
+    id: "onboarding_username_input"
+- inputText: ${output.e2e_username}
+- tapOn:
+    id: "onboarding_register"
+# Registro concluído: auto-navega para a tela de Conversas. No Android o
+# título da tela é "ZapLivre"; usa o testTag estável como marcador.
+- extendedWaitUntil:
+    visible:
+      id: "conversations_settings"
     timeout: 30000

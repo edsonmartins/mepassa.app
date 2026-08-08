@@ -211,6 +211,9 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-zaplivre}:${POSTGRES_PASSWORD:-zaplivre_dev_password}@postgres:5432/${POSTGRES_DB:-zaplivre}
       - REDIS_URL=redis://:${REDIS_PASSWORD:-zaplivre_redis_dev}@redis:6379
       - BIND_ADDR=0.0.0.0:8083
+      # Testes E2E (Maestro): desliga o rate limit de /api/v1/register
+      # (5/hora) para permitir os flows que criam identidade a cada run.
+      - RATE_LIMIT_DISABLED=${RATE_LIMIT_DISABLED:-0}
     ports:
       - "8083:8083"
     healthcheck:

@@ -185,12 +185,35 @@ impl Client {
     }
 
     /// Store a contact's prekey bundle (JSON) for E2E encryption
+    ///
+    /// Aceita os dois formatos de bundle:
+    /// - formato core (`identity::PreKeyBundle`, arrays de bytes) — o que o
+    ///   client local gera/serializa;
+    /// - formato DTO do identity server (`identity_client::PreKeyBundle`,
+    ///   campos em base64) — o que `/api/v1/lookup` retorna.
+    ///
+    /// O DTO é convertido para o formato core antes de persistir, normalizando
+    /// o que está salvo no banco (regressão: o app salvava o DTO cru e o core
+    /// rejeitava no parse, quebrando o envio E2E para contatos offline).
     pub fn set_contact_prekey_bundle(&self, peer_id: String, bundle_json: String) -> Result<()> {
-        let _bundle: crate::identity::PreKeyBundle = serde_json::from_str(&bundle_json)
-            .map_err(|e| ZapLivreError::Identity(format!("Invalid prekey bundle JSON: {}", e)))?;
+        let normalized = match serde_json::from_str::<crate::identity::PreKeyBundle>(&bundle_json) {
+            Ok(_) => bundle_json.clone(),
+            Err(_) => {
+                let dto: crate::identity_client::PreKeyBundle = serde_json::from_str(&bundle_json)
+                    .map_err(|e| {
+                        ZapLivreError::Identity(format!("Invalid prekey bundle JSON: {}", e))
+                    })?;
+                let core_bundle = dto.to_core().map_err(|e| {
+                    ZapLivreError::Identity(format!("Invalid prekey bundle DTO: {}", e))
+                })?;
+                serde_json::to_string(&core_bundle).map_err(|e| {
+                    ZapLivreError::Identity(format!("Failed to serialize prekey bundle: {}", e))
+                })?
+            }
+        };
 
         let update = UpdateContact {
-            prekey_bundle_json: Some(Some(bundle_json.clone())),
+            prekey_bundle_json: Some(Some(normalized.clone())),
             ..Default::default()
         };
 
@@ -202,7 +225,7 @@ impl Client {
                     username: None,
                     display_name: None,
                     public_key: Vec::new(),
-                    prekey_bundle_json: Some(bundle_json),
+                    prekey_bundle_json: Some(normalized),
                 };
                 self.database.insert_contact(&contact)?;
                 Ok(())
@@ -2453,12 +2476,10 @@ impl Client {
         let payload = serde_json::to_vec(&group_message)
             .map_err(|e| ZapLivreError::Protocol(format!("Invalid group message: {}", e)))?;
 
-        {
-            let mut network = self.network.write().await;
-            let topic = libp2p::gossipsub::IdentTopic::new(&group.topic);
-            network.publish_gossipsub(&topic, payload)?;
-        }
-
+        // Persistir ANTES de publicar (4b/ISSUES_BACKLOG): se o publish falhar
+        // (ex.: rede off), a mensagem já está salva localmente com status
+        // Pending e o worker de retry tenta de novo. Antes, o erro do publish
+        // propagava e a mensagem nunca era gravada.
         let new_msg = crate::storage::NewMessage {
             message_id: message_id.clone(),
             conversation_id: conversation_id.clone(),
@@ -2467,7 +2488,7 @@ impl Client {
             message_type: "group_text".to_string(),
             content_encrypted: Some(encrypted_payload),
             content_plaintext: Some(content),
-            status: MessageStatus::Sent,
+            status: MessageStatus::Pending,
             parent_message_id: None,
         };
         self.database
@@ -2475,6 +2496,37 @@ impl Client {
             .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
         self.database
             .update_conversation_last_message(&conversation_id, &message_id)
+            .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
+
+        let publish_result = {
+            let mut network = self.network.write().await;
+            let topic = libp2p::gossipsub::IdentTopic::new(&group.topic);
+            network.publish_gossipsub(&topic, payload)
+        };
+
+        if let Err(e) = publish_result {
+            // Rede indisponível: a mensagem já está persistida como Pending e
+            // visível na conversa. Sem fila de retry dedicada para grupos ainda
+            // (worker atual cobre 1:1); o usuário reenvia manualmente.
+            tracing::warn!(
+                "group message {} not published (kept as Pending): {}",
+                message_id,
+                e
+            );
+            return Ok(message_id);
+        }
+
+        self.database
+            .update_message(
+                &message_id,
+                &crate::storage::UpdateMessage {
+                    sent_at: Some(chrono::Utc::now().timestamp()),
+                    received_at: None,
+                    read_at: None,
+                    status: Some(MessageStatus::Sent),
+                    is_deleted: None,
+                },
+            )
             .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
 
         Ok(message_id)

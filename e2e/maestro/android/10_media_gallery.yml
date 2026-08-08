@@ -2,16 +2,17 @@
 # ("Nenhuma mídia") em vez de crashar
 appId: com.zaplivre
 env:
-  PEER_ID: "12D3KooWSubstituaPorUmPeerIdRealDeTeste000000000"
+  PEER_USERNAME: "maestro_e2e_peer"
 ---
 - runFlow: common/_setup_identity.yml
 
-# Abrir/criar conversa via peer ID (mesmo padrão do flow 03)
+# Abrir/criar conversa via username (mesmo padrão do flow 03; peer seedado
+# no identity-server via core/examples/seed_peer.rs, fica offline)
 - tapOn:
     id: "conversations_fab"
 - tapOn:
     id: "new_chat_peer_input"
-- inputText: ${PEER_ID}
+- inputText: ${PEER_USERNAME}
 - tapOn:
     id: "new_chat_confirm"
 

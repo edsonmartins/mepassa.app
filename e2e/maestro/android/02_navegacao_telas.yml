@@ -21,5 +21,9 @@ appId: com.zaplivre
 - tapOn:
     id: "conversations_settings"
 - assertVisible: "Exportar backup da identidade"
+# "Sair" fica no fim da LazyColumn de Configurações — rola até aparecer
+- scrollUntilVisible:
+    element: "Sair"
+    direction: DOWN
 - assertVisible: "Sair"
 - back

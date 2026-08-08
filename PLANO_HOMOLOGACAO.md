@@ -45,13 +45,13 @@
 
 ## Fase E — Validação de homologação (P0/P1) — 3-5 dias
 
-- [ ] **E1.** Corrigir `.so` x86_64 do Android (`build-native.sh` com `BUILD_ANDROID_ALL=1`) ou remover do `abiFilters`; validar em emulador Intel e device físico arm64.
-- [ ] **E2.** Gerar `libzaplivre_core_ios.a` (device) e documentar build via `build-rust.sh`; validar build device assinado.
-- [ ] **E3.** Rodar suíte Maestro Android em device/emulador (10 flows, hoje só `check-syntax`); corrigir os flows que falharem.
-- [ ] **E4.** Validar chamada VoIP real (desbloquear/rodar 7 testes `voip_integration` `#[ignore]`); verificar TODO de áudio `ios/.../CallManager.swift:325`.
-- [ ] **E5.** Decidir e corrigir bug de envio offline (persistência local + retry + feedback de erro) se ainda reproduzir (ISSUES_BACKLOG 4b).
-- [ ] **E6.** Autenticar `GET /api/stats` do store (`server/store/src/api.rs:215`) e comparação constant-time do `PUSH_SERVICE_SECRET` (`server/push/src/auth.rs:105`).
-- [ ] **E7.** Desktop: criar view de Settings; decidir escopo de bundle (macOS vs cross-platform).
+- [x] **E1.** Corrigir `.so` x86_64 do Android (era ARM aarch64) e atualizar arm64 (NDK 28.2; symlinks `<triple>-ar → llvm-ar` no `build-native.sh`); APK debug rebuildado e instalado no device físico arm64.
+- [x] **E2.** Gerar `libzaplivre_core_ios.a` (arm64 device) e `libzaplivre_core_sim.a` universal (x86_64+arm64 via `lipo -create`); `xcodebuild` iOS Simulator e device → BUILD SUCCEEDED; README iOS atualizado.
+- [x] **E3.** Suíte Maestro Android **10/10 verdes** em device físico (Samsung SM-X115, ~5m53s). Fixes: `testTagsAsResourceId` aplicado **no conteúdo de cada AlertDialog** (janela própria não herda o flag da raiz do MainActivity); `seed_peer` registra peer E2E com peer ID libp2p real; `set_contact_prekey_bundle` normaliza bundle DTO (base64) → core; flows corrigidos (id do diálogo de username, scroll para "Sair", `hideKeyboard` antes do back na busca, ASCII no envio). Detalhes em `e2e/maestro/README.md`.
+- [x] **E4.** VoIP real validado: `voip_integration` com `--features voip -- --include-ignored` → 9/9 ok; `CallManager.startAudio()` reescrito (inicia `audioManager.start()` + callback `onAudioCaptured` → `sendAudioFrame`; guarda `audioStarted` contra double-start); `didActivate` refatorado para usar `startAudio()`; iOS build compila.
+- [x] **E5.** Bug de envio offline corrigido: `send_group_message` **persiste a mensagem (status Pending) antes** do publish (regressão 4b "tabela vazia"); teste `test_group_message_persists_locally` adicionado. Bônus: envio 1:1 para peer offline normalizado (bundle DTO) → Pending em vez de falhar; teste `test_dto_prekey_bundle_is_normalized`.
+- [x] **E6.** `GET /api/stats` exige `Authorization: Bearer <PUSH_SERVICE_SECRET>` (`verify_service_token` em `server/store/src/auth.rs` com `subtle::ConstantTimeEq`); comparação do secret do push também constant-time (`server/push/src/auth.rs`); `subtle` no workspace deps; testes store/push verdes.
+- [x] **E7.** Desktop: criar view de Settings; decidir escopo de bundle (macOS vs cross-platform). **Feito** — `desktop/src/views/SettingsView.tsx` (toggles de notificação/privacidade + identidade + backup, espelha o iOS) com rota `/settings` e botão na `ConversationsView`; tsc + 79 testes vitest verdes. **Bundle: macOS** (`app`+`dmg` no `tauri.conf.json`) para homologação; cross-platform (Windows/Linux) adiado.
 
 ## Fase F — P2/P3 (após homologação, se houver tempo)
 

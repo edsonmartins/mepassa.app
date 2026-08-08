@@ -102,7 +102,13 @@ pub fn verify_service_request(
         .and_then(|value| value.strip_prefix("Bearer "))
         .ok_or((StatusCode::UNAUTHORIZED, "missing service authentication"))?;
 
-    if supplied.as_bytes() != expected_secret.as_bytes() {
+    // Comparação em tempo constante (subtle) - evita vazamento por timing
+    use subtle::ConstantTimeEq;
+    let supplied_bytes = supplied.as_bytes();
+    let expected_bytes = expected_secret.as_bytes();
+    if supplied_bytes.len() != expected_bytes.len()
+        || !bool::from(supplied_bytes.ct_eq(expected_bytes))
+    {
         return Err((StatusCode::UNAUTHORIZED, "invalid service authentication"));
     }
     Ok(())

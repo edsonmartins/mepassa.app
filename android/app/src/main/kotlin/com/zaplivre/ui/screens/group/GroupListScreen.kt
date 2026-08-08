@@ -16,6 +16,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.zaplivre.core.ZapLivreClientWrapper
@@ -253,6 +256,7 @@ fun GroupRow(group: GroupUi, onClick: () -> Unit) {
 /**
  * Dialog para criar novo grupo
  */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun CreateGroupDialog(
     onDismiss: () -> Unit,
@@ -268,7 +272,8 @@ fun CreateGroupDialog(
         },
         text = {
             Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.semantics { testTagsAsResourceId = true }
             ) {
                 OutlinedTextField(
                     value = nameInput,
@@ -291,15 +296,17 @@ fun CreateGroupDialog(
             }
         },
         confirmButton = {
-            TextButton(
-                onClick = {
-                    val desc = if (descriptionInput.trim().isEmpty()) null else descriptionInput.trim()
-                    onConfirm(nameInput.trim(), desc)
-                },
-                enabled = nameInput.trim().isNotEmpty(),
-                modifier = Modifier.testTag("grouplist_create_confirm")
-            ) {
-                Text("Criar")
+            Box(modifier = Modifier.semantics { testTagsAsResourceId = true }) {
+                TextButton(
+                    onClick = {
+                        val desc = if (descriptionInput.trim().isEmpty()) null else descriptionInput.trim()
+                        onConfirm(nameInput.trim(), desc)
+                    },
+                    enabled = nameInput.trim().isNotEmpty(),
+                    modifier = Modifier.testTag("grouplist_create_confirm")
+                ) {
+                    Text("Criar")
+                }
             }
         },
         dismissButton = {

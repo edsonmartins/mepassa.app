@@ -100,6 +100,7 @@ redis = { version = "0.24", features = ["tokio-comp", "connection-manager"] }
 # Additional utils
 bs58 = "0.5"
 async-trait = "0.1"
+subtle = "2.4"
 
 # WebRTC (FASE 12 - VoIP)
 webrtc = "0.11"
