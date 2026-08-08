@@ -63,8 +63,8 @@ targets:
           - remote-notification
           - audio
         # Backend endpoints consumed by the app (ZapLivreCore/SignalingClient)
-        MESSAGE_STORE_URL: "https://store.associahub.com.br"
-        SIGNALING_SERVER_URL: "wss://signaling.associahub.com.br/ws"
+        MESSAGE_STORE_URL: "https://store.zaplivre.app"
+        SIGNALING_SERVER_URL: "wss://signal.zaplivre.app/ws"
 
     settings:
       base:

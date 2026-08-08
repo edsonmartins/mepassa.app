@@ -32,6 +32,8 @@ jobs:
             image: zaplivre-turn-credentials
           - binary: zaplivre-signaling
             image: zaplivre-signaling
+          - binary: zaplivre-bootstrap
+            image: zaplivre-bootstrap
     permissions:
       contents: read
       packages: write

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DHT1_HOST=${DHT1_HOST:-dht1.associahub.com.br}
-DHT2_HOST=${DHT2_HOST:-dht2.associahub.com.br}
+DHT1_HOST=${DHT1_HOST:-dht1.zaplivre.app}
+DHT2_HOST=${DHT2_HOST:-dht2.zaplivre.app}
 DHT1_PORT=${DHT1_PORT:-4001}
 DHT2_PORT=${DHT2_PORT:-4002}
 

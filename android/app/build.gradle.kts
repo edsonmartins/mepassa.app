@@ -53,6 +53,13 @@ android {
             ?: System.getenv("IDENTITY_SERVER_URL")
             ?: "https://identity.zaplivre.app"
         buildConfigField("String", "IDENTITY_SERVER_URL", "\"$identityServerUrl\"")
+
+        // Bootstrap peers (P2P): "addr|peerid,addr|peerid,..." consumido pelo core
+        // como ZAPLIVRE_BOOTSTRAP. Default = nós públicos zaplivre.app.
+        val bootstrapPeers = (project.findProperty("BOOTSTRAP_PEERS") as String?)
+            ?: System.getenv("BOOTSTRAP_PEERS")
+            ?: "/dns4/dht1.zaplivre.app/tcp/4001|12D3KooWJMY3dKygHLtkruLohCshiPENpJscD5XY33GjfcmS4DKK"
+        buildConfigField("String", "BOOTSTRAP_PEERS", "\"$bootstrapPeers\"")
     }
 
     buildTypes {

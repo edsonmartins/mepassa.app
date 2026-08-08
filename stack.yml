@@ -84,7 +84,7 @@ services:
 
   # TURN Credentials Service
   turn-credentials:
-    image: zaplivre-turn-credentials:latest
+    image: ghcr.io/integrall-tech/zaplivre-turn-credentials:${ZAPLIVRE_TAG:?ZAPLIVRE_TAG obrigatório}
     environment:
       - RUST_LOG=${RUST_LOG:-info}
       - TURN_STATIC_SECRET=${TURN_STATIC_SECRET:?TURN_STATIC_SECRET obrigatorio}
@@ -105,7 +105,7 @@ services:
     deploy:
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.zaplivre-turn-credentials.rule=Host(`turn.associahub.com.br`)"
+        - "traefik.http.routers.zaplivre-turn-credentials.rule=Host(`turn.zaplivre.app`)"
         - "traefik.http.routers.zaplivre-turn-credentials.entrypoints=websecure"
         - "traefik.http.routers.zaplivre-turn-credentials.tls=true"
         - "traefik.http.routers.zaplivre-turn-credentials.tls.certresolver=letsencrypt"
@@ -117,7 +117,7 @@ services:
 
   # Bootstrap Node 1
   bootstrap-node-1:
-    image: zaplivre-bootstrap:latest
+    image: ghcr.io/integrall-tech/zaplivre-bootstrap:${ZAPLIVRE_TAG:?ZAPLIVRE_TAG obrigatório}
     environment:
       - RUST_LOG=${RUST_LOG:-info}
       - BOOTSTRAP_PORT=4001
@@ -144,7 +144,7 @@ services:
     deploy:
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.zaplivre-bootstrap-1.rule=Host(`dht1.associahub.com.br`)"
+        - "traefik.http.routers.zaplivre-bootstrap-1.rule=Host(`dht1.zaplivre.app`)"
         - "traefik.http.routers.zaplivre-bootstrap-1.entrypoints=websecure"
         - "traefik.http.routers.zaplivre-bootstrap-1.tls=true"
         - "traefik.http.routers.zaplivre-bootstrap-1.tls.certresolver=letsencrypt"
@@ -155,7 +155,7 @@ services:
         max_attempts: 5
 
   bootstrap-node-2:
-    image: zaplivre-bootstrap:latest
+    image: ghcr.io/integrall-tech/zaplivre-bootstrap:${ZAPLIVRE_TAG:?ZAPLIVRE_TAG obrigatório}
     environment:
       - RUST_LOG=${RUST_LOG:-info}
       - BOOTSTRAP_PORT=4001
@@ -182,7 +182,7 @@ services:
     deploy:
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.zaplivre-bootstrap-2.rule=Host(`dht2.associahub.com.br`)"
+        - "traefik.http.routers.zaplivre-bootstrap-2.rule=Host(`dht2.zaplivre.app`)"
         - "traefik.http.routers.zaplivre-bootstrap-2.entrypoints=websecure"
         - "traefik.http.routers.zaplivre-bootstrap-2.tls=true"
         - "traefik.http.routers.zaplivre-bootstrap-2.tls.certresolver=letsencrypt"
@@ -194,7 +194,7 @@ services:
 
   # Message Store Server
   message-store:
-    image: zaplivre-store:latest
+    image: ghcr.io/integrall-tech/zaplivre-store:${ZAPLIVRE_TAG:?ZAPLIVRE_TAG obrigatório}
     environment:
       - RUST_LOG=${RUST_LOG:-info}
       - DATABASE_URL=postgresql://${POSTGRES_USER:?POSTGRES_USER obrigatório}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatório}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB obrigatório}
@@ -219,7 +219,7 @@ services:
     deploy:
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.zaplivre-store.rule=Host(`store.associahub.com.br`)"
+        - "traefik.http.routers.zaplivre-store.rule=Host(`store.zaplivre.app`)"
         - "traefik.http.routers.zaplivre-store.entrypoints=websecure"
         - "traefik.http.routers.zaplivre-store.tls=true"
         - "traefik.http.routers.zaplivre-store.tls.certresolver=letsencrypt"
@@ -231,7 +231,7 @@ services:
 
   # Push Notification Server
   push-server:
-    image: zaplivre-push:latest
+    image: ghcr.io/integrall-tech/zaplivre-push:${ZAPLIVRE_TAG:?ZAPLIVRE_TAG obrigatório}
     environment:
       - RUST_LOG=${RUST_LOG:-info}
       # FCM HTTP v1: JSON do service account em server/push/certs/
@@ -256,7 +256,7 @@ services:
     deploy:
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.zaplivre-push.rule=Host(`push.associahub.com.br`)"
+        - "traefik.http.routers.zaplivre-push.rule=Host(`push.zaplivre.app`)"
         - "traefik.http.routers.zaplivre-push.entrypoints=websecure"
         - "traefik.http.routers.zaplivre-push.tls=true"
         - "traefik.http.routers.zaplivre-push.tls.certresolver=letsencrypt"
@@ -268,7 +268,7 @@ services:
 
   # Identity Server (usernames + prekey bundles - ADR 001)
   identity-server:
-    image: zaplivre-identity:latest
+    image: ghcr.io/integrall-tech/zaplivre-identity:${ZAPLIVRE_TAG:?ZAPLIVRE_TAG obrigatório}
     environment:
       - RUST_LOG=${RUST_LOG:-info}
       - DATABASE_URL=postgresql://${POSTGRES_USER:?POSTGRES_USER obrigatório}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatório}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB obrigatório}
@@ -288,7 +288,7 @@ services:
     deploy:
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.zaplivre-identity.rule=Host(`identity.associahub.com.br`)"
+        - "traefik.http.routers.zaplivre-identity.rule=Host(`identity.zaplivre.app`)"
         - "traefik.http.routers.zaplivre-identity.entrypoints=websecure"
         - "traefik.http.routers.zaplivre-identity.tls=true"
         - "traefik.http.routers.zaplivre-identity.tls.certresolver=letsencrypt"
@@ -300,7 +300,7 @@ services:
 
   # Signaling Server (WebRTC fallback)
   signaling-server:
-    image: ghcr.io/integrall-tech/zaplivre-signaling:latest
+    image: ghcr.io/integrall-tech/zaplivre-signaling:${ZAPLIVRE_TAG:?ZAPLIVRE_TAG obrigatório}
     environment:
       - RUST_LOG=${RUST_LOG:-info}
     ports:
@@ -317,7 +317,7 @@ services:
     deploy:
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.zaplivre-signaling.rule=Host(`signaling.associahub.com.br`)"
+        - "traefik.http.routers.zaplivre-signaling.rule=Host(`signal.zaplivre.app`)"
         - "traefik.http.routers.zaplivre-signaling.entrypoints=websecure"
         - "traefik.http.routers.zaplivre-signaling.tls=true"
         - "traefik.http.routers.zaplivre-signaling.tls.certresolver=letsencrypt"

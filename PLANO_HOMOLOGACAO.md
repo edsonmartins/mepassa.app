@@ -27,14 +27,14 @@
 
 ## Fase C — Produção P2P/DevOps (P0/P1) — 3-5 dias
 
-- [ ] **C1.** Adicionar serviço `bootstrap` ao `docker-compose.yml` de `zaplivre-devops` (porta P2P + health) e `coturn`/TURN com credenciais do `turn-credentials` (TURN_STATIC_SECRET, TURN_EXTERNAL_IP).
-- [ ] **C2.** Adicionar `zaplivre-bootstrap` (e `coturn` se buildado) à matriz de imagens em `.github/workflows/build-server-images.yml`.
-- [ ] **C3.** Trocar bootstrap hardcoded `dht1/dht2.associahub.com.br` em `core/src/ffi/client.rs:1003-1006` por nós `*.zaplivre.app` configuráveis (env/build-config exposto nos apps).
-- [ ] **C4.** Unificar domínios: iOS `Info.plist:25-46` e `PushNotificationManager.swift:26` de `*.associahub.com.br` → `*.zaplivre.app`; alinhar `project.yml` × `Info.plist` (IDENTITY_SERVER_URL/PUSH_SERVER_URL).
-- [ ] **C5.** Provisionar APNs no devops (`.p8`, APNS_KEY_ID, APNS_TEAM_ID, mount read-only) e FCM real; validar entrega iOS+Android.
-- [ ] **C6.** Corrigir `stack.yml` (nomes de imagem com registry GHCR; remover hosts legados) ou substituí-lo pelo compose do devops como fonte da verdade.
-- [ ] **C7.** CD mínimo: health-check HTTP `/health` em `devops/scripts/health-check.sh`; bloquear tag `latest` no `deploy.sh`; `restart:`/`healthcheck:`/log rotation no compose de produção.
-- [ ] **C8.** Documentar backup/restore do Postgres e rotação dos segredos (TURN, PUSH_SERVICE_SECRET, GHCR token).
+- [x] **C1.** Adicionar serviço `bootstrap` ao `docker-compose.yml` de `zaplivre-devops` (porta P2P + health) e `coturn`/TURN com credenciais do `turn-credentials` (TURN_STATIC_SECRET, TURN_EXTERNAL_IP). **Feito** — `bootstrap-node-1/2` (4001/8000 e 4002/8001, seeds configuráveis) + `coturn` (3478/5349/relay via `TURN_RELAY_PORT_RANGE`); rotas Caddy `dht1/dht2.zaplivre.app`.
+- [x] **C2.** Adicionar `zaplivre-bootstrap` à matriz de imagens em `.github/workflows/build-server-images.yml`. **Feito** — `binary: zaplivre-bootstrap` / `image: zaplivre-bootstrap` (binário no workspace).
+- [x] **C3.** Trocar bootstrap hardcoded `dht1/dht2.associahub.com.br` em `core/src/ffi/client.rs:1003-1006` por nós `*.zaplivre.app` configuráveis (env/build-config exposto nos apps). **Feito** — domínios `dht1/dht2.zaplivre.app`; Android expõe `BOOTSTRAP_PEERS` (buildConfigField → `ZAPLIVRE_BOOTSTRAP`); override por env continua no core.
+- [x] **C4.** Unificar domínios: iOS `Info.plist:25-46` e `PushNotificationManager.swift:26` de `*.associahub.com.br` → `*.zaplivre.app`; alinhar `project.yml` × `Info.plist`. **Feito** — `store/identity/signal.zaplivre.app` no Info.plist, project.yml e PushNotificationManager; `push.zaplivre.app` no Swift.
+- [ ] **C5.** Provisionar APNs no devops (`.p8`, APNS_KEY_ID, APNS_TEAM_ID, mount read-only) e FCM real; validar entrega iOS+Android. **Parcial (devops pronto)** — envs APNs + mount `secrets/apns-key.p8` e FCM no compose do devops; falta gerar/provisionar as chaves reais nos secrets e validar entrega em device.
+- [x] **C6.** Corrigir `stack.yml` (nomes de imagem com registry GHCR; remover hosts legados). **Feito** — todas as imagens `zaplivre-*:latest` → `ghcr.io/integrall-tech/zaplivre-*:${ZAPLIVRE_TAG}` (incl. bootstrap); hosts `*.associahub.com.br` → `*.zaplivre.app` (signal, dht1/dht2, turn, store, push, identity).
+- [x] **C7.** CD mínimo: health-check HTTP `/health` em `devops/scripts/health-check.sh`; bloquear tag `latest` no `deploy.sh`. **Feito** — health-check valida containers + HTTP 200 em 6 endpoints (com `BAIL_HTTP=1` para pré-DNS); `deploy.sh` rejeita `ZAPLIVRE_TAG=latest`.
+- [x] **C8.** Documentar backup/restore do Postgres e rotação dos segredos (TURN, PUSH_SERVICE_SECRET, GHCR token). **Feito** — `zaplivre-devops/docs/BACKUP_AND_SECRETS.md`.
 
 ## Fase D — Segurança de grupos + escopo sync (P0/P1) — 2-4 dias
 

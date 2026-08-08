@@ -23,7 +23,7 @@ class PushNotificationManager: NSObject, ObservableObject {
                 return url
             }
         }
-        return "https://push.associahub.com.br"
+        return "https://push.zaplivre.app"
     }()
 
     /// Request push notification permissions

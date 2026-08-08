@@ -67,5 +67,13 @@ class ZapLivreApplication : Application() {
                 Log.w(TAG, "Failed to set identity server URL env", e)
             }
         }
+        val bootstrapPeers = BuildConfig.BOOTSTRAP_PEERS
+        if (bootstrapPeers.isNotBlank()) {
+            try {
+                Os.setenv("ZAPLIVRE_BOOTSTRAP", bootstrapPeers, true)
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to set bootstrap peers env", e)
+            }
+        }
     }
 }

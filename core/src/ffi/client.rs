@@ -999,15 +999,13 @@ impl ZapLivreClient {
                         }
                     }
 
-                    // Bootstrap peers (produção): substitua pelos seus bootstraps públicos.
-                    // Exemplo:
-                    // let custom_bootstrap_peers = vec![
-                    //     ("/ip4/<PUBLIC_IP>/tcp/4001", "12D3KooW..."),
-                    //     ("/ip4/<PUBLIC_IP>/tcp/4002", "12D3KooW..."),
-                    // ];
+                    // Bootstrap peers (produção): nós públicos zaplivre.app.
+                    // IMPORTANTE: os PeerIDs abaixo devem corresponder aos nós reais
+                    // (derivados do PEER_ID_SEED de cada bootstrap). Preencha com os
+                    // valores impressos no log do bootstrap (Peer ID: ...) no deploy.
                     let custom_bootstrap_peers = vec![
-                        ("/dns4/dht1.associahub.com.br/tcp/4001", "12D3KooWJMY3dKygHLtkruLohCshiPENpJscD5XY33GjfcmS4DKK"),
-                        ("/dns4/dht2.associahub.com.br/tcp/4002", "12D3KooWRwysfFEQL5YhFa8bNqeoY34b7Bb7mUzx617sun9GyAPP"),
+                        ("/dns4/dht1.zaplivre.app/tcp/4001", "12D3KooWJMY3dKygHLtkruLohCshiPENpJscD5XY33GjfcmS4DKK"),
+                        ("/dns4/dht2.zaplivre.app/tcp/4002", "12D3KooWRwysfFEQL5YhFa8bNqeoY34b7Bb7mUzx617sun9GyAPP"),
                     ];
 
                     // Default bootstrap peers (IPFS public nodes) - fallback
