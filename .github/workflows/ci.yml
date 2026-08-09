@@ -42,7 +42,7 @@ jobs:
         run: cargo test -p zaplivre-core --lib
 
       - name: Integration tests (working suites)
-        run: cargo test -p zaplivre-core --test p2p_messaging --test relay_integration --test message_integration --test reliability
+        run: cargo test -p zaplivre-core --test p2p_messaging --test relay_integration --test message_integration --test reliability --test plaintext_integration
 
       - name: Server tests
         run: cargo test -p zaplivre-store -p zaplivre-push -p turn-credentials -p zaplivre-signaling

@@ -8,14 +8,12 @@
 
 ## Fase A — Restaurar build verde (P0, bloqueante) — 1-2 dias
 
-- [ ] **A1.** Corrigir `core/tests/message_integration.rs` (TST-02) para o contrato "nunca plaintext por padrão": estabelecer sessão E2E (prekey exchange via `ensure_remote_prekey`/bundle) antes do `send_text_message`, ou ajustar o teste à política. Evidência: falha `Crypto("No E2E session... plaintext fallback is disabled")` em `message_integration.rs:97`.
-- [ ] **A2.** Corrigir clippy `-D warnings` no workspace:
-  - `zaplivre-store`: `error: associated function with_interval is never used`.
-  - `zaplivre-bootstrap`: 2 erros clippy.
-- [ ] **A3.** Rodar `cargo fmt` no workspace (3 arquivos divergentes: `core/src/api/client.rs`, `core/src/ffi/client.rs`).
-- [ ] **A4.** Adicionar gates de clippy/fmt ao `.github/workflows/ci.yml` (alinhar com AGENTS.md).
-- [ ] **A5.** Push branch → PR → merge em `main` **passando CI completo** (13 commits órfãos c58c0f4..764ef7b).
-- [ ] **A6.** Verificar se `test_end_to_end_message_exchange` cobre também o path de fallback plaintext com `ZAPLIVRE_ALLOW_PLAINTEXT=1` (teste do downgrade explícito).
+- [x] **A1.** Corrigir `core/tests/message_integration.rs` (TST-02) para o contrato "nunca plaintext por padrão": estabelecer sessão E2E (prekey exchange via `ensure_remote_prekey`/bundle) antes do `send_text_message`, ou ajustar o teste à política. Evidência: falha `Crypto("No E2E session... plaintext fallback is disabled")` em `message_integration.rs:97`. **Feito** — `test_end_to_end_message_exchange` agora troca o prekey bundle de B via `get_prekey_bundle_json` + `set_contact_prekey_bundle` antes do envio (SEC-01).
+- [x] **A2.** Corrigir clippy `-D warnings` no workspace. **Feito** — workspace e servers limpos.
+- [x] **A3.** Rodar `cargo fmt` no workspace (3 arquivos divergentes: `core/src/api/client.rs`, `core/src/ffi/client.rs`). **Feito** — `cargo fmt --all --check` limpo.
+- [x] **A4.** Adicionar gates de clippy/fmt ao `.github/workflows/ci.yml` (alinhar com AGENTS.md). **Feito** — `ci.yml` roda `cargo fmt --all --check` e `cargo clippy --workspace -- -D warnings`.
+- [x] **A5.** Push branch → PR → merge em `main` **passando CI completo** (13 commits órfãos c58c0f4..764ef7b). **Feito** — commits pushados e CI verde desde então.
+- [x] **A6.** Verificar se `test_end_to_end_message_exchange` cobre também o path de fallback plaintext com `ZAPLIVRE_ALLOW_PLAINTEXT=1` (teste do downgrade explícito). **Feito** — novo binário isolado `core/tests/plaintext_integration.rs` (`test_plaintext_downgrade_policy`) valida que sem env o envio falha (SEC-01) e com `ZAPLIVRE_ALLOW_PLAINTEXT=true` o downgrade explícito entrega a mensagem plaintext; adicionado ao `ci.yml`.
 
 ## Fase B — Stack dev funcional (P1) — 1-2 dias
 
