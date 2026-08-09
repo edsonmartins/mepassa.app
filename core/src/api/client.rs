@@ -468,7 +468,12 @@ impl Client {
                 // Normaliza na leitura: contatos salvos antes da normalização
                 // (regressão) podem ter o DTO cru do identity server no banco.
                 let dto: crate::identity_client::PreKeyBundle = serde_json::from_str(&bundle_json)
-                    .map_err(|e| ZapLivreError::Crypto(format!("Invalid prekey bundle: {}", e)))?;
+                    .map_err(|e| {
+                        ZapLivreError::Crypto(format!(
+                            "Invalid prekey bundle (core and DTO formats): {}",
+                            e
+                        ))
+                    })?;
                 dto.to_core().map_err(|e| {
                     ZapLivreError::Crypto(format!("Invalid prekey bundle DTO: {}", e))
                 })?

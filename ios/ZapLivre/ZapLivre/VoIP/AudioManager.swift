@@ -118,7 +118,15 @@ class AudioManager: ObservableObject {
         }
 
         // Start audio engine
-        try audioEngine.start()
+        do {
+            try audioEngine.start()
+        } catch {
+            // O tap já foi instalado acima; remover antes de relançar, senão um
+            // retry (answerCall + didActivate) instala tap duplicado e o
+            // AVAudioEngine levanta exceção ObjC não capturável → crash.
+            audioEngine.inputNode.removeTap(onBus: 0)
+            throw error
+        }
 
         // Start player node
         playerNode.play()
