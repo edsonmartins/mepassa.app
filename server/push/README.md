@@ -78,14 +78,16 @@ Create a `.env` file in the `server/push` directory:
 # Database
 DATABASE_URL=postgresql://zaplivre:zaplivre_dev_password@localhost:5432/zaplivre
 
-# Firebase Cloud Messaging (Android)
-FCM_SERVER_KEY=your_fcm_server_key_here
+# Firebase Cloud Messaging (Android) - HTTP v1 (PSH-01)
+# JSON do service account do Firebase. A legacy API (FCM_SERVER_KEY) foi
+# desligada pelo Google. Veja docs/guides/push-keys-homologacao.md
+FCM_SERVICE_ACCOUNT_PATH=/path/to/fcm_service_account.json
 
 # Apple Push Notification Service (iOS) - Optional
 APNS_KEY_PATH=/path/to/AuthKey_XXXXXXXXXX.p8
 APNS_KEY_ID=AB12CD34EF          # Your 10-character Key ID
 APNS_TEAM_ID=XY98ZW76UV         # Your 10-character Team ID
-APNS_BUNDLE_ID=com.zaplivre.ios  # Your app's Bundle ID
+APNS_BUNDLE_ID=app.zaplivre.ios  # Your app's Bundle ID
 APNS_PRODUCTION=false           # Use false for development/TestFlight, true for App Store
 
 # Server (optional)
@@ -107,19 +109,21 @@ cd /Users/edsonmartins/desenvolvimento/zaplivre
 docker-compose up -d postgres
 ```
 
-### 2. Get FCM Server Key
+### 2. Get FCM Service Account (HTTP v1)
 
 1. Go to [Firebase Console](https://console.firebase.google.com)
 2. Select your project (or create one)
-3. Go to **Project Settings** → **Cloud Messaging**
-4. Copy the **Server key** (legacy) or create a new one
+3. Go to **Project Settings** → **Service accounts**
+4. **Generate new private key** → baixa o JSON do service account
+5. Salve como `FCM_SERVICE_ACCOUNT_PATH` (o push server usa `project_id`,
+   `client_email` e `private_key` para gerar o JWT e chamar a HTTP v1 — PSH-01)
 
 ### 3. Configure Environment
 
 ```bash
 cd server/push
 cp .env.example .env
-# Edit .env and add your FCM_SERVER_KEY
+# Edit .env and add FCM_SERVICE_ACCOUNT_PATH
 ```
 
 ### 4. Build
@@ -158,7 +162,9 @@ docker run -d \
   --name zaplivre-push \
   -p 8081:8081 \
   -e DATABASE_URL=postgresql://zaplivre:password@postgres:5432/zaplivre \
-  -e FCM_SERVER_KEY=your_key \
+  -e FCM_SERVICE_ACCOUNT_PATH=/etc/push/fcm_service_account.json \
+  -e PUSH_SERVICE_SECRET=your_32_char_secret \
+  -v /path/to/fcm_service_account.json:/etc/push/fcm_service_account.json:ro \
   --network zaplivre_network \
   zaplivre-push:latest
 ```
@@ -270,9 +276,9 @@ The push server is designed to integrate with the ZapLivre core system:
 - Verify database exists: `psql -U zaplivre -d zaplivre -c "\dt"`
 
 ### "FCM send failed"
-- Verify FCM_SERVER_KEY is correct
+- Verify `FCM_SERVICE_ACCOUNT_PATH` aponta para o JSON do service account válido
 - Check device token is valid
-- Ensure Firebase project has FCM enabled
+- Ensure Firebase project has FCM enabled (HTTP v1)
 - Check logs for specific FCM error codes
 
 ### "Token not found"

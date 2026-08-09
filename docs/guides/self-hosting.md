@@ -13,11 +13,11 @@ Este guia publica os servidores de Bootstrap/DHT do ZapLivre em uma VPS usando D
 
 Crie registros A:
 
-- `dht1.associahub.com.br` → IP da VPS
-- `dht2.associahub.com.br` → IP da VPS
-- `store.associahub.com.br` → IP da VPS
-- `push.associahub.com.br` → IP da VPS
-- `turn.associahub.com.br` → IP da VPS
+- `dht1.zaplivre.app` → IP da VPS
+- `dht2.zaplivre.app` → IP da VPS
+- `store.zaplivre.app` → IP da VPS
+- `push.zaplivre.app` → IP da VPS
+- `turn.zaplivre.app` → IP da VPS
 
 ## 2) Build da imagem
 
@@ -60,14 +60,14 @@ docker service logs -f zaplivre_bootstrap-node-2
 Health checks:
 
 ```bash
-curl https://dht1.associahub.com.br/health
-curl https://dht2.associahub.com.br/health
+curl https://dht1.zaplivre.app/health
+curl https://dht2.zaplivre.app/health
 ```
 
-Observação: `curl -I https://traefik.associahub.com.br` pode retornar `405` (HEAD não permitido). Use GET:
+Observação: `curl -I https://traefik.zaplivre.app` pode retornar `405` (HEAD não permitido). Use GET:
 
 ```bash
-curl https://traefik.associahub.com.br
+curl https://traefik.zaplivre.app
 ```
 
 ### Validação rápida (script)
@@ -113,8 +113,8 @@ docker service logs zaplivre_bootstrap-node-2 | grep -m1 "Peer ID"
 ```
 
 Multiaddrs para os clientes:
-- Node 1: `/dns4/dht1.associahub.com.br/tcp/4001`
-- Node 2: `/dns4/dht2.associahub.com.br/tcp/4002`
+- Node 1: `/dns4/dht1.zaplivre.app/tcp/4001`
+- Node 2: `/dns4/dht2.zaplivre.app/tcp/4002`
 
 ## 8) Atualizar clientes
 
@@ -122,8 +122,8 @@ Edite `core/src/ffi/client.rs` para usar seus bootstraps públicos:
 
 ```rust
 let custom_bootstrap_peers = vec![
-    ("/dns4/dht1.associahub.com.br/tcp/4001", "12D3KooW..."),
-    ("/dns4/dht2.associahub.com.br/tcp/4002", "12D3KooW..."),
+    ("/dns4/dht1.zaplivre.app/tcp/4001", "12D3KooW..."),
+    ("/dns4/dht2.zaplivre.app/tcp/4002", "12D3KooW..."),
 ];
 ```
 
@@ -134,13 +134,13 @@ Para habilitar store-and-forward (offline), defina a variável de ambiente
 MESSAGE_STORE_URL=https://<seu-dominio-ou-ip>:8080
 ```
 
-Se o message-store estiver atrás do Traefik, use um subdomínio (ex: `https://store.associahub.com.br`)
+Se o message-store estiver atrás do Traefik, use um subdomínio (ex: `https://store.zaplivre.app`)
 e garanta que a porta 8080 esteja exposta internamente via Traefik.
 
 Para push notifications, configure `PUSH_SERVER_URL` nos apps:
 
 ```
-PUSH_SERVER_URL=https://push.associahub.com.br
+PUSH_SERVER_URL=https://push.zaplivre.app
 ```
 
 ### GitHub Actions (Secrets)

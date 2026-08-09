@@ -131,8 +131,8 @@ o exemplo em `core/FFI_IMPLEMENTATION.md`.
 Para builds de release, defina as URLs em `android/gradle.properties`:
 
 ```
-MESSAGE_STORE_URL=https://store.associahub.com.br
-PUSH_SERVER_URL=https://push.associahub.com.br
+MESSAGE_STORE_URL=https://store.zaplivre.app
+PUSH_SERVER_URL=https://push.zaplivre.app
 ```
 
 Você pode copiar o template:

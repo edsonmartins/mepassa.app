@@ -128,7 +128,7 @@ validação end-to-end. Veja o [Estado por plataforma](#-estado-por-plataforma) 
 - ✅ 3 views: Onboarding → Conversations → Chat
 - ✅ FFI integration via Tauri commands
 - ✅ System tray + menu contextual
-- ✅ Cross-platform (DMG, MSI, AppImage)
+- ✅ Bundle macOS (DMG/APP) — Windows/Linux adiados
 - 📊 **~2.200 LoC**, 20 arquivos
 
 **FASE 9: Bootstrap + DHT Server (100%)** ✅

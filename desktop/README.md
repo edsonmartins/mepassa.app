@@ -11,7 +11,8 @@ Desktop application for ZapLivre built with Tauri 2.0 + React + TypeScript + Tai
 - **System Tray:** Minimize to tray icon
 - **Desktop Notifications:** Native notification support
 - **FFI Integration:** Direct calls to zaplivre-core Rust library
-- **Cross-Platform:** Windows, macOS, Linux
+- **Cross-Platform:** macOS (bundle atual; o core é portável e Windows/Linux
+  foram adiados — ver `tauri.conf.json`, targets `app`/`dmg`)
 
 ## 📋 Prerequisites
 
@@ -50,9 +51,7 @@ npm run tauri:build
 ```
 
 Artifacts will be created in `src-tauri/target/release/bundle/`:
-- **macOS:** `.dmg` and `.app`
-- **Windows:** `.msi` and `.exe`
-- **Linux:** `.AppImage` and `.deb`
+- **macOS:** `.dmg` and `.app` (bundle atual da homologação)
 
 You can also build the macOS DMG from the repo root:
 

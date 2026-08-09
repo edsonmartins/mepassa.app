@@ -16,10 +16,10 @@ Este guia explica como configurar os secrets usados nos workflows do GitHub Acti
 5) Adicione:
 
 - **Name:** `MESSAGE_STORE_URL`
-  **Value:** `https://store.associahub.com.br`
+  **Value:** `https://store.zaplivre.app`
 
 - **Name:** `PUSH_SERVER_URL`
-  **Value:** `https://push.associahub.com.br`
+  **Value:** `https://push.zaplivre.app`
 
 ## Referência nos workflows
 

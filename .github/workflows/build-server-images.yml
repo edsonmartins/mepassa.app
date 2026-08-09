@@ -70,8 +70,10 @@ jobs:
 
       # F4: scan de vulnerabilidades (não-bloqueante) + SBOM (CycloneDX).
       # Relatórios e SBOMs são expostos como artifacts para auditoria.
+      # (fix: tag precisa do prefixo `v` — `0.28.0` nunca existiu e quebrava o
+      # job na resolução de ações, impedindo o publish de todas as imagens)
       - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         if: github.event_name != 'pull_request'
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ matrix.image }}@${{ steps.build.outputs.digest }}
@@ -87,7 +89,7 @@ jobs:
           name: trivy-${{ matrix.image }}
           path: trivy-${{ matrix.image }}.txt
       - name: Generate CycloneDX SBOM
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         if: github.event_name != 'pull_request'
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ matrix.image }}@${{ steps.build.outputs.digest }}

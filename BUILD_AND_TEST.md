@@ -164,7 +164,7 @@ curl http://localhost:8086/health  # Signaling server
 Para fallback quando o P2P falhar, configure nos clientes:
 
 ```
-SIGNALING_SERVER_URL=wss://signaling.associahub.com.br/ws
+SIGNALING_SERVER_URL=wss://signal.zaplivre.app/ws
 ```
 
 ### Teste 1: P2P Direto (Mesma Rede)

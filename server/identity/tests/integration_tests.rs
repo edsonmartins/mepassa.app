@@ -17,6 +17,9 @@ struct PreKeyBundle {
     signed_prekey_id: i32,
     signed_prekey: String,
     signed_prekey_signature: String,
+    kyber_prekey_id: i32,
+    kyber_prekey: String,
+    kyber_prekey_signature: String,
     one_time_prekey: Option<OneTimePreKey>,
 }
 
@@ -96,9 +99,12 @@ fn create_test_prekey_bundle() -> PreKeyBundle {
         signed_prekey_id: 1,
         signed_prekey: general_purpose::STANDARD.encode(vec![1u8; 32]),
         signed_prekey_signature: general_purpose::STANDARD.encode(vec![2u8; 64]),
+        kyber_prekey_id: 1,
+        kyber_prekey: general_purpose::STANDARD.encode(vec![3u8; 32]),
+        kyber_prekey_signature: general_purpose::STANDARD.encode(vec![4u8; 64]),
         one_time_prekey: Some(OneTimePreKey {
             id: 1,
-            public_key: general_purpose::STANDARD.encode(vec![3u8; 32]),
+            public_key: general_purpose::STANDARD.encode(vec![5u8; 32]),
         }),
     }
 }

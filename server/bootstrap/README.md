@@ -89,8 +89,8 @@ sudo ufw allow 8001/tcp
 
 Se você usa Traefik no Swarm, o `server/bootstrap/stack.yml` já vem com labels para:
 
-- `https://dht1.associahub.com.br/health`
-- `https://dht2.associahub.com.br/health`
+- `https://dht1.zaplivre.app/health`
+- `https://dht2.zaplivre.app/health`
 
 Requisitos:
 1. DNS A records apontando para a VPS (dht1/dht2).

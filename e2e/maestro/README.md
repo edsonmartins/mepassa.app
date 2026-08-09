@@ -232,8 +232,9 @@ Estes cenários **não são cobríveis com um único device** e vivem só em
 
 - **ProfileScreen é órfã** (nenhuma rota de navegação chega nela) → sem flow
   de perfil/QR até ela ser ligada à navegação.
-- **Toggles de Settings não persistem** (estado local do Composable) → o
-  flow 09 só valida ausência de crash; não asserte persistência após reabrir.
+- **Toggles de Settings persistem** via `AppSettings.kt` (SharedPreferences
+  `zaplivre_settings`) desde o F2 — o flow 09 valida a tela; a persistência é
+  coberta pelos testes instrumentados (`AppSettingsTest`/`SettingsScreenTest`).
 
 ## Notas
 

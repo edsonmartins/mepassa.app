@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   bootstrap-node:
-    image: zaplivre-bootstrap:latest
+    image: ghcr.io/integrall-tech/zaplivre-bootstrap:${ZAPLIVRE_TAG:?ZAPLIVRE_TAG obrigatório}
     env_file:
       - /etc/zaplivre/bootstrap.env
     ports:
@@ -18,7 +18,7 @@ services:
     deploy:
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.zaplivre-bootstrap-1.rule=Host(`dht1.associahub.com.br`)"
+        - "traefik.http.routers.zaplivre-bootstrap-1.rule=Host(`dht1.zaplivre.app`)"
         - "traefik.http.routers.zaplivre-bootstrap-1.entrypoints=websecure"
         - "traefik.http.routers.zaplivre-bootstrap-1.tls=true"
         - "traefik.http.routers.zaplivre-bootstrap-1.tls.certresolver=letsencrypt"
@@ -32,7 +32,7 @@ services:
       - traefik-network
 
   bootstrap-node-2:
-    image: zaplivre-bootstrap:latest
+    image: ghcr.io/integrall-tech/zaplivre-bootstrap:${ZAPLIVRE_TAG:?ZAPLIVRE_TAG obrigatório}
     env_file:
       - /etc/zaplivre/bootstrap-2.env
     ports:
@@ -48,7 +48,7 @@ services:
     deploy:
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.zaplivre-bootstrap-2.rule=Host(`dht2.associahub.com.br`)"
+        - "traefik.http.routers.zaplivre-bootstrap-2.rule=Host(`dht2.zaplivre.app`)"
         - "traefik.http.routers.zaplivre-bootstrap-2.entrypoints=websecure"
         - "traefik.http.routers.zaplivre-bootstrap-2.tls=true"
         - "traefik.http.routers.zaplivre-bootstrap-2.tls.certresolver=letsencrypt"

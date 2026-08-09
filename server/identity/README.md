@@ -152,15 +152,18 @@ X-RateLimit-Remaining: 95
 
 Todos os requests de escrita (register, update prekeys) requerem assinatura Ed25519:
 
-**Formato da mensagem assinada:**
+**Formato da mensagem assinada (SEC-14):**
 ```
-register:{username}:{timestamp}
+register:{username}:{peer_id}:{public_key}:{timestamp}
 ```
 
 **Exemplo:**
 ```
-register:alice:1704067200
+register:alice:12D3KooW...:BASE64_PUBLIC_KEY:1704067200
 ```
+
+A assinatura cobre username + peer_id + public_key + timestamp, impedindo o
+replay da mesma assinatura com outro peer_id/bundle (handlers.rs:28-34).
 
 **Validação:**
 1. Timestamp deve estar dentro de ±5 minutos do horário atual

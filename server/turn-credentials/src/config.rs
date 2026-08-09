@@ -27,11 +27,21 @@ impl Config {
         // In production, these should be the actual external IPs/domains
         let turn_host = std::env::var("TURN_HOST").unwrap_or_else(|_| "coturn".to_string());
 
-        let turn_uris = vec![
+        // `turns:` (TLS) só é anunciado quando o coturn tem TLS habilitado
+        // (TURN_TLS_ENABLED=true). O coturn default usa `no-tls`/`no-dtls`
+        // (P1-6): anunciar `turns:` sem listener TLS faz o client tentar uma
+        // conexão que nunca completa.
+        let tls_enabled = std::env::var("TURN_TLS_ENABLED")
+            .map(|v| v == "true" || v == "1")
+            .unwrap_or(false);
+
+        let mut turn_uris = vec![
             format!("turn:{}:3478?transport=udp", turn_host),
             format!("turn:{}:3478?transport=tcp", turn_host),
-            format!("turns:{}:5349?transport=tcp", turn_host),
         ];
+        if tls_enabled {
+            turn_uris.push(format!("turns:{}:5349?transport=tcp", turn_host));
+        }
 
         let server_port = std::env::var("SERVER_PORT")
             .unwrap_or_else(|_| "8082".to_string())
