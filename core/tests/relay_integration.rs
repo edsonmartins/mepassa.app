@@ -168,10 +168,7 @@ fn test_nat_connection_strategy() {
     detector2.add_observed_address(addr2);
 
     let strategy = detector2.connection_recommendation();
-    assert!(
-        matches!(strategy, NatStrategy::RelayFirst)
-            || matches!(strategy, NatStrategy::HolePunchFirst)
-    );
+    assert!(matches!(strategy, NatStrategy::RelayFirst));
 }
 
 /// Test relay manager reservation lifecycle

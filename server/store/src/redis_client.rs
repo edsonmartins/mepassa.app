@@ -1,9 +1,9 @@
-//! Redis client for presence and notifications
+//! Redis client for notifications
 
 use redis::aio::MultiplexedConnection;
 use redis::{AsyncCommands, Client};
 
-/// Redis client for presence tracking and pub/sub
+/// Redis client for pub/sub notifications
 #[derive(Clone)]
 pub struct RedisClient {
     client: Client,
@@ -33,48 +33,6 @@ impl RedisClient {
         let _: () = conn.publish(&channel, "new_message").await?;
 
         tracing::debug!("📢 Published notification to channel: {}", channel);
-
-        Ok(())
-    }
-
-    /// Check if a peer is online (in presence set)
-    /// Presença planejada (não usada ainda - integração futura com o push)
-    #[allow(dead_code)]
-    pub async fn is_peer_online(&self, peer_id: &str) -> Result<bool, redis::RedisError> {
-        let mut conn = self.get_connection().await?;
-
-        let key = format!("presence:{}", peer_id);
-        let exists: bool = conn.exists(&key).await?;
-
-        Ok(exists)
-    }
-
-    /// Set peer presence (online)
-    #[allow(dead_code)]
-    pub async fn set_peer_online(
-        &self,
-        peer_id: &str,
-        ttl_seconds: u64,
-    ) -> Result<(), redis::RedisError> {
-        let mut conn = self.get_connection().await?;
-
-        let key = format!("presence:{}", peer_id);
-        let _: () = conn.set_ex(&key, "online", ttl_seconds).await?;
-
-        tracing::debug!("✅ Set {} as online (TTL: {}s)", peer_id, ttl_seconds);
-
-        Ok(())
-    }
-
-    /// Remove peer presence (offline)
-    #[allow(dead_code)]
-    pub async fn set_peer_offline(&self, peer_id: &str) -> Result<(), redis::RedisError> {
-        let mut conn = self.get_connection().await?;
-
-        let key = format!("presence:{}", peer_id);
-        let _: () = conn.del(&key).await?;
-
-        tracing::debug!("📴 Set {} as offline", peer_id);
 
         Ok(())
     }

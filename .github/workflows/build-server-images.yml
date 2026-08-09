@@ -50,12 +50,14 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ matrix.image }}
+          # F4: sem tag `latest` no GHCR — deploys devem usar tag explícita
+          # (sha/branch/semver). O deploy.sh também rejeita ZAPLIVRE_TAG=latest.
           tags: |
             type=sha
             type=ref,event=branch
             type=semver,pattern={{version}}
-            type=raw,value=latest,enable={{is_default_branch}}
-      - uses: docker/build-push-action@v6
+      - id: build
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: devops/Dockerfile.server
@@ -65,3 +67,35 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # F4: scan de vulnerabilidades (não-bloqueante) + SBOM (CycloneDX).
+      # Relatórios e SBOMs são expostos como artifacts para auditoria.
+      - name: Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@0.28.0
+        if: github.event_name != 'pull_request'
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ matrix.image }}@${{ steps.build.outputs.digest }}
+          format: table
+          exit-code: '0'
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
+          output: trivy-${{ matrix.image }}.txt
+      - name: Upload Trivy report
+        uses: actions/upload-artifact@v4
+        if: github.event_name != 'pull_request'
+        with:
+          name: trivy-${{ matrix.image }}
+          path: trivy-${{ matrix.image }}.txt
+      - name: Generate CycloneDX SBOM
+        uses: aquasecurity/trivy-action@0.28.0
+        if: github.event_name != 'pull_request'
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ matrix.image }}@${{ steps.build.outputs.digest }}
+          format: cyclonedx
+          output: sbom-${{ matrix.image }}.json
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        if: github.event_name != 'pull_request'
+        with:
+          name: sbom-${{ matrix.image }}
+          path: sbom-${{ matrix.image }}.json

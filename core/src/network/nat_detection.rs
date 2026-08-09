@@ -13,14 +13,6 @@ pub enum NatType {
     /// Direct connection likely works
     FullCone,
 
-    /// Restricted NAT: External IP same, port varies by destination
-    /// Medium difficulty, hole punching might work
-    Restricted,
-
-    /// Port Restricted NAT: Both IP and port vary by destination
-    /// Hard, DCUtR needed
-    PortRestricted,
-
     /// Symmetric NAT: Different external IP:Port per destination
     /// Hardest, relay required
     Symmetric,
@@ -100,7 +92,9 @@ impl NatDetector {
         // assinatura de NAT simétrico: cada destino recebe um mapeamento
         // diferente. Cones (restricted/port-restricted) mantêm o mesmo
         // mapeamento externo e não são distinguíveis só por endereços
-        // observados - detecção real exige STUN/AutoNAT (NAT-01).
+        // observados - detecção real exige STUN/AutoNAT (NAT-01). As
+        // variantes Restricted/PortRestricted foram removidas (F6): nunca
+        // eram produzidas por este heurístico.
         if ip_changed || port_changed {
             NatType::Symmetric
         } else {
@@ -110,10 +104,7 @@ impl NatDetector {
 
     /// Determine if relay should be used based on NAT type
     pub fn should_use_relay(&self) -> bool {
-        matches!(
-            self.guess_nat_type(),
-            NatType::Symmetric | NatType::PortRestricted
-        )
+        matches!(self.guess_nat_type(), NatType::Symmetric)
     }
 
     /// Get all observed addresses
@@ -130,8 +121,6 @@ impl NatDetector {
     pub fn connection_recommendation(&self) -> ConnectionStrategy {
         match self.guess_nat_type() {
             NatType::FullCone => ConnectionStrategy::DirectFirst,
-            NatType::Restricted => ConnectionStrategy::DirectFirst,
-            NatType::PortRestricted => ConnectionStrategy::HolePunchFirst,
             NatType::Symmetric => ConnectionStrategy::RelayFirst,
             NatType::Unknown => ConnectionStrategy::DirectFirst, // Optimistic default
         }
@@ -161,10 +150,8 @@ impl NatDetector {
 /// Recommended connection strategy based on NAT type
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConnectionStrategy {
-    /// Try direct connection first (best for FullCone/Restricted NAT)
+    /// Try direct connection first (best for FullCone NAT)
     DirectFirst,
-    /// Try hole punching first (best for PortRestricted NAT)
-    HolePunchFirst,
     /// Use relay immediately (best for Symmetric NAT)
     RelayFirst,
 }

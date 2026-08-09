@@ -55,12 +55,12 @@
 
 ## Fase F — P2/P3 (após homologação, se houver tempo)
 
-- [ ] **F1.** Criar testes instrumentados Android (`androidTest`).
-- [ ] **F2.** Persistir toggles de Settings no Android.
-- [ ] **F3.** Remover doc drift (identity README, push `.env.example` FCM legacy, desktop README porta 5173→5174).
-- [ ] **F4.** Scan de vulnerabilidade + SBOM nas imagens; remover tag `latest` do GHCR.
-- [ ] **F5.** Limpar dead code (presença `user_presence`, `is_peer_online`), `utils/config.rs`, `traefik/dynamic/` vazio, `scripts/build.sh` iOS.
-- [ ] **F6.** Revisar teste `testFormatTimestampKnownDefectAlwaysReturnsAgora` (iOS) e `NatType::PortRestricted` inalcançável.
+- [x] **F1.** Criar testes instrumentados Android (`androidTest`). **Feito** — `AppSettingsTest` (persistência do F2) e `SettingsScreenTest` (UI Compose dos toggles, testTags `settings_toggle_*`); 7 testes, 0 falhas em device (SM-X115 e 25028PC03G). Infra já existia no `build.gradle.kts` (androidTestImplementation + compose BOM + testInstrumentationRunner).
+- [x] **F2.** Persistir toggles de Settings no Android. **Feito** — `core/AppSettings.kt` (SharedPreferences `zaplivre_settings`); `SettingsScreen` carrega/persiste os 5 toggles; `NotificationHelper` respeita `notifications_enabled` (gate) e `sound/vibration` (recria o canal); suíte Maestro **10/10 verdes** com o APK final.
+- [x] **F3.** Remover doc drift. **Feito** — identity README/`.env.example` (porta 8080→8083, db `zaplivre`); push `.env.example` (FCM legacy `FCM_SERVER_KEY` → v1 `FCM_SERVICE_ACCOUNT_PATH`); desktop README (5173→5174). Bônus: URLs de serviço do iOS movidas pro `project.yml` (o xcodegen dropava `IDENTITY_SERVER_URL`/`MESSAGE_STORE_URL`/`SIGNALING_SERVER_URL` do Info.plist na regeração).
+- [x] **F4.** Scan de vulnerabilidade + SBOM nas imagens; remover tag `latest` do GHCR. **Feito** — workflow `build-server-images.yml`: tag `latest` removida (deploys usam sha/branch/semver) + passos Trivy (scan não-bloqueante HIGH/CRITICAL) e SBOM CycloneDX, ambos uploadados como artifacts.
+- [x] **F5.** Limpar dead code. **Feito** — presença: funções `is_peer_online`/`set_peer_online`/`set_peer_offline` removidas do `redis_client.rs` do store e schema `user_presence`/`update_presence` removido do `init.sql` (com atualização do `MIGRATIONS.md`); `utils/config.rs` (placeholder) removido; `scripts/build.sh` iOS agora delega pro `ios/build-all.sh` (sem cargo-lipo/xcworkspace). `traefik/dynamic/` vazio não existe neste repo.
+- [x] **F6.** Revisar teste `testFormatTimestampKnownDefectAlwaysReturnsAgora` (iOS) e `NatType::PortRestricted` inalcançável. **Feito** — `formatTimestamp` corrigido para comparar o intervalo total (`timeIntervalSince`) em vez dos restos por unidade; teste substituído por `testFormatTimestampMinutesHoursAndDate` (valida "5min"/"3h"/dd/MM/yyyy); suíte iOS passa. `NatType::Restricted`/`PortRestricted` e `ConnectionStrategy::HolePunchFirst` removidos (nunca produzidos pelo heurístico de endereços — detecção real exige STUN/AutoNAT, NAT-01); `relay_integration` ajustado.
 
 ---
 

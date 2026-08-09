@@ -16,9 +16,11 @@
 ## Estratégia recomendada: sqlx migrations
 
 1. **O dono do schema é o `message-store`.** As tabelas de negócio
-   (`offline_messages`, `push_tokens`, `user_presence`, `message_stats`,
+   (`offline_messages`, `push_tokens`, `message_stats`,
    `usernames`) pertencem ao `zaplivre-store`. Migrações vivem em
    `server/store/migrations/`.
+   > **F5:** o schema de presença (`user_presence`/`update_presence`) foi
+   > removido do `init.sql` — nunca foi consumido pelo store/core.
 
 2. **Adotar `sqlx::migrate!`** no `zaplivre-store`:
    ```rust

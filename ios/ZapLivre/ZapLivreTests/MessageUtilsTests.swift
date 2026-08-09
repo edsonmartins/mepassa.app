@@ -23,24 +23,17 @@ final class MessageUtilsTests: XCTestCase {
         XCTAssertEqual(MessageUtils.formatTimestamp(timestamp(secondsAgo: 50)), "agora")
     }
 
-    /// KNOWN BUG (documented, not endorsed): formatTimestamp computes
-    /// dateComponents([.second, .minute, .hour, .day]) and then checks
-    /// `seconds < 60`. With multiple units requested, `.second` is the
-    /// REMAINDER (always 0-59), so the guard matches for virtually any
-    /// timestamp and the function returns "agora" even for messages sent
-    /// hours, days, or years ago; the minutes/hours/date branches are
-    /// effectively unreachable.
-    ///
-    /// The fix (in MessageUtils.formatTimestamp) is to compare the total
-    /// elapsed interval, e.g. `now.timeIntervalSince(messageDate)`, instead
-    /// of per-unit remainders. When fixed, replace this test with assertions
-    /// for "5min", "3h" and "dd/MM/yyyy".
-    func testFormatTimestampKnownDefectAlwaysReturnsAgora() {
-        // Remainder seconds are ~2 in all these cases -> "agora" today
-        XCTAssertEqual(MessageUtils.formatTimestamp(timestamp(secondsAgo: 5 * 60 + 2)), "agora")
-        XCTAssertEqual(MessageUtils.formatTimestamp(timestamp(secondsAgo: 3 * 3600 + 2)), "agora")
-        // Even a 2020 timestamp falls into the "agora" branch
-        XCTAssertEqual(MessageUtils.formatTimestamp(1_584_014_400), "agora")
+    /// F6: o defeito "sempre 'agora'" foi corrigido comparando o intervalo
+    /// total (`now.timeIntervalSince(messageDate)`) em vez dos restos por
+    /// unidade. Este teste agora valida o comportamento correto.
+    func testFormatTimestampMinutesHoursAndDate() {
+        XCTAssertEqual(MessageUtils.formatTimestamp(timestamp(secondsAgo: 5 * 60 + 2)), "5min")
+        XCTAssertEqual(MessageUtils.formatTimestamp(timestamp(secondsAgo: 59 * 60 + 59)), "59min")
+        XCTAssertEqual(MessageUtils.formatTimestamp(timestamp(secondsAgo: 3 * 3600 + 2)), "3h")
+        XCTAssertEqual(MessageUtils.formatTimestamp(timestamp(secondsAgo: 23 * 3600 + 59 * 60)), "23h")
+        // Timestamp de 2020 (ano diferente) -> dd/MM/yyyy
+        let formatted = MessageUtils.formatTimestamp(1_584_014_400)
+        XCTAssertTrue(formatted.hasSuffix("/2020"), "Expected dd/MM/yyyy for 2020, got \(formatted)")
     }
 
     // MARK: - formatFullTimestamp

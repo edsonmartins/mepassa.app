@@ -419,7 +419,7 @@
 					0D1959D25F120207C1211CF2 = {
 						DevelopmentTeam = T8N7A2P3TQ;
 						ProvisioningStyle = Automatic;
-						SystemCapabilities = "[\"com.apple.BackgroundModes\": [\"enabled\": 1], \"com.apple.Push\": [\"enabled\": 1]]";
+						SystemCapabilities = "[\"com.apple.Push\": [\"enabled\": 1], \"com.apple.BackgroundModes\": [\"enabled\": 1]]";
 					};
 					4E3536F8665AC08627F7759D = {
 						DevelopmentTeam = T8N7A2P3TQ;
@@ -552,6 +552,7 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = T8N7A2P3TQ;
+				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/ZapLivre/Generated",
@@ -762,6 +763,7 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = T8N7A2P3TQ;
+				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/ZapLivre/Generated",

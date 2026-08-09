@@ -39,7 +39,7 @@ npm run tauri:dev
 ```
 
 This will:
-1. Start Vite dev server (React frontend) on `http://localhost:5173`
+1. Start Vite dev server (React frontend) on `http://localhost:5174`
 2. Compile Rust backend (Tauri)
 3. Launch desktop app with hot-reload
 
@@ -207,7 +207,7 @@ zaplivre-core = { path = "../../core" }  # Local dependency
 
 - **Product Name:** ZapLivre
 - **Bundle ID:** com.integralltech.zaplivre
-- **Frontend:** Vite dev server (port 5173)
+- **Frontend:** Vite dev server (port 5174)
 - **Output:** `../dist`
 - **Bundle Targets:** DMG (macOS), MSI (Windows), AppImage (Linux)
 
@@ -228,12 +228,12 @@ rm -rf ~/.zaplivre  # CAUTION: Deletes all data
 
 ### Vite dev server not starting
 
-**Cause:** Port 5173 already in use
+**Cause:** Port 5174 already in use
 
 **Solution:**
 ```bash
-# Find process using port 5173
-lsof -i :5173
+# Find process using port 5174
+lsof -i :5174
 
 # Kill it or change port in vite.config.ts
 ```

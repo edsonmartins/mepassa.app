@@ -98,6 +98,8 @@ build_android() {
 }
 
 # Build iOS
+# F5: o fluxo antigo (cargo-lipo + ZapLivre.xcworkspace) era obsoleto; agora
+# delega para o pipeline atual em ios/build-all.sh (build-rust.sh + xcodegen).
 build_ios() {
     print_info "Building iOS app..."
 
@@ -106,28 +108,9 @@ build_ios() {
         return
     fi
 
-    if ! command_exists cargo-lipo; then
-        print_warning "cargo-lipo not found. Installing..."
-        cargo install cargo-lipo
-    fi
-
-    # Build Rust core for iOS targets
-    cd core
-    cargo lipo --release --targets aarch64-apple-ios,x86_64-apple-ios
-
-    cd ../ios
-
-    # Build iOS app
-    xcodebuild \
-        -workspace ZapLivre.xcworkspace \
-        -scheme ZapLivre \
-        -sdk iphoneos \
-        -configuration Release \
-        CODE_SIGNING_ALLOWED=NO \
-        build
-
-    cd ..
-
+    local script_dir
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+    "$script_dir/ios/build-all.sh"
     print_info "✓ iOS app built successfully"
 }
 

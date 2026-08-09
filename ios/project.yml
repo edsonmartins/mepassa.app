@@ -36,6 +36,12 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSRequiresIPhoneOS: true
+        # F3/C4: URLs de serviços mantidas no project.yml (o xcodegen gera o
+        # Info.plist a partir destas properties; sem elas as chaves seriam
+        # removidas na regeração).
+        IDENTITY_SERVER_URL: https://identity.zaplivre.app
+        MESSAGE_STORE_URL: https://store.zaplivre.app
+        SIGNALING_SERVER_URL: wss://signal.zaplivre.app/ws
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         UILaunchScreen: {}
@@ -185,6 +191,7 @@ targets:
         SWIFT_VERSION: "5.0"
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: "T8N7A2P3TQ"
+        GENERATE_INFOPLIST_FILE: YES
 
         # Tests reference types from the app module that come from the
         # zaplivreFFI clang module (UniFFI generated), so the test target

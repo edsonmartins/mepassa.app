@@ -5,13 +5,20 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.zaplivre.MainActivity
 import com.zaplivre.R
+import com.zaplivre.core.AppSettings
 
 /**
  * Helper class for creating and showing notifications
+ *
+ * F2: respeita as preferências de [AppSettings]:
+ * - `notifications_enabled` desliga o aviso de novas mensagens por completo;
+ * - `sound_enabled`/`vibration_enabled` configuram o canal de mensagens
+ *   (no Android 8+ som/vibração vêm do canal, não do builder).
  */
 object NotificationHelper {
 
@@ -28,6 +35,8 @@ object NotificationHelper {
         body: String,
         peerId: String? = null
     ) {
+        if (!AppSettings.notificationsEnabled(context)) return
+
         createNotificationChannel(context)
 
         val intent = Intent(context, MainActivity::class.java).apply {
@@ -60,18 +69,39 @@ object NotificationHelper {
     }
 
     /**
+     * (Re)cria o canal de mensagens com a configuração atual de som/vibração.
+     *
+     * No Android 8+ a importância/som/vibração do canal só valem na criação;
+     * para o toggle ter efeito, o canal é recriado (perde overrides manuais do
+     * usuário — aceitável para este escopo).
+     */
+    fun applyMessageChannel(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.deleteNotificationChannel(CHANNEL_ID_MESSAGES)
+            createNotificationChannel(context)
+        }
+    }
+
+    /**
      * Create notification channel (Android O+)
      */
     private fun createNotificationChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val soundEnabled = AppSettings.soundEnabled(context)
+            val vibrationEnabled = AppSettings.vibrationEnabled(context)
             val channel = NotificationChannel(
                 CHANNEL_ID_MESSAGES,
                 CHANNEL_NAME_MESSAGES,
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "Notifications for new messages"
-                enableVibration(true)
+                enableVibration(vibrationEnabled)
                 enableLights(true)
+                setSound(if (soundEnabled) null else Uri.EMPTY, null)
+                if (!vibrationEnabled) {
+                    vibrationPattern = longArrayOf(0)
+                }
             }
 
             val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager

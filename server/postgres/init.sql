@@ -87,23 +87,9 @@ CREATE INDEX IF NOT EXISTS idx_push_tokens_peer_id ON push_tokens(peer_id) WHERE
 CREATE INDEX IF NOT EXISTS idx_push_tokens_platform ON push_tokens(platform);
 
 -- User Presence (tracked by Redis primarily, but DB for backup)
-CREATE TABLE IF NOT EXISTS user_presence (
-    peer_id TEXT PRIMARY KEY,
-
-    -- Status
-    status TEXT NOT NULL CHECK (status IN ('online', 'offline', 'away')) DEFAULT 'offline',
-
-    -- Connection info
-    connected_nodes TEXT[],
-    last_seen_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-
-    -- Timestamps
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
-);
-
--- Index for user_presence
-CREATE INDEX IF NOT EXISTS idx_user_presence_status ON user_presence(status);
-CREATE INDEX IF NOT EXISTS idx_user_presence_last_seen ON user_presence(last_seen_at DESC);
+-- F5: schema de presença removido (user_presence, update_presence) — a
+-- funcionalidade nunca foi usada pelo store/core (is_peer_online/set_peer_online
+-- eram dead code). Se presença voltar, reintroduzir com design novo.
 
 -- Message Delivery Stats (for monitoring)
 CREATE TABLE IF NOT EXISTS message_stats (
@@ -190,25 +176,6 @@ BEGIN
       AND status = 'pending';
 
     RETURN FOUND;
-END;
-$$ LANGUAGE plpgsql;
-
--- Function to update presence
-CREATE OR REPLACE FUNCTION update_presence(
-    peer_id_param TEXT,
-    status_param TEXT,
-    connected_nodes_param TEXT[]
-)
-RETURNS VOID AS $$
-BEGIN
-    INSERT INTO user_presence (peer_id, status, connected_nodes, last_seen_at, updated_at)
-    VALUES (peer_id_param, status_param, connected_nodes_param, NOW(), NOW())
-    ON CONFLICT (peer_id)
-    DO UPDATE SET
-        status = EXCLUDED.status,
-        connected_nodes = EXCLUDED.connected_nodes,
-        last_seen_at = NOW(),
-        updated_at = NOW();
 END;
 $$ LANGUAGE plpgsql;
 
@@ -301,13 +268,11 @@ ON CONFLICT (date) DO NOTHING;
 
 COMMENT ON TABLE offline_messages IS 'Stores encrypted messages for offline recipients (TTL 14 days)';
 COMMENT ON TABLE push_tokens IS 'Push notification tokens for FCM/APNs';
-COMMENT ON TABLE user_presence IS 'User online/offline status (backup to Redis)';
 COMMENT ON TABLE message_stats IS 'Daily aggregated message delivery statistics';
 COMMENT ON TABLE usernames IS 'Username → peer_id mapping for Identity Server (ADR 001) with prekey bundles for X3DH';
 
 COMMENT ON FUNCTION delete_expired_messages() IS 'Deletes messages older than TTL (14 days)';
 COMMENT ON FUNCTION mark_message_delivered(TEXT) IS 'Marks message as delivered and sets delivery timestamp';
-COMMENT ON FUNCTION update_presence(TEXT, TEXT, TEXT[]) IS 'Updates user presence status';
 COMMENT ON FUNCTION increment_message_stats(TEXT) IS 'Increments daily message statistics by delivery type';
 
 -- ============================================================================
@@ -326,8 +291,8 @@ BEGIN
     RAISE NOTICE 'ZapLivre Database Initialization Complete';
     RAISE NOTICE '==========================================================';
     RAISE NOTICE 'Database: zaplivre';
-    RAISE NOTICE 'Tables created: 5 (offline_messages, push_tokens, user_presence, message_stats, usernames)';
-    RAISE NOTICE 'Functions created: 4';
+    RAISE NOTICE 'Tables created: 4 (offline_messages, push_tokens, message_stats, usernames)';
+    RAISE NOTICE 'Functions created: 3';
     RAISE NOTICE 'TTL: 14 days for offline messages';
     RAISE NOTICE 'Identity Server: username → peer_id mapping enabled';
     RAISE NOTICE '==========================================================';

@@ -51,11 +51,22 @@ fun SettingsScreen(
 
     val localPeerId by ZapLivreClientWrapper.localPeerId.collectAsState()
 
-    var notificationsEnabled by remember { mutableStateOf(true) }
-    var soundEnabled by remember { mutableStateOf(true) }
-    var vibrationEnabled by remember { mutableStateOf(true) }
-    var readReceiptsEnabled by remember { mutableStateOf(true) }
-    var lastSeenEnabled by remember { mutableStateOf(true) }
+    // F2: estado inicial vem das preferências persistidas (não mais `true` fixo)
+    var notificationsEnabled by remember {
+        mutableStateOf(com.zaplivre.core.AppSettings.notificationsEnabled(context))
+    }
+    var soundEnabled by remember {
+        mutableStateOf(com.zaplivre.core.AppSettings.soundEnabled(context))
+    }
+    var vibrationEnabled by remember {
+        mutableStateOf(com.zaplivre.core.AppSettings.vibrationEnabled(context))
+    }
+    var readReceiptsEnabled by remember {
+        mutableStateOf(com.zaplivre.core.AppSettings.readReceiptsEnabled(context))
+    }
+    var lastSeenEnabled by remember {
+        mutableStateOf(com.zaplivre.core.AppSettings.lastSeenEnabled(context))
+    }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showExportDialog by remember { mutableStateOf(false) }
     var exportData by remember { mutableStateOf("") }
@@ -92,11 +103,28 @@ fun SettingsScreen(
         vibrationEnabled = vibrationEnabled,
         readReceiptsEnabled = readReceiptsEnabled,
         lastSeenEnabled = lastSeenEnabled,
-        onNotificationsChange = { notificationsEnabled = it },
-        onSoundChange = { soundEnabled = it },
-        onVibrationChange = { vibrationEnabled = it },
-        onReadReceiptsChange = { readReceiptsEnabled = it },
-        onLastSeenChange = { lastSeenEnabled = it },
+        onNotificationsChange = {
+            notificationsEnabled = it
+            com.zaplivre.core.AppSettings.setNotificationsEnabled(context, it)
+        },
+        onSoundChange = {
+            soundEnabled = it
+            com.zaplivre.core.AppSettings.setSoundEnabled(context, it)
+            com.zaplivre.util.NotificationHelper.applyMessageChannel(context)
+        },
+        onVibrationChange = {
+            vibrationEnabled = it
+            com.zaplivre.core.AppSettings.setVibrationEnabled(context, it)
+            com.zaplivre.util.NotificationHelper.applyMessageChannel(context)
+        },
+        onReadReceiptsChange = {
+            readReceiptsEnabled = it
+            com.zaplivre.core.AppSettings.setReadReceiptsEnabled(context, it)
+        },
+        onLastSeenChange = {
+            lastSeenEnabled = it
+            com.zaplivre.core.AppSettings.setLastSeenEnabled(context, it)
+        },
         onNavigateBack = onNavigateBack,
         onExportBackup = {
             scope.launch {

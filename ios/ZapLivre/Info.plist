@@ -20,12 +20,12 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>IDENTITY_SERVER_URL</key>
+	<string>https://identity.zaplivre.app</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>MESSAGE_STORE_URL</key>
 	<string>https://store.zaplivre.app</string>
-	<key>IDENTITY_SERVER_URL</key>
-	<string>https://identity.zaplivre.app</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_p2p._udp</string>

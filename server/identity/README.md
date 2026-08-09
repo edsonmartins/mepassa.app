@@ -176,13 +176,13 @@ Crie um arquivo `.env`:
 
 ```bash
 # Database
-DATABASE_URL=postgres://zaplivre:zaplivre@localhost/zaplivre_identity
+DATABASE_URL=postgres://zaplivre:zaplivre_dev_password@localhost/zaplivre
 
 # Redis
-REDIS_URL=redis://localhost
+REDIS_URL=redis://:zaplivre_redis_dev@localhost
 
 # Server
-BIND_ADDR=0.0.0.0:8080
+BIND_ADDR=0.0.0.0:8083
 ```
 
 ### PostgreSQL Schema
@@ -223,8 +223,8 @@ sudo apt install postgresql-15 redis-server
 
 2. Criar database:
 ```bash
-createdb zaplivre_identity
-psql zaplivre_identity < schema.sql
+createdb zaplivre
+psql zaplivre < schema.sql
 ```
 
 3. Iniciar Redis:
@@ -265,11 +265,11 @@ version: '3.8'
 
 services:
   postgres:
-    image: postgres:15
+    image: postgres:16-alpine
     environment:
-      POSTGRES_DB: zaplivre_identity
+      POSTGRES_DB: zaplivre
       POSTGRES_USER: zaplivre
-      POSTGRES_PASSWORD: zaplivre
+      POSTGRES_PASSWORD: zaplivre_dev_password
     volumes:
       - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
       - postgres_data:/var/lib/postgresql/data
@@ -280,11 +280,11 @@ services:
   identity-server:
     build: .
     ports:
-      - "8080:8080"
+      - "8083:8083"
     environment:
-      DATABASE_URL: postgres://zaplivre:zaplivre@postgres/zaplivre_identity
+      DATABASE_URL: postgres://zaplivre:zaplivre_dev_password@postgres/zaplivre
       REDIS_URL: redis://redis
-      BIND_ADDR: 0.0.0.0:8080
+      BIND_ADDR: 0.0.0.0:8083
     depends_on:
       - postgres
       - redis

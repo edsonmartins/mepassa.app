@@ -16,20 +16,24 @@ struct MessageUtils {
         let messageDate = Date(timeIntervalSince1970: TimeInterval(timestampSeconds))
         let now = Date()
 
-        let calendar = Calendar.current
-        let components = calendar.dateComponents([.second, .minute, .hour, .day], from: messageDate, to: now)
+        // F6: comparar o intervalo total (não os restos por unidade) — antes,
+        // uma mensagem de 5min+2s caía no branch "agora" (defeito conhecido).
+        let elapsed = now.timeIntervalSince(messageDate)
 
-        if let seconds = components.second, seconds < 60 {
+        if elapsed < 60 {
             return "agora"
         }
 
-        if let minutes = components.minute, minutes < 60 {
-            return "\(minutes)min"
+        if elapsed < 3600 {
+            return "\(Int(elapsed / 60))min"
         }
 
-        if let hours = components.hour, hours < 24 {
-            return "\(hours)h"
+        if elapsed < 86400 {
+            return "\(Int(elapsed / 3600))h"
         }
+
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.day], from: messageDate, to: now)
 
         if let days = components.day, days < 2 && isYesterday(messageDate) {
             return "Ontem \(formatTime(messageDate))"
