@@ -14,9 +14,10 @@ import androidx.core.view.WindowCompat
 
 /**
  * Tema ZapLivre. O colorScheme Material é derivado dos tokens [ZapColors] para
- * que componentes Material (TopAppBar, FAB, switches…) herdem a identidade azul
- * automaticamente; os detalhes de assinatura (bolhas, gradiente spark, avatares)
- * vêm de [ZapColor]/[LocalZapColors]. Espelha o design system do iOS.
+ * que componentes Material (TopAppBar, FAB, switches…) herdem a identidade
+ * navy/âmbar automaticamente; os detalhes de assinatura (bolhas, gradiente de
+ * marca, avatares) vêm de [ZapColor]/[LocalZapColors]. Espelha o design
+ * system do iOS.
  */
 private fun materialLight(z: ZapColors) = lightColorScheme(
     primary = z.primary,

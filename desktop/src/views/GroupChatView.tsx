@@ -237,7 +237,7 @@ export default function GroupChatView() {
                 <div
                   className={`max-w-xs lg:max-w-md xl:max-w-lg ${
                     message.is_own_message
-                      ? 'bg-primary-500 text-white'
+                      ? 'bg-primary-500 text-navy-900'
                       : 'bg-white text-gray-900'
                   } rounded-2xl px-4 py-2 shadow-sm`}
                 >
@@ -254,7 +254,7 @@ export default function GroupChatView() {
 
                   <p
                     className={`text-xs mt-1 ${
-                      message.is_own_message ? 'text-primary-100' : 'text-gray-500'
+                      message.is_own_message ? 'text-primary-600' : 'text-gray-500'
                     }`}
                   >
                     {formatMessageTime(message.created_at)}

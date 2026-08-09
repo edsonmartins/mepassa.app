@@ -10,10 +10,11 @@
 
     <!-- Onboarding -->
     <string name="onboarding_title">Bem-vindo ao ZapLivre</string>
-    <string name="onboarding_subtitle">Mensagens privadas e seguras via P2P</string>
-    <string name="onboarding_button">Começar</string>
-    <string name="onboarding_generating">Gerando identidade…</string>
-    <string name="onboarding_import_button">Importar identidade</string>
+    <string name="onboarding_subtitle">Mensagens livres. Do seu jeito. P2P, sem servidores centrais e com criptografia de ponta a ponta.</string>
+    <string name="onboarding_button">Criar minha conta</string>
+    <string name="onboarding_generating">Gerando sua identidade segura…</string>
+    <string name="onboarding_created">Identidade criada! Falta só o seu username.</string>
+    <string name="onboarding_import_button">Importar identidade existente</string>
     <string name="onboarding_import_title">Importar identidade</string>
     <string name="onboarding_import_hint">Cole o backup Base64 da sua identidade.</string>
     <string name="onboarding_import_confirm">Importar</string>

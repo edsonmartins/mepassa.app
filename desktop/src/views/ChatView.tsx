@@ -366,8 +366,7 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
           </div>
           <button
             onClick={handleStartCall}
-            className="ml-4 text-primary-600 hover:text-primary-700 p-2 rounded-full hover:bg-primary-50 transition-colors"
-            title="Iniciar chamada"
+            className="ml-4 text-primary-600 hover:text-primary-700 p-2 rounded-full hover:bg-primary-50 transition-colors"            title="Iniciar chamada"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -460,7 +459,7 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
                   )}
                   <p
                     className={`text-xs mt-1 ${
-                      isSentByMe(msg) ? 'text-primary-100' : 'text-gray-500'
+                      isSentByMe(msg) ? 'text-primary-600' : 'text-gray-500'
                     }`}
                   >
                     {formatMessageTime(msg.created_at)}

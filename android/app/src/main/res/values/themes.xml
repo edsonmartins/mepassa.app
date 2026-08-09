@@ -2,4 +2,10 @@
 <resources>
     <!-- Base application theme (usando Material3) -->
     <style name="Theme.ZapLivre" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- Splash: navy + logo central (usado até API 30; API 31+ usa
+         Theme.ZapLivre.Splash.V31 via windowSplashScreen*). -->
+    <style name="Theme.ZapLivre.Splash" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@drawable/splash_background</item>
+    </style>
 </resources>

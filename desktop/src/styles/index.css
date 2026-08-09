@@ -57,7 +57,8 @@ body {
 
 @layer components {
   .btn-primary {
-    @apply bg-primary-500 hover:bg-primary-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors;
+    /* Texto navy sobre âmbar (contraste da paleta — não branco sobre #FFAA00) */
+    @apply bg-primary-500 hover:bg-primary-600 text-navy-900 font-semibold py-2 px-4 rounded-lg transition-colors;
   }
 
   .btn-secondary {
@@ -73,10 +74,10 @@ body {
   }
 
   .message-sent {
-    @apply message-bubble bg-primary-500 text-white ml-auto;
+    @apply message-bubble bg-primary-100 text-ink ml-auto;
   }
 
   .message-received {
-    @apply message-bubble bg-gray-200 text-gray-900 mr-auto;
+    @apply message-bubble bg-white border border-gray-200 text-gray-900 mr-auto;
   }
 }

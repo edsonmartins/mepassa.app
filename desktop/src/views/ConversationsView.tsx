@@ -275,7 +275,7 @@ export default function ConversationsView({ localPeerId }: ConversationsViewProp
                   </div>
                   {conv.unread_count > 0 && (
                     <div className="ml-4">
-                      <span className="inline-flex items-center justify-center w-6 h-6 text-xs font-bold text-white bg-primary-500 rounded-full">
+                      <span className="inline-flex items-center justify-center w-6 h-6 text-xs font-bold text-navy-900 bg-primary-500 rounded-full">
                         {conv.unread_count}
                       </span>
                     </div>

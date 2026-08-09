@@ -37,7 +37,7 @@ struct LoginView: View {
                             .font(.system(size: 40, weight: .heavy, design: .rounded))
                             .foregroundColor(ZapColor.ink)
 
-                        Text("Privacidade total. Sem servidores centrais.")
+                        Text("Mensagens livres. Do seu jeito.")
                             .font(ZapFont.preview)
                             .foregroundColor(ZapColor.slate)
                             .multilineTextAlignment(.center)

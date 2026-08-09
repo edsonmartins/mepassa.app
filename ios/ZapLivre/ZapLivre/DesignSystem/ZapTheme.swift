@@ -2,9 +2,10 @@
 //  ZapTheme.swift
 //  ZapLivre / ZapLivre
 //
-//  Design system central. A identidade: familiar como um mensageiro moderno,
-//  mas com o azul ZapLivre no lugar do verde e um gradiente "spark" (raio) usado
-//  com muita restrição — só onde o app quer chamar a ação. Tudo o mais é quieto.
+//  Design system central. A identidade: navy profundo + amarelo/âmbar
+//  energético + laranja pontual (documentos/zaplivre-paleta-cores.md). Diferencia
+//  o produto de mensageiros verdes; o gradiente de marca (amarelo→âmbar→laranja)
+//  é usado com restrição — só onde o app quer chamar a ação. Tudo o mais é quieto.
 //
 
 import SwiftUI
@@ -36,42 +37,46 @@ extension Color {
 // MARK: - Paleta ZapLivre
 
 enum ZapColor {
-    /// Azul de marca — bolha própria, botões, badges, links.
-    static let primary = Color(light: 0x2F6BFF, dark: 0x3D78FF)
-    /// Ciano do "raio" — só no gradiente signature e micro-detalhes.
-    static let spark = Color(light: 0x37E0FF, dark: 0x37E0FF)
-
+    /// Âmbar de marca — ações principais, badges, links.
+    static let primary = Color(light: 0xFFB000, dark: 0xFFAA00)
+    /// Amarelo da marca — destaque, indicadores ativos.
+    static let spark = Color(light: 0xFFD400, dark: 0xFFD400)
     /// Texto principal.
-    static let ink = Color(light: 0x0D1B2A, dark: 0xE9EDF1)
+    static let ink = Color(light: 0x0F172A, dark: 0xF8FAFC)
     /// Texto secundário, ícones neutros, timestamps.
-    static let slate = Color(light: 0x667085, dark: 0x8A97A3)
+    static let slate = Color(light: 0x64748B, dark: 0x94A3B8)
 
     /// Fundo das telas de lista (Conversas, Grupos, Settings).
-    static let canvas = Color(light: 0xFFFFFF, dark: 0x0B141A)
+    static let canvas = Color(light: 0xF7F9FC, dark: 0x03152E)
     /// Fundo do chat (atrás das bolhas).
-    static let chatCanvas = Color(light: 0xEDF1F7, dark: 0x0B141A)
+    static let chatCanvas = Color(light: 0xEEF2F7, dark: 0x03152E)
     /// Cartões / superfícies elevadas / bolha recebida.
-    static let surface = Color(light: 0xFFFFFF, dark: 0x1F2C33)
+    static let surface = Color(light: 0xFFFFFF, dark: 0x0B2A50)
     /// Divisórias / hairlines.
-    static let hairline = Color(light: 0xE6E9EF, dark: 0x223038)
+    static let hairline = Color(light: 0xE2E8F0, dark: 0x193B61)
 
-    /// Bolha própria (enviada).
-    static let bubbleOut = Color(light: 0x2F6BFF, dark: 0x1B49B8)
-    static let bubbleOutInk = Color.white
+    /// Bolha própria (enviada) — âmbar claro (light) / âmbar escurecido (dark).
+    static let bubbleOut = Color(light: 0xFFF3C4, dark: 0x3B3214)
+    static let bubbleOutInk = Color(light: 0x0F172A, dark: 0xF8FAFC)
     /// Bolha recebida.
-    static let bubbleIn = Color(light: 0xFFFFFF, dark: 0x1F2C33)
-    static let bubbleInInk = Color(light: 0x0D1B2A, dark: 0xE9EDF1)
+    static let bubbleIn = Color(light: 0xFFFFFF, dark: 0x102B4D)
+    static let bubbleInInk = Color(light: 0x0F172A, dark: 0xF8FAFC)
 
     /// Presença online (verde é convenção universal, não exclusiva de terceiros).
-    static let online = Color(light: 0x22C55E, dark: 0x2ED573)
+    static let online = Color(light: 0x22C55E, dark: 0x22C55E)
     /// Destrutivo / erro.
-    static let danger = Color(light: 0xE5484D, dark: 0xFF6369)
+    static let danger = Color(light: 0xEF4444, dark: 0xEF4444)
+
+    /// Navy profundo — base estrutural (headers, splash, superfícies).
+    static let navy = Color(light: 0x061C3A, dark: 0x061C3A)
+    /// Texto sobre ação âmbar/amarela — navy de marca (contraste, não branco).
+    static let onPrimary = Color(light: 0x061C3A, dark: 0x061C3A)
 
     /// Paleta de avatares sem foto — cor derivada do id, para dar vida à lista.
     static let avatarPalette: [Color] = [
-        Color(hex6: 0x2F6BFF), Color(hex6: 0x7C5CFF), Color(hex6: 0x00A6A6),
-        Color(hex6: 0xE8618C), Color(hex6: 0xF2884B), Color(hex6: 0x1FA971),
-        Color(hex6: 0x4B7BEC), Color(hex6: 0xB8449B)
+        Color(hex6: 0x0B2A50), Color(hex6: 0x7C3AED), Color(hex6: 0x00875A),
+        Color(hex6: 0xE8618C), Color(hex6: 0xF2884B), Color(hex6: 0xB45309),
+        Color(hex6: 0x0EA5E9), Color(hex6: 0xC026D3)
     ]
 
     /// Cor estável derivada de um id — mesma lógica dos avatares. Usada para
@@ -82,9 +87,9 @@ enum ZapColor {
         return avatarPalette[abs(hash) % avatarPalette.count]
     }
 
-    /// Gradiente signature (o "raio"): azul → ciano. Usar com restrição.
+    /// Gradiente de marca: amarelo → âmbar → laranja. Usar com restrição.
     static let sparkGradient = LinearGradient(
-        colors: [Color(hex6: 0x2F6BFF), Color(hex6: 0x37E0FF)],
+        colors: [Color(hex6: 0xFFD400), Color(hex6: 0xFFAA00), Color(hex6: 0xFF7900)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )

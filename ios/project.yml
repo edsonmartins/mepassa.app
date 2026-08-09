@@ -44,7 +44,9 @@ targets:
         SIGNALING_SERVER_URL: wss://signal.zaplivre.app/ws
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
-        UILaunchScreen: {}
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+          UIImageName: ZapLogo
         UIRequiredDeviceCapabilities:
           - arm64
         UISupportedInterfaceOrientations:

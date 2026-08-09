@@ -10,9 +10,10 @@ import kotlin.math.abs
 /**
  * Paleta ZapLivre (espelha ios/.../DesignSystem/ZapTheme.swift).
  *
- * A identidade: familiar como um mensageiro moderno, mas com o azul ZapLivre no
- * lugar do verde e um gradiente "spark" (raio) usado com muita restrição — só
- * onde o app quer chamar a ação. Tudo o mais é quieto.
+ * A identidade: navy profundo + amarelo/âmbar energético + laranja pontual
+ * (docs de marca + documentos/zaplivre-paleta-cores.md). Diferencia o produto
+ * de mensageiros verdes; o gradiente de marca (amarelo→âmbar→laranja) é usado
+ * com restrição — só onde o app quer chamar a ação. Tudo o mais é quieto.
  *
  * As cores adaptam light/dark via [LocalZapColors], provido pelo [ZapLivreTheme].
  * Nas telas, use `ZapColor.primary` etc (leitura em contexto @Composable),
@@ -36,16 +37,26 @@ data class ZapColors(
     val onPrimary: Color,
     val isDark: Boolean,
 ) {
-    /** Gradiente signature (o "raio"): azul → ciano. Usar com restrição. */
+    /** Gradiente de marca: amarelo → âmbar → laranja. Usar com restrição. */
     val sparkBrush: Brush
-        get() = Brush.linearGradient(listOf(Color(0xFF2F6BFF), Color(0xFF37E0FF)))
+        get() = Brush.linearGradient(
+            listOf(
+                Color(0xFFFFD400),
+                Color(0xFFFFAA00),
+                Color(0xFFFF7900),
+            )
+        )
+
+    /** Navy profundo — base estrutural da marca (headers, splash, superfícies). */
+    val navy: Color
+        get() = Color(0xFF061C3A)
 
     /** Paleta de avatares sem foto — cor derivada do id, para dar vida à lista. */
     val avatarPalette: List<Color>
         get() = listOf(
-            Color(0xFF2F6BFF), Color(0xFF7C5CFF), Color(0xFF00A6A6),
-            Color(0xFFE8618C), Color(0xFFF2884B), Color(0xFF1FA971),
-            Color(0xFF4B7BEC), Color(0xFFB8449B),
+            Color(0xFF0B2A50), Color(0xFF7C3AED), Color(0xFF00875A),
+            Color(0xFFE8618C), Color(0xFFF2884B), Color(0xFFB45309),
+            Color(0xFF0EA5E9), Color(0xFFC026D3),
         )
 
     /**
@@ -61,40 +72,40 @@ data class ZapColors(
 }
 
 val LightZapColors = ZapColors(
-    primary = Color(0xFF2F6BFF),
-    spark = Color(0xFF37E0FF),
-    ink = Color(0xFF0D1B2A),
-    slate = Color(0xFF667085),
-    canvas = Color(0xFFFFFFFF),
-    chatCanvas = Color(0xFFEDF1F7),
+    primary = Color(0xFFFFB000),
+    spark = Color(0xFFFFD400),
+    ink = Color(0xFF0F172A),
+    slate = Color(0xFF64748B),
+    canvas = Color(0xFFF7F9FC),
+    chatCanvas = Color(0xFFEEF2F7),
     surface = Color(0xFFFFFFFF),
-    hairline = Color(0xFFE6E9EF),
-    bubbleOut = Color(0xFF2F6BFF),
-    bubbleOutInk = Color.White,
+    hairline = Color(0xFFE2E8F0),
+    bubbleOut = Color(0xFFFFF3C4),
+    bubbleOutInk = Color(0xFF0F172A),
     bubbleIn = Color(0xFFFFFFFF),
-    bubbleInInk = Color(0xFF0D1B2A),
+    bubbleInInk = Color(0xFF0F172A),
     online = Color(0xFF22C55E),
-    danger = Color(0xFFE5484D),
-    onPrimary = Color.White,
+    danger = Color(0xFFEF4444),
+    onPrimary = Color(0xFF061C3A),
     isDark = false,
 )
 
 val DarkZapColors = ZapColors(
-    primary = Color(0xFF3D78FF),
-    spark = Color(0xFF37E0FF),
-    ink = Color(0xFFE9EDF1),
-    slate = Color(0xFF8A97A3),
-    canvas = Color(0xFF0B141A),
-    chatCanvas = Color(0xFF0B141A),
-    surface = Color(0xFF1F2C33),
-    hairline = Color(0xFF223038),
-    bubbleOut = Color(0xFF1B49B8),
-    bubbleOutInk = Color.White,
-    bubbleIn = Color(0xFF1F2C33),
-    bubbleInInk = Color(0xFFE9EDF1),
-    online = Color(0xFF2ED573),
-    danger = Color(0xFFFF6369),
-    onPrimary = Color.White,
+    primary = Color(0xFFFFAA00),
+    spark = Color(0xFFFFD400),
+    ink = Color(0xFFF8FAFC),
+    slate = Color(0xFF94A3B8),
+    canvas = Color(0xFF03152E),
+    chatCanvas = Color(0xFF03152E),
+    surface = Color(0xFF0B2A50),
+    hairline = Color(0xFF193B61),
+    bubbleOut = Color(0xFF3B3214),
+    bubbleOutInk = Color(0xFFF8FAFC),
+    bubbleIn = Color(0xFF102B4D),
+    bubbleInInk = Color(0xFFF8FAFC),
+    online = Color(0xFF22C55E),
+    danger = Color(0xFFEF4444),
+    onPrimary = Color(0xFF061C3A),
     isDark = true,
 )
 
@@ -122,6 +133,7 @@ object ZapColor {
     val onPrimary: Color @Composable @ReadOnlyComposable get() = current.onPrimary
 
     val sparkBrush: Brush @Composable @ReadOnlyComposable get() = current.sparkBrush
+    val navy: Color @Composable @ReadOnlyComposable get() = current.navy
     val avatarPalette: List<Color> @Composable @ReadOnlyComposable get() = current.avatarPalette
 
     @Composable @ReadOnlyComposable

@@ -76,7 +76,7 @@ describe('App - inicialização', () => {
 
     renderApp()
 
-    expect(await screen.findByText(/initialization failed/i)).toBeInTheDocument()
+    expect(await screen.findByText(/falha na inicialização/i)).toBeInTheDocument()
     expect(screen.getByText(/keychain corrompido/)).toBeInTheDocument()
   })
 
@@ -93,7 +93,7 @@ describe('App - inicialização', () => {
     // Mesmo com os dois listen_on falhando, o boot segue até o bootstrap
     // e o app cai nas conversas, sem tela de erro
     expect(callsOf('bootstrap')).toHaveLength(1)
-    expect(screen.queryByText(/initialization failed/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/falha na inicialização/i)).not.toBeInTheDocument()
     expect(await screen.findByRole('heading', { name: 'ZapLivre' })).toBeInTheDocument()
   })
 
@@ -107,7 +107,7 @@ describe('App - inicialização', () => {
     renderApp()
     await waitForBoot()
 
-    expect(screen.queryByText(/initialization failed/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/falha na inicialização/i)).not.toBeInTheDocument()
     expect(await screen.findByRole('heading', { name: 'ZapLivre' })).toBeInTheDocument()
   })
 

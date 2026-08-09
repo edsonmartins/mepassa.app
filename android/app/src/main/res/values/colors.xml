@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Paleta ZapLivre (documentos/zaplivre-paleta-cores.md) -->
+    <color name="zaplivre_navy">#03152E</color>
+    <color name="zaplivre_navy_header">#061C3A</color>
+    <color name="zaplivre_navy_card">#0B2A50</color>
+    <color name="zaplivre_yellow">#FFD400</color>
+    <color name="zaplivre_amber">#FFAA00</color>
+    <color name="zaplivre_orange">#FF7900</color>
+</resources>

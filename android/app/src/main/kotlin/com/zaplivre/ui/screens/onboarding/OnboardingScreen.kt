@@ -77,11 +77,11 @@ fun OnboardingScreen(
             ) {
                 Spacer(modifier = Modifier.weight(0.6f))
 
-                // Logo (raio + gradiente spark) + wordmark
-                ZapLogo(size = 104.dp)
+                // Logo (glyph real + gradiente de marca) + wordmark
+                ZapLogo(size = 116.dp)
 
                 Text(
-                    text = "ZapLivre",
+                    text = stringResource(R.string.onboarding_title),
                     style = ZapType.brand,
                     color = ZapColor.ink,
                 )
@@ -96,7 +96,7 @@ fun OnboardingScreen(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // Status / Peer ID
+                // Status / criação da conta
                 if (isInitializing || isInitialized) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -117,19 +117,11 @@ fun OnboardingScreen(
                                     text = stringResource(R.string.onboarding_generating),
                                     style = MaterialTheme.typography.bodyMedium
                                 )
-                            }
-
-                            if (localPeerId != null) {
+                            } else if (isInitialized) {
                                 Text(
-                                    text = "Seu Peer ID:",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = localPeerId!!.take(16) + "...",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                                    text = stringResource(R.string.onboarding_created),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    textAlign = TextAlign.Center
                                 )
                             }
                         }
@@ -138,7 +130,7 @@ fun OnboardingScreen(
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                // Botão começar (gradiente spark — ação principal)
+                // Ação principal: criar conta (gradiente de marca — ação principal)
                 ZapGradientButton(
                     text = stringResource(R.string.onboarding_button),
                     onClick = {

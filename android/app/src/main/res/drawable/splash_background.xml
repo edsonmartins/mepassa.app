@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Fundo navy profundo -->
+    <item android:drawable="@color/zaplivre_navy" />
+    <!-- Logo centralizado -->
+    <item
+        android:drawable="@drawable/zaplivre_logo"
+        android:gravity="center"
+        android:width="120dp"
+        android:height="120dp" />
+</layer-list>

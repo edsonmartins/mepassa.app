@@ -231,13 +231,22 @@ function App() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-100">
+      <div className="flex items-center justify-center h-screen bg-navy-950">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-primary-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600 font-medium">Carregando ZapLivre...</p>
+          <div className="w-20 h-20 bg-brand-gradient rounded-2xl mx-auto flex items-center justify-center mb-6">
+            <svg
+              className="w-12 h-12 text-navy-950"
+              fill="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path d="M13 2L4.5 13.5h6L9 22l8.5-11.5h-6L13 2z" transform="translate(1.5,0)" />
+            </svg>
+          </div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-4 border-brand-amber mx-auto"></div>
+          <p className="mt-4 text-gray-300 font-medium">Carregando ZapLivre...</p>
           {errorMessage && (
-            <div className="mt-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-              <p className="font-bold">Error during initialization:</p>
+            <div className="mt-4 p-4 bg-red-900/40 border border-red-500/40 text-red-200 rounded">
+              <p className="font-bold">Erro durante a inicialização:</p>
               <p className="text-sm mt-2">{errorMessage}</p>
             </div>
           )}
@@ -248,19 +257,19 @@ function App() {
 
   if (errorMessage && !isInitialized) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-100">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6">
+      <div className="flex items-center justify-center h-screen bg-navy-950">
+        <div className="max-w-md w-full bg-navy-900 border border-navy-800 rounded-lg shadow-lg p-6">
           <div className="text-center">
             <div className="text-red-500 text-6xl mb-4">⚠️</div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Initialization Failed</h2>
-            <div className="p-4 bg-red-50 border border-red-200 rounded text-left">
-              <p className="text-sm text-gray-700 break-all">{errorMessage}</p>
+            <h2 className="text-2xl font-bold text-gray-50 mb-4">Falha na inicialização</h2>
+            <div className="p-4 bg-red-900/40 border border-red-500/40 rounded text-left">
+              <p className="text-sm text-red-100 break-all">{errorMessage}</p>
             </div>
             <button
               onClick={() => window.location.reload()}
-              className="mt-6 px-4 py-2 bg-primary-500 text-white rounded hover:bg-primary-600"
+              className="mt-6 px-4 py-2 bg-primary-500 text-navy-900 rounded hover:bg-primary-600"
             >
-              Retry
+              Tentar novamente
             </button>
           </div>
         </div>

@@ -58,39 +58,36 @@ export default function OnboardingView({ localPeerId, onUsernameRegistered }: On
   }
 
   return (
-    <div className="flex items-center justify-center h-screen bg-gradient-to-br from-primary-50 to-primary-100">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8">
+    <div className="flex items-center justify-center h-screen bg-navy-950">
+      <div className="max-w-md w-full bg-navy-900 border border-navy-800 rounded-2xl shadow-2xl p-8">
         <div className="text-center">
           {/* Logo */}
           <div className="mb-6">
-            <div className="w-20 h-20 bg-primary-500 rounded-full mx-auto flex items-center justify-center">
+            <div className="w-20 h-20 bg-brand-gradient rounded-2xl mx-auto flex items-center justify-center">
               <svg
-                className="w-12 h-12 text-white"
-                fill="none"
-                stroke="currentColor"
+                className="w-12 h-12 text-navy-950"
+                fill="currentColor"
                 viewBox="0 0 24 24"
               >
                 <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                  d="M13 2L4.5 13.5h6L9 22l8.5-11.5h-6L13 2z"
+                  transform="translate(1.5,0)"
                 />
               </svg>
             </div>
           </div>
 
           {/* Title */}
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Bem-vindo ao ZapLivre</h1>
-          <p className="text-gray-600 mb-6">
-            Hybrid P2P messaging with E2E encryption
+          <h1 className="text-3xl font-bold text-gray-50 mb-2">Bem-vindo ao ZapLivre</h1>
+          <p className="text-gray-400 mb-6">
+            Mensagens livres. Do seu jeito.
           </p>
 
           {/* Peer ID */}
           {localPeerId && (
-            <div className="bg-gray-50 rounded-lg p-4 mb-6">
-              <p className="text-xs text-gray-500 mb-1 uppercase font-semibold">Your Peer ID</p>
-              <p className="text-sm text-gray-900 font-mono break-all">{localPeerId}</p>
+            <div className="bg-navy-800 rounded-lg p-4 mb-6">
+              <p className="text-xs text-gray-400 mb-1 uppercase font-semibold">Seu Peer ID</p>
+              <p className="text-sm text-gray-200 font-mono break-all">{localPeerId}</p>
             </div>
           )}
 
@@ -98,7 +95,7 @@ export default function OnboardingView({ localPeerId, onUsernameRegistered }: On
           <div className="text-left mb-8 space-y-3">
             <div className="flex items-start">
               <svg
-                className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0"
+                className="w-5 h-5 text-brand-amber mr-3 mt-0.5 flex-shrink-0"
                 fill="currentColor"
                 viewBox="0 0 20 20"
               >
@@ -109,14 +106,14 @@ export default function OnboardingView({ localPeerId, onUsernameRegistered }: On
                 />
               </svg>
               <div>
-                <p className="font-semibold text-gray-900">80% P2P Direct</p>
-                <p className="text-sm text-gray-600">Maximum privacy, zero server cost</p>
+                <p className="font-semibold text-gray-50">80% P2P Direto</p>
+                <p className="text-sm text-gray-400">Privacidade máxima, custo zero de servidor</p>
               </div>
             </div>
 
             <div className="flex items-start">
               <svg
-                className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0"
+                className="w-5 h-5 text-brand-amber mr-3 mt-0.5 flex-shrink-0"
                 fill="currentColor"
                 viewBox="0 0 20 20"
               >
@@ -127,14 +124,14 @@ export default function OnboardingView({ localPeerId, onUsernameRegistered }: On
                 />
               </svg>
               <div>
-                <p className="font-semibold text-gray-900">E2E Encrypted</p>
-                <p className="text-sm text-gray-600">Signal Protocol encryption</p>
+                <p className="font-semibold text-gray-50">Criptografia E2E</p>
+                <p className="text-sm text-gray-400">Protocolo Signal</p>
               </div>
             </div>
 
             <div className="flex items-start">
               <svg
-                className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0"
+                className="w-5 h-5 text-brand-amber mr-3 mt-0.5 flex-shrink-0"
                 fill="currentColor"
                 viewBox="0 0 20 20"
               >
@@ -145,14 +142,14 @@ export default function OnboardingView({ localPeerId, onUsernameRegistered }: On
                 />
               </svg>
               <div>
-                <p className="font-semibold text-gray-900">Always Works</p>
-                <p className="text-sm text-gray-600">TURN relay + Store & Forward fallback</p>
+                <p className="font-semibold text-gray-50">Sempre online</p>
+                <p className="text-sm text-gray-400">Relay TURN + Store &amp; Forward</p>
               </div>
             </div>
           </div>
 
-          <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Escolha seu username" className="w-full border border-gray-300 rounded-lg p-3 mb-2" />
-          {usernameError && <p className="text-sm text-red-600 mb-3">{usernameError}</p>}
+          <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Escolha seu username" className="w-full bg-navy-800 border border-navy-800 rounded-lg p-3 mb-2 text-gray-100 placeholder-gray-500" />
+          {usernameError && <p className="text-sm text-red-400 mb-3">{usernameError}</p>}
           <button
             onClick={handleGetStarted}
             disabled={!localPeerId || isRegistering}

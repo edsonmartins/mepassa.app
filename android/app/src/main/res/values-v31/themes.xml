@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12+ (API 31): splash do sistema com a marca ZapLivre. -->
+    <style name="Theme.ZapLivre.Splash" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowSplashScreenBackground">@color/zaplivre_navy</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/zaplivre_logo</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/zaplivre_navy</item>
+        <item name="android:windowBackground">@color/zaplivre_navy</item>
+    </style>
+</resources>
