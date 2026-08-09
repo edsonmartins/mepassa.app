@@ -81,3 +81,59 @@
 4. Todos os apps apontando para o mesmo domínio `*.zaplivre.app` com bootstrap/identity/push configuráveis.
 5. E2E Maestro Android verde em device e iOS verde; VoIP validado em chamada real.
 6. Auditoria de segurança: sender key rotacionada, sem plaintext de seed, secrets em secret manager.
+
+---
+
+## Re-auditoria V4 (2026-08-09) — resultado
+
+Re-auditoria rigorosa de todos os gaps do `AUDIT_REPORT_V4.md`, com verificação
+de código + CI real. Veredito: **pronto para homologação**, restando apenas
+itens que dependem de ação do usuário ou são limitações assumidas.
+
+### Corrigido nesta re-auditoria (commit `470d8fd`)
+
+- **Bloqueador (regressão F4):** `build-server-images.yml` usava
+  `trivy-action@0.28.0` (tag inexistente) → **nenhuma imagem GHCR era
+  publicada desde a Fase F**. Corrigido para `v0.36.0`; run verde
+  (6m32s) publicou as 6 imagens (identity, store, push, turn-credentials,
+  signaling, bootstrap).
+- **P1-5:** teste de integração do identity sem campos kyber (obrigatórios no
+  modelo `models.rs:20-22`); o `RegisterRequest` do teste quebraria o
+  register. Corrigido (`integration_tests.rs` inclui kyber).
+- **P1-6:** `turns:5349` anunciado sem listener TLS (coturn `no-tls`) →
+  `turn-credentials` agora só anuncia `turns:` com `TURN_TLS_ENABLED=true`;
+  `TURN_HOST`/`TURN_TLS_ENABLED` documentados no `.env.example`.
+- **C6 (resíduo):** `server/bootstrap/stack.yml` legado ainda usava
+  `zaplivre-bootstrap:latest` + `dht1/dht2.associahub.com.br` → alinhado ao
+  stack raiz (GHCR + `${ZAPLIVRE_TAG}` + `*.zaplivre.app`).
+- **Doc drift:** `e2e/maestro/README` (toggles persistem desde F2),
+  `desktop/README` + README raiz (bundle só macOS), `push/README`
+  (FCM HTTP v1/PSH-01), `identity/README` (assinatura SEC-14),
+  `self-hosting`/`github-secrets`/`BUILD_AND_TEST`/`android/README`
+  (domínios `*.zaplivre.app`). Zero ocorrências de `associahub` em docs ativas.
+
+### Verificado e já corrigido (sem ação)
+
+- A1–A6 (testes E2E/plaintext, clippy, fmt, gates CI), B1–B5 (healthchecks
+  Redis/coturn, monitoring, make up, MIGRATIONS), C1–C8 (bootstrap+coturn no
+  compose devops, imagem no pipeline, domínios, APNs/FCM guia, GHCR tags,
+  health-check HTTP, BACKUP_AND_SECRETS), D1–D4 (rotação sender key, seed
+  E2E SEC-02, sync placeholder, libsignal audit), E1–E7 (.so, libs iOS, Maestro
+  10/10, VoIP 9/9, offline send, stats auth, desktop settings),
+  F1–F6 (instrumented 7/7, AppSettings, doc drift, SBOM/Trivy, dead code,
+  formatTimestamp/NAT), mais as revisões de código da Fase E (bundle DTO na
+  leitura, `to_core` TryInto, backup modal, best-effort group status,
+  `audioStarted`/tap duplicado).
+
+### Itens abertos (ação do usuário)
+
+| Item | Status |
+|---|---|
+| **C5** — chaves reais APNs (`.p8`, `APNS_KEY_ID/TEAM_ID`) + FCM service account | Devops pronto + guia `docs/guides/push-keys-homologacao.md`; falta o usuário gerar/provisionar e validar entrega em device |
+| **P1-4** — rate-limit/anti-replay process-local | Limitação assumida (comentada no código); produção com réplica única ou enforcement em gateway |
+
+### Limitações documentadas (aceitas)
+
+- `armeabi-v7a` só com `BUILD_ANDROID_ALL=1` (homologação usa arm64/x86_64).
+- iOS libs `.a` gitignoradas (geradas por `ios/build-rust.sh`).
+- Sync multi-device adiado (placeholder `core/src/sync/mod.rs`).
