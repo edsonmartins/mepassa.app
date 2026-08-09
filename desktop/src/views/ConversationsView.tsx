@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import QRCodeModal from '../components/QRCodeModal'
@@ -34,10 +34,17 @@ export default function ConversationsView({ localPeerId }: ConversationsViewProp
   const [showBackupModal, setShowBackupModal] = useState(false)
   const [peerCount, setPeerCount] = useState(0)
   const navigate = useNavigate()
+  const location = useLocation()
   const previousConversations = useRef<Conversation[]>([])
   useEffect(() => {
     loadConversations()
     loadPeerCount()
+
+    // Abre o backup quando vindo das configurações (SettingsView → "Exportar backup")
+    if (location.state?.openBackup) {
+      setShowBackupModal(true)
+      navigate('.', { replace: true, state: undefined })
+    }
 
     // EVT-03: recarregar a lista quando o core avisa de mensagem nova
     let unsubs: Array<() => void> = []

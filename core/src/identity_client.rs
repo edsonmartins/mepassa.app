@@ -77,8 +77,9 @@ impl PreKeyBundle {
         let kyber_prekey_signature_bytes =
             general_purpose::STANDARD.decode(&self.kyber_prekey_signature)?;
 
-        let mut identity_key = [0u8; 32];
-        identity_key.copy_from_slice(&identity_key_bytes);
+        let identity_key: [u8; 32] = identity_key_bytes.try_into().map_err(|bytes: Vec<u8>| {
+            anyhow::anyhow!("identity_key must be 32 bytes, got {}", bytes.len())
+        })?;
 
         let one_time_prekey = if let Some(opk) = &self.one_time_prekey {
             let public_key_bytes = general_purpose::STANDARD.decode(&opk.public_key)?;

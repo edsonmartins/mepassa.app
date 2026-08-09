@@ -462,8 +462,18 @@ impl Client {
             None => return Ok(None),
         };
 
-        let bundle: crate::identity::PreKeyBundle = serde_json::from_str(&bundle_json)
-            .map_err(|e| ZapLivreError::Crypto(format!("Invalid prekey bundle: {}", e)))?;
+        let bundle: crate::identity::PreKeyBundle = match serde_json::from_str(&bundle_json) {
+            Ok(bundle) => bundle,
+            Err(_) => {
+                // Normaliza na leitura: contatos salvos antes da normalização
+                // (regressão) podem ter o DTO cru do identity server no banco.
+                let dto: crate::identity_client::PreKeyBundle = serde_json::from_str(&bundle_json)
+                    .map_err(|e| ZapLivreError::Crypto(format!("Invalid prekey bundle: {}", e)))?;
+                dto.to_core().map_err(|e| {
+                    ZapLivreError::Crypto(format!("Invalid prekey bundle DTO: {}", e))
+                })?
+            }
+        };
 
         let peer_id = to.to_string();
         let device_id = bundle.signal_device_id.unwrap_or(1);
@@ -2516,18 +2526,26 @@ impl Client {
             return Ok(message_id);
         }
 
-        self.database
-            .update_message(
-                &message_id,
-                &crate::storage::UpdateMessage {
-                    sent_at: Some(chrono::Utc::now().timestamp()),
-                    received_at: None,
-                    read_at: None,
-                    status: Some(MessageStatus::Sent),
-                    is_deleted: None,
-                },
-            )
-            .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
+        // Publish OK: o flip de status é best-effort. Se o update falhar, a
+        // mensagem fica Pending no banco mesmo já estando na rede; como não há
+        // worker de retry de grupo, retornar erro aqui só esconderia o sucesso
+        // do envio (e um resend manual duplicaria).
+        if let Err(e) = self.database.update_message(
+            &message_id,
+            &crate::storage::UpdateMessage {
+                sent_at: Some(chrono::Utc::now().timestamp()),
+                received_at: None,
+                read_at: None,
+                status: Some(MessageStatus::Sent),
+                is_deleted: None,
+            },
+        ) {
+            tracing::warn!(
+                "group message {} published but status flip to Sent failed: {}",
+                message_id,
+                e
+            );
+        }
 
         Ok(message_id)
     }

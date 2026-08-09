@@ -323,7 +323,6 @@ class CallManager: NSObject, ObservableObject {
         // Guard: CallKit (didActivate) e handleCallStateChanged podem disparar
         // este fluxo - iniciar o AVAudioEngine duas vezes instala tap duplicado.
         guard !audioStarted else { return }
-        audioStarted = true
 
         do {
             try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetooth, .defaultToSpeaker])
@@ -333,6 +332,10 @@ class CallManager: NSObject, ObservableObject {
             // ao core (sendAudioFrame). Antes isso era um TODO - o áudio só
             // funcionava quando o CallKit ativava o session via didActivate.
             try audioManager.start()
+
+            // Só marca iniciado após o setup completo: se algo acima lançar,
+            // o fluxo pode tentar de novo (didActivate / próximo estado).
+            audioStarted = true
 
             // Callback: captura do mic (48kHz mono 16-bit) -> core -> Opus
             audioManager.onAudioCaptured = { [weak self] audioData in
