@@ -352,6 +352,16 @@ impl Database {
         Ok(())
     }
 
+    /// Increment unread count for a conversation (incoming message)
+    pub fn increment_conversation_unread(&self, conversation_id: &str) -> Result<()> {
+        let conn = self.conn();
+        conn.execute(
+            "UPDATE conversations SET unread_count = unread_count + 1 WHERE id = ?1",
+            params![conversation_id],
+        )?;
+        Ok(())
+    }
+
     /// Search messages using FTS5
     pub fn search_messages(&self, query: &str, limit: Option<usize>) -> Result<Vec<Message>> {
         let conn = self.conn();

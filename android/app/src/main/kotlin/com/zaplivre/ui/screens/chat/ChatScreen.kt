@@ -74,6 +74,7 @@ fun ChatScreen(
     val messages by chatViewModel.messages.collectAsState()
     var messageInput by remember { mutableStateOf("") }
     val isSendingText by chatViewModel.isSending.collectAsState()
+    val peerName by chatViewModel.peerName.collectAsState()
     var isSendingMedia by remember { mutableStateOf(false) }
     val isSending = isSendingText || isSendingMedia
     val localPeerId by chatViewModel.localPeerId.collectAsState()
@@ -194,11 +195,11 @@ fun ChatScreen(
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        ZapAvatar(seed = peerId, name = peerId, size = ZapMetric.avatarSmall, online = true)
+                        ZapAvatar(seed = peerId, name = peerName ?: peerId, size = ZapMetric.avatarSmall, online = true)
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Text(
-                                text = peerId.take(14) + "…",
+                                text = peerName ?: peerId.take(14) + "…",
                                 style = ZapType.rowName,
                                 color = ZapColor.ink,
                                 maxLines = 1,

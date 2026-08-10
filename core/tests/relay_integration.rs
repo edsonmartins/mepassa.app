@@ -30,7 +30,7 @@ async fn test_network_manager_with_relay() {
 /// Test connection manager creation and initial state
 #[test]
 fn test_connection_manager_creation() {
-    let manager = ConnectionManager::new(RetryPolicy::default());
+    let mut manager = ConnectionManager::new(RetryPolicy::default());
     let peer_id = PeerId::random();
 
     // Initially, peer should have no strategy

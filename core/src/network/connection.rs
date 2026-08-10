@@ -44,12 +44,13 @@ impl ConnectionManager {
     }
 
     /// Check if we should try relay for a peer
-    pub fn should_try_relay(&self, peer_id: &PeerId) -> bool {
-        if let Some(strategy) = self.strategies.get(peer_id) {
-            strategy.should_try_relay()
-        } else {
-            false
-        }
+    pub fn should_try_relay(&mut self, peer_id: &PeerId) -> bool {
+        let strategy = match self.strategies.get_mut(peer_id) {
+            Some(s) => s,
+            None => return false,
+        };
+        strategy.reset_if_stale();
+        strategy.should_try_relay()
     }
 
     /// Record a connection failure
@@ -164,6 +165,33 @@ impl ConnectionStrategy {
         self.state = ConnectionState::Connected(connection_type);
     }
 
+    /// Reset a connection state stuck in relay/hole-punch so direct
+    /// dial attempts are retried instead of being blocked forever.
+    pub fn reset_if_stale(&mut self) {
+        let now = Instant::now();
+        match &self.state {
+            ConnectionState::AttemptingHolePunch { started }
+                if started.elapsed() > Duration::from_secs(30) =>
+            {
+                tracing::debug!("♻️ Resetting stale hole-punch state for {}", self.peer_id);
+                self.state = ConnectionState::AttemptingDirect {
+                    attempt: 0,
+                    started: now,
+                };
+            }
+            ConnectionState::AttemptingRelay { started }
+                if started.elapsed() > Duration::from_secs(30) =>
+            {
+                tracing::debug!("♻️ Resetting stale relay state for {}", self.peer_id);
+                self.state = ConnectionState::AttemptingDirect {
+                    attempt: 0,
+                    started: now,
+                };
+            }
+            _ => {}
+        }
+    }
+
     /// Check if we should try relay
     pub fn should_try_relay(&self) -> bool {
         match &self.state {
@@ -251,7 +279,7 @@ mod tests {
 
     #[test]
     fn test_connection_manager_creation() {
-        let manager = ConnectionManager::new(RetryPolicy::default());
+        let mut manager = ConnectionManager::new(RetryPolicy::default());
         let peer_id = PeerId::random();
 
         assert!(manager.get_strategy(&peer_id).is_none());

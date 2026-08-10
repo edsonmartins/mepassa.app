@@ -237,6 +237,35 @@ impl Client {
         }
     }
 
+    /// Persist a peer's @username so conversations can display it instead
+    /// of the raw peer ID (UX-03).
+    pub fn save_contact_username(&self, peer_id: String, username: String) -> Result<()> {
+        let update = UpdateContact {
+            username: Some(Some(username.clone())),
+            display_name: Some(Some(username.clone())),
+            ..Default::default()
+        };
+
+        match self.database.update_contact(&peer_id, &update) {
+            Ok(_) => Ok(()),
+            Err(StorageError::NotFound(_)) => {
+                let contact = NewContact {
+                    peer_id,
+                    username: Some(username.clone()),
+                    display_name: Some(username),
+                    public_key: Vec::new(),
+                    prekey_bundle_json: None,
+                };
+                self.database.insert_contact(&contact)?;
+                Ok(())
+            }
+            Err(e) => Err(ZapLivreError::Storage(format!(
+                "Failed to update contact: {}",
+                e
+            ))),
+        }
+    }
+
     /// Get database
     pub fn database(&self) -> &Database {
         &self.database
@@ -543,7 +572,8 @@ impl Client {
         let bundle_json = serde_json::to_string(&response.prekey_bundle).map_err(|e| {
             ZapLivreError::Identity(format!("Failed to serialize remote prekeys: {}", e))
         })?;
-        self.set_contact_prekey_bundle(to.to_string(), bundle_json)
+        self.set_contact_prekey_bundle(to.to_string(), bundle_json)?;
+        self.save_contact_username(to.to_string(), response.username)
     }
 
     pub(crate) async fn prepare_payload_with(
@@ -1848,9 +1878,25 @@ impl Client {
 
     /// List all conversations
     pub fn list_conversations(&self) -> Result<Vec<crate::storage::Conversation>> {
-        self.database
+        let mut conversations = self
+            .database
             .list_conversations()
-            .map_err(|e| ZapLivreError::Storage(e.to_string()))
+            .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
+
+        // UX-03: preenche o display_name das conversas 1:1 com o @username
+        // do contato (resolvido via identity server) em vez do peer ID cru.
+        for conversation in conversations.iter_mut() {
+            if conversation.display_name.is_none() {
+                if let Some(peer_id) = conversation.peer_id.as_ref() {
+                    if let Ok(contact) = self.database.get_contact_by_peer_id(peer_id) {
+                        conversation.display_name =
+                            contact.display_name.or(contact.username);
+                    }
+                }
+            }
+        }
+
+        Ok(conversations)
     }
 
     /// Search messages

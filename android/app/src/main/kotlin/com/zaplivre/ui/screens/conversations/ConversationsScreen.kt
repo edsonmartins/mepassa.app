@@ -310,7 +310,7 @@ private fun FfiConversation.toUi(): ConversationUi {
         name = displayName ?: peerId?.take(16)?.plus("…") ?: "Desconhecido",
         preview = peerId?.let { "${it.take(16)}…" } ?: "",
         time = lastMessageAt?.let { formatTimestamp(it) } ?: "",
-        unread = 0,
+        unread = unreadCount,
         online = false,
     )
 }

@@ -240,10 +240,19 @@ impl NetworkManager {
             }
         }
 
-        // Check if we should try relay based on connection history
+        // Check if we should try relay based on connection history.
+        // Relay is always a fallback: if no relay is configured, we must
+        // not block the direct path (previously this returned early and
+        // left the peer permanently stuck unable to dial directly).
         if self.connection_manager.should_try_relay(&peer_id) {
-            tracing::info!("🔄 Attempting relay connection to {}", peer_id);
-            return self.dial_via_relay(peer_id);
+            if let Ok(()) = self.dial_via_relay(peer_id) {
+                tracing::info!("🔄 Attempting relay connection to {}", peer_id);
+                return Ok(());
+            }
+            tracing::debug!(
+                "🔄 Relay not available for {}, falling back to direct",
+                peer_id
+            );
         }
 
         // Try direct connection first

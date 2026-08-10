@@ -90,13 +90,15 @@ class ChatViewModelTest {
     )
 
     @Test
-    fun `carrega mensagens da conversa ao abrir`() {
-        val msgs = listOf(message("m1", "oi"), message("m2", "tudo bem?"))
-        coEvery { api.getConversationMessages(peerId, null, null) } returns msgs
+    fun `carrega mensagens da conversa em ordem cronologica`() {
+        // O core retorna DESC (mais recente primeiro); o ViewModel reverte
+        // para exibir a mais antiga no topo e a mais nova no fim.
+        val apiDesc = listOf(message("m2", "tudo bem?"), message("m1", "oi"))
+        coEvery { api.getConversationMessages(peerId, null, null) } returns apiDesc
 
         runVmTest { viewModel ->
             runCurrent()
-            assertEquals(msgs, viewModel.messages.value)
+            assertEquals(listOf(message("m1", "oi"), message("m2", "tudo bem?")), viewModel.messages.value)
         }
     }
 

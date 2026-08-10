@@ -302,6 +302,10 @@ impl MessageHandler {
         self.database
             .update_conversation_last_message(&conversation_id, &message.id)?;
 
+        // UX-04: marca como não lida quando uma mensagem chega
+        self.database
+            .increment_conversation_unread(&conversation_id)?;
+
         tracing::info!(
             "💾 Stored message {} in conversation {}",
             message.id,
@@ -383,6 +387,10 @@ impl MessageHandler {
         self.database.insert_message(&new_msg)?;
         self.database
             .update_conversation_last_message(&conversation_id, &message.id)?;
+
+        // UX-04: marca como não lida quando uma mensagem chega
+        self.database
+            .increment_conversation_unread(&conversation_id)?;
 
         let mut display_message = message.clone();
         display_message.payload = Some(Payload::Text(TextMessage {

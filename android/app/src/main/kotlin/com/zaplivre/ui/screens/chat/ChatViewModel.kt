@@ -39,6 +39,9 @@ class ChatViewModel(
     private val _messages = MutableStateFlow<List<FfiMessage>>(emptyList())
     val messages: StateFlow<List<FfiMessage>> = _messages.asStateFlow()
 
+    private val _peerName = MutableStateFlow<String?>(null)
+    val peerName: StateFlow<String?> = _peerName.asStateFlow()
+
     private val _isSending = MutableStateFlow(false)
     val isSending: StateFlow<Boolean> = _isSending.asStateFlow()
 
@@ -52,6 +55,7 @@ class ChatViewModel(
             // Marca como lida ao abrir a conversa
             api.markConversationRead(peerId)
             refreshMessages()
+            resolvePeerName()
         }
 
         // EVT-01: eventos do core substituem o polling
@@ -65,6 +69,11 @@ class ChatViewModel(
                     is ZapLivreClientWrapper.MessageUiEvent.Typing -> false
                 }
                 if (relevant) {
+                    // Conversa aberta: mensagens recebidas não devem contar
+                    // como não lidas.
+                    if (event is ZapLivreClientWrapper.MessageUiEvent.Received) {
+                        api.markConversationRead(peerId)
+                    }
                     refreshMessages()
                 }
             }
@@ -109,9 +118,26 @@ class ChatViewModel(
     private suspend fun refreshMessages() {
         try {
             val fetched = api.getConversationMessages(peerId)
-            _messages.value = fetched.filterNot { api.isLegacyGroupKeyMessage(it) }
+            // O core retorna DESC (mais recente primeiro); o chat exibe em
+            // ordem cronológica (mais antiga no topo, mais nova no fim).
+            _messages.value = fetched
+                .filterNot { api.isLegacyGroupKeyMessage(it) }
+                .reversed()
         } catch (_: Exception) {
             // mantém a lista atual; o safety net tentará de novo
+        }
+    }
+
+    /** Resolve o nome exibível do peer (username do contato). */
+    private suspend fun resolvePeerName() {
+        try {
+            val name = api.listConversations()
+                .firstOrNull { it.peerId == peerId }
+                ?.displayName
+                ?: peerId.take(14) + "…"
+            _peerName.value = name
+        } catch (_: Exception) {
+            _peerName.value = peerId.take(14) + "…"
         }
     }
 
