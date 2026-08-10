@@ -133,7 +133,11 @@ fun VoiceRecordButton(
 
                                 // Stop recording on release
                                 val file = viewModel.stopRecording()
-                                if (file != null && recordingDuration > 500) {
+                                // Lê a duração atual do ViewModel (não a capturada
+                                // na composição — o valor em si fica stale e fazia
+                                // a checagem sempre falhar, cancelando a mensagem).
+                                val duration = viewModel.recordingDuration.value
+                                if (file != null && duration >= 500) {
                                     // Only send if recorded for more than 0.5s
                                     onVoiceMessageRecorded(file)
                                 } else {
