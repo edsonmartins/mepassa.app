@@ -76,6 +76,10 @@ class MainActivity : ComponentActivity() {
                     Log.e(TAG, "Failed to initialize ZapLivreClient")
                 } else {
                     Log.i(TAG, "ZapLivreClient initialized successfully")
+                    // Inicia o service (listen P2P + bootstrap) em execuções
+                    // seguintes, quando a identidade já existe. Sem isso o
+                    // peer nunca fica alcançável fora de sessões ativas.
+                    requestPermissionsAndStartService()
                 }
             } else {
                 Log.i(TAG, "No identity yet - onboarding will handle initialization")
@@ -83,8 +87,10 @@ class MainActivity : ComponentActivity() {
         }
 
         // A primeira execução pertence ao onboarding. Iniciar o service aqui
-        // pode criar uma segunda inicialização concorrente do FFI.
-        Log.i(TAG, "Service startup deferred until onboarding completes")
+        // pode criar uma segunda inicialização concorrente do FFI. Em
+        // execuções seguintes (identidade já existe) o service é iniciado
+        // logo acima, após a inicialização do client.
+        Log.i(TAG, "Service startup handled in identity branch")
 
         handleIntent(intent)
 

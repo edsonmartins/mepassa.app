@@ -557,7 +557,14 @@ impl Client {
             return Ok(());
         };
         let contact = self.database.get_contact_by_peer_id(&to.to_string()).ok();
-        if contact.and_then(|value| value.prekey_bundle_json).is_some() {
+        let has_bundle = contact
+            .as_ref()
+            .and_then(|value| value.prekey_bundle_json.clone())
+            .is_some();
+        let has_username = contact
+            .and_then(|value| value.username)
+            .is_some();
+        if has_bundle && has_username {
             return Ok(());
         }
 
