@@ -636,6 +636,44 @@ impl Client {
         network: Arc<RwLock<NetworkManager>>,
         peer_id: PeerId,
     ) -> bool {
+        // Endereços conhecidos localmente (mDNS/routing table) primeiro:
+        // mais confiáveis em LAN do que o DHT get_record, que pode estar
+        // desatualizado ou apontar para um endereço inalcançável.
+        let known_addrs = {
+            let mut network = network.write().await;
+            if network.is_connected(&peer_id) {
+                return true;
+            }
+            network.known_peer_addresses(&peer_id)
+        };
+
+        if let Some(addr) = known_addrs.into_iter().find(|a| {
+            !a.to_string().contains("/p2p-circuit/")
+                && !a.to_string().contains("/ip4/0.0.0.0/")
+                && !a.to_string().contains("/ip6/::/")
+        }) {
+            {
+                let mut network = network.write().await;
+                network.add_peer_to_dht(peer_id, addr.clone());
+                let _ = network.dial(peer_id, addr);
+            }
+            let deadline = tokio::time::Instant::now() + Duration::from_secs(2);
+            loop {
+                {
+                    let network = network.read().await;
+                    if network.is_connected(&peer_id) {
+                        return true;
+                    }
+                }
+                if tokio::time::Instant::now() >= deadline {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(200)).await;
+            }
+            // Se a conexão direta com o endereço conhecido falhou, cai no
+            // lookup DHT abaixo para tentar endereços alternativos.
+        }
+
         let rx = {
             let mut network = network.write().await;
             if network.is_connected(&peer_id) {

@@ -303,6 +303,22 @@ impl NetworkManager {
             .add_address(&peer_id, addr);
     }
 
+    /// Return addresses for a peer known locally (mDNS, DHT routing table,
+    /// previous dials). Used before falling back to a DHT get_record, which
+    /// may be stale or unreachable in LAN setups.
+    pub fn known_peer_addresses(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {
+        let mut addresses = Vec::new();
+        let behaviour = self.swarm.behaviour_mut();
+        for bucket in behaviour.kademlia.kbuckets() {
+            for entry in bucket.iter() {
+                if entry.node.key.preimage() == peer_id {
+                    addresses.extend(entry.node.value.iter().cloned());
+                }
+            }
+        }
+        addresses
+    }
+
     /// Publish our reachable address in the DHT
     pub fn publish_own_address(&mut self, addr: Multiaddr) {
         if self.last_published_addr.as_ref() == Some(&addr) {
