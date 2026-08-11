@@ -3,9 +3,14 @@ package com.zaplivre.core
 import android.content.Context
 import android.media.MediaRecorder
 import android.os.Build
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import java.io.File
 import java.io.IOException
 
@@ -23,6 +28,13 @@ class AudioRecorder(private val context: Context) {
 
     private val _recordingDuration = MutableStateFlow(0L)
     val recordingDuration: StateFlow<Long> = _recordingDuration.asStateFlow()
+
+    // Amplitude em tempo real (0..1) obtida do MediaRecorder.maxAmplitude
+    private val _amplitude = MutableStateFlow(0f)
+    val amplitude: StateFlow<Float> = _amplitude.asStateFlow()
+
+    private var amplitudeJob: Job? = null
+    private val scope = CoroutineScope(Dispatchers.IO)
 
     /**
      * Start recording audio
@@ -53,6 +65,7 @@ class AudioRecorder(private val context: Context) {
                 start()
 
                 _recordingState.value = RecordingState.Recording(file)
+                startAmplitudePolling()
             }
 
             Result.success(file)
@@ -70,6 +83,7 @@ class AudioRecorder(private val context: Context) {
      */
     fun stopRecording(): Result<File?> {
         return try {
+            stopAmplitudePolling()
             mediaRecorder?.apply {
                 stop()
                 reset()
@@ -84,15 +98,41 @@ class AudioRecorder(private val context: Context) {
 
             Result.success(file)
         } catch (e: Exception) {
+            stopAmplitudePolling()
             _recordingState.value = RecordingState.Error(e.message ?: "Failed to stop recording")
             Result.failure(e)
         }
     }
 
     /**
+     * Poll the microphone amplitude while recording (for waveform display).
+     * `getMaxAmplitude()` returns the max between polls, so each call resets it.
+     */
+    private fun startAmplitudePolling() {
+        amplitudeJob?.cancel()
+        amplitudeJob = scope.launch {
+            while (isActive()) {
+                delay(80) // ~12 updates/sec, sufficient for a smooth waveform
+                val amp = mediaRecorder?.maxAmplitude ?: 0
+                // Typical max amplitude is 0..32767; normalize with a soft cap for noise
+                _amplitude.value = (amp / 32767f).coerceIn(0f, 1f)
+            }
+        }
+    }
+
+    private fun stopAmplitudePolling() {
+        amplitudeJob?.cancel()
+        amplitudeJob = null
+        _amplitude.value = 0f
+    }
+
+    private suspend fun isActive(): Boolean = amplitudeJob?.isActive == true
+
+    /**
      * Cancel recording and delete the file
      */
     fun cancelRecording() {
+        stopAmplitudePolling()
         try {
             mediaRecorder?.apply {
                 stop()
@@ -130,6 +170,7 @@ class AudioRecorder(private val context: Context) {
      * Release resources
      */
     fun release() {
+        stopAmplitudePolling()
         mediaRecorder?.release()
         mediaRecorder = null
         outputFile = null

@@ -30,7 +30,16 @@ class VoiceRecorderViewModel(context: Context) : ViewModel() {
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    // Última amplitude normalizada (0..1) para o visualizer em tempo real
+    private val _currentAmplitude = MutableStateFlow(0f)
+    val currentAmplitude: StateFlow<Float> = _currentAmplitude.asStateFlow()
+
+    // Histórico das barras do waveform (máx ~60 barras)
+    private val _waveform = MutableStateFlow<List<Float>>(emptyList())
+    val waveform: StateFlow<List<Float>> = _waveform.asStateFlow()
+
     private var timerJob: Job? = null
+    private var waveformJob: Job? = null
 
     companion object {
         const val MAX_DURATION_MS = 60_000L // 60 seconds max
@@ -46,9 +55,11 @@ class VoiceRecorderViewModel(context: Context) : ViewModel() {
             _isRecording.value = true
             _recordingFile.value = file
             _recordingDuration.value = 0
+            _waveform.value = emptyList()
             _error.value = null
 
             startTimer()
+            collectAmplitude()
         }.onFailure { error ->
             _error.value = error.message ?: "Failed to start recording"
         }
@@ -59,6 +70,7 @@ class VoiceRecorderViewModel(context: Context) : ViewModel() {
      */
     fun stopRecording(): File? {
         stopTimer()
+        stopCollectingAmplitude()
 
         val result = audioRecorder.stopRecording()
         _isRecording.value = false
@@ -71,11 +83,36 @@ class VoiceRecorderViewModel(context: Context) : ViewModel() {
      */
     fun cancelRecording() {
         stopTimer()
+        stopCollectingAmplitude()
         audioRecorder.cancelRecording()
 
         _isRecording.value = false
         _recordingFile.value = null
         _recordingDuration.value = 0
+        _waveform.value = emptyList()
+    }
+
+    /**
+     * Collects the normalized amplitude and appends it to the waveform history.
+     */
+    private fun collectAmplitude() {
+        stopCollectingAmplitude()
+        waveformJob = viewModelScope.launch {
+            audioRecorder.amplitude.collect { amp ->
+                _currentAmplitude.value = amp
+                val snapshot = _waveform.value.toMutableList()
+                snapshot.add(amp)
+                // Mantém só as últimas ~60 barras (deslizante)
+                if (snapshot.size > 60) snapshot.removeAt(0)
+                _waveform.value = snapshot
+            }
+        }
+    }
+
+    private fun stopCollectingAmplitude() {
+        waveformJob?.cancel()
+        waveformJob = null
+        _currentAmplitude.value = 0f
     }
 
     /**
@@ -122,6 +159,7 @@ class VoiceRecorderViewModel(context: Context) : ViewModel() {
 
     override fun onCleared() {
         super.onCleared()
+        stopCollectingAmplitude()
         audioRecorder.release()
         stopTimer()
     }

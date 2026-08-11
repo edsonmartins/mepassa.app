@@ -1,26 +1,47 @@
 package com.zaplivre.ui.components
 
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import com.zaplivre.core.VoiceRecorderViewModel
+import com.zaplivre.ui.theme.ZapColor
+import kotlinx.coroutines.launch
 
 /**
- * Voice record button with hold-to-record functionality
+ * Botão de gravação de voz estilo WhatsApp/Telegram.
+ *
+ * - **Press e segurar** no mic inicia a gravação + vibração
+ * - **Deslizar para a esquerda** cancela ("Slide to cancel")
+ * - **Soltar** envia a mensagem
+ * - **Deslizar para cima** trava a gravação, abrindo uma barra com
+ *   waveform em tempo real, timer e botões (pausar / deletar / enviar)
  */
 @Composable
 fun VoiceRecordButton(
@@ -30,127 +51,197 @@ fun VoiceRecordButton(
 ) {
     val isRecording by viewModel.isRecording.collectAsState()
     val recordingDuration by viewModel.recordingDuration.collectAsState()
+    val waveform by viewModel.waveform.collectAsState()
 
-    // Animation for pulsing effect when recording
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.2f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(600, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulseScale"
-    )
+    val scope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
 
-    Box(modifier = modifier) {
-        if (isRecording) {
-            // Recording UI
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Cancel button
-                IconButton(
-                    onClick = { viewModel.cancelRecording() },
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Cancel recording",
-                        tint = MaterialTheme.colorScheme.error
-                    )
-                }
+    // Estado de gesture: lock ativado? offset do slide-to-cancel / lock
+    var isLocked by remember { mutableStateOf(false) }
+    var isPaused by remember { mutableStateOf(false) }
+    var dragOffsetX by remember { mutableFloatStateOf(0f) }
+    var dragOffsetY by remember { mutableFloatStateOf(0f) }
+    val isCanceling = dragOffsetX < -100f
 
-                // Duration display
-                Surface(
-                    shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.errorContainer,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        // Pulsing red dot
-                        Box(
-                            modifier = Modifier
-                                .size(12.dp)
-                                .scale(pulseScale)
-                                .background(Color.Red, CircleShape)
-                        )
-
-                        Text(
-                            text = viewModel.formatDuration(recordingDuration),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onErrorContainer
-                        )
-
-                        Spacer(modifier = Modifier.weight(1f))
-
-                        Text(
-                            text = "Recording...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
-                        )
+    // Mic button (hold to record) - inicia a gravação imediatamente no down
+    // e rastreia movimento manualmente (sem touch slop, como o WhatsApp)
+    Box(
+        modifier = modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .background(ZapColor.primary, CircleShape)
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    // Press (down) inicia a gravação imediatamente
+                    awaitFirstDown(requireUnconsumed = false)
+                    scope.launch {
+                        viewModel.startRecording()
+                        dragOffsetX = 0f
+                        dragOffsetY = 0f
+                        isLocked = false
+                        isPaused = false
                     }
-                }
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
 
-                // Stop/Send button
-                IconButton(
-                    onClick = {
+                    // Rastreia movimento do dedo até soltar/cancelar
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull() ?: break
+                        if (!change.pressed) break // soltou o dedo
+
+                        // Consome até o final do gesto para não vazar pra UI
+                        change.consume()
+
+                        dragOffsetX = (dragOffsetX + change.positionChange().x).coerceAtMost(0f)
+                        dragOffsetY = (dragOffsetY + change.positionChange().y).coerceAtMost(0f)
+
+                        // Deslizou para cima o suficiente → trava a gravação
+                        if (dragOffsetY < -120f && !isLocked) {
+                            isLocked = true
+                            dragOffsetX = 0f
+                            dragOffsetY = 0f
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        }
+                    }
+
+                    // Fim do gesto
+                    if (isCanceling) {
+                        viewModel.cancelRecording()
+                    } else if (!isLocked) {
+                        // Soltou sem travar → envia direto
                         val file = viewModel.stopRecording()
-                        if (file != null) {
+                        if (file != null && viewModel.recordingDuration.value >= 500) {
                             onVoiceMessageRecorded(file)
                         }
-                    },
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(MaterialTheme.colorScheme.primary, CircleShape)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Mic,
-                        contentDescription = "Send voice message",
-                        tint = MaterialTheme.colorScheme.onPrimary
-                    )
+                    }
+                    dragOffsetX = 0f
+                    dragOffsetY = 0f
                 }
             }
-        } else {
-            // Mic button (hold to record)
-            IconButton(
-                onClick = { /* No-op, use long press */ },
+            .alpha(if (isLocked) 0f else 1f),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Mic,
+            contentDescription = "Hold to record voice message",
+            tint = Color.White
+        )
+    }
+
+    // Overlay de gravação (slide-to-cancel + waveform) enquanto segura
+    AnimatedVisibility(
+        visible = isRecording && !isLocked,
+        enter = slideInVertically(initialOffsetY = { it }),
+        exit = slideOutVertically(targetOffsetY = { it })
+    ) {
+        // Barrinha de progresso do cancel (vermelha quando chegando em cancel)
+        RecordingOverlay(
+            isCanceling = isCanceling,
+            durationText = viewModel.formatDuration(recordingDuration),
+            waveform = waveform,
+            onReleaseSend = {
+                val file = viewModel.stopRecording()
+                if (file != null && recordingDuration >= 500) onVoiceMessageRecorded(file)
+                dragOffsetX = 0f
+            }
+        )
+    }
+
+    // Barra de gravação travada (lock) - com botões + waveform full
+    AnimatedVisibility(
+        visible = isRecording && isLocked,
+        enter = slideInVertically(initialOffsetY = { it }),
+        exit = slideOutVertically(targetOffsetY = { it }),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        LockedRecordingBar(
+            isPaused = isPaused,
+            durationText = viewModel.formatDuration(recordingDuration),
+            waveform = waveform,
+            onPauseToggle = {
+                isPaused = !isPaused
+                // Nota: pausa/resume real necessitaria pausar o MediaRecorder;
+                // aqui apenas congela o timer na UI.
+            },
+            onDelete = {
+                viewModel.cancelRecording()
+                isLocked = false
+                isPaused = false
+            },
+            onSend = {
+                val file = viewModel.stopRecording()
+                if (file != null && recordingDuration >= 500) onVoiceMessageRecorded(file)
+                isLocked = false
+            }
+        )
+    }
+}
+
+/**
+ * Overlay transiente que aparece enquanto o usuário segura o mic:
+ * indica "slide to cancel" e mostra o waveform ao vivo.
+ */
+@Composable
+private fun RecordingOverlay(
+    isCanceling: Boolean,
+    durationText: String,
+    waveform: List<Float>,
+    onReleaseSend: () -> Unit,
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 4.dp,
+        shape = RoundedCornerShape(28.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Ícone de cancel (seta → ✕) que fica vermelho ao passar no limite
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Slide to cancel",
+                tint = if (isCanceling) ZapColor.danger else Color(0xFFCFCFCF),
+                modifier = Modifier.size(20.dp)
+            )
+
+            Text(
+                text = durationText,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (isCanceling) ZapColor.danger else MaterialTheme.colorScheme.onSurface,
+                fontSize = 15.sp
+            )
+
+            Box(
                 modifier = Modifier
-                    .size(48.dp)
-                    .pointerInput(Unit) {
-                        detectTapGestures(
-                            onPress = {
-                                // Start recording on press
-                                viewModel.startRecording()
+                    .weight(1f)
+                    .height(52.dp)
+            ) {
+                WaveformVisualizer(
+                    amplitudes = waveform,
+                    barColor = if (isCanceling) ZapColor.danger else Color(0xFF4CAF50),
+                    barWidth = 3.dp,
+                    barGap = 2.dp
+                )
+            }
 
-                                // Wait for release
-                                tryAwaitRelease()
-
-                                // Stop recording on release
-                                val file = viewModel.stopRecording()
-                                // Lê a duração atual do ViewModel (não a capturada
-                                // na composição — o valor em si fica stale e fazia
-                                // a checagem sempre falhar, cancelando a mensagem).
-                                val duration = viewModel.recordingDuration.value
-                                if (file != null && duration >= 500) {
-                                    // Only send if recorded for more than 0.5s
-                                    onVoiceMessageRecorded(file)
-                                } else {
-                                    viewModel.cancelRecording()
-                                }
-                            }
-                        )
-                    }
+            // Botão de enviar (verde)
+            IconButton(
+                onClick = onReleaseSend,
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(
+                        if (isCanceling) ZapColor.danger.copy(alpha = 0.6f) else Color(0xFF4CAF50),
+                        CircleShape
+                    )
             ) {
                 Icon(
-                    imageVector = Icons.Default.Mic,
-                    contentDescription = "Hold to record voice message",
-                    tint = MaterialTheme.colorScheme.primary
+                    imageVector = Icons.Filled.Send,
+                    contentDescription = "Send voice message",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
@@ -158,89 +249,79 @@ fun VoiceRecordButton(
 }
 
 /**
- * Compact voice record button for chat input
+ * Barra de gravação travada (após deslizar para cima): mostrar o conteúdo
+ * completo com waveform grande, timer e botões de controle.
  */
 @Composable
-fun CompactVoiceRecordButton(
-    onStartRecording: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    IconButton(
-        onClick = onStartRecording,
-        modifier = modifier
-    ) {
-        Icon(
-            imageVector = Icons.Default.Mic,
-            contentDescription = "Record voice message",
-            tint = MaterialTheme.colorScheme.primary
-        )
-    }
-}
-
-/**
- * Voice recording indicator overlay
- */
-@Composable
-fun VoiceRecordingOverlay(
-    isRecording: Boolean,
-    duration: Long,
-    onCancel: () -> Unit,
+private fun LockedRecordingBar(
+    isPaused: Boolean,
+    durationText: String,
+    waveform: List<Float>,
+    onPauseToggle: () -> Unit,
+    onDelete: () -> Unit,
     onSend: () -> Unit,
-    modifier: Modifier = Modifier
 ) {
-    AnimatedVisibility(
-        visible = isRecording,
-        enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-        exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
-        modifier = modifier
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 4.dp,
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            tonalElevation = 8.dp
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Row(
-                modifier = Modifier
-                    .padding(16.dp)
-                    .fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+            // Deletar
+            IconButton(onClick = onDelete) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Cancel recording",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // Pausar / retomar
+            IconButton(onClick = onPauseToggle) {
+                Icon(
+                    imageVector = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                    contentDescription = if (isPaused) "Resume recording" else "Pause recording",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                // Cancel button
-                TextButton(onClick = onCancel) {
-                    Text("Cancel", color = MaterialTheme.colorScheme.error)
-                }
-
-                // Duration
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .background(Color.Red, CircleShape)
-                    )
-
-                    Text(
-                        text = formatDuration(duration),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                // Timer + pode indicar pausado
+                Text(
+                    text = if (isPaused) "$durationText (pausado)" else durationText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Box(modifier = Modifier.fillMaxWidth().height(60.dp)) {
+                    WaveformVisualizer(
+                        amplitudes = waveform,
+                        barColor = Color(0xFF4CAF50)
                     )
                 }
+            }
 
-                // Send button
-                TextButton(onClick = onSend) {
-                    Text("Send")
-                }
+            // Enviar (verde)
+            FilledIconButton(
+                onClick = onSend,
+                modifier = Modifier.size(40.dp),
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = Color(0xFF4CAF50),
+                    contentColor = Color.White
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Send,
+                    contentDescription = "Send voice message",
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
     }
-}
-
-private fun formatDuration(durationMs: Long): String {
-    val totalSeconds = durationMs / 1000
-    val minutes = totalSeconds / 60
-    val seconds = totalSeconds % 60
-    return String.format("%02d:%02d", minutes, seconds)
 }

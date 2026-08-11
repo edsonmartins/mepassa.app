@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -18,6 +19,8 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Photo
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,18 +28,26 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.zaplivre.R
+import com.zaplivre.core.ZapLivreClientApi
 import com.zaplivre.core.ZapLivreClientWrapper
 import com.zaplivre.core.VoiceRecorderViewModel
 import com.zaplivre.ui.components.ImagePickerButton
 import com.zaplivre.ui.components.MessageStatusIndicator
 import com.zaplivre.ui.components.SelectedImagesPreview
+import com.zaplivre.ui.components.VoiceMessageBubble
 import com.zaplivre.ui.components.VoiceRecordButton
+import com.zaplivre.ui.components.VoiceRecordingInlineBar
 import com.zaplivre.ui.components.ZapAvatar
 import com.zaplivre.ui.components.ZapBubbleContainer
 import com.zaplivre.ui.theme.ZapColor
@@ -44,7 +55,9 @@ import com.zaplivre.ui.theme.ZapMetric
 import com.zaplivre.ui.theme.ZapType
 import com.zaplivre.utils.rememberHapticFeedback
 import kotlinx.coroutines.launch
+import uniffi.zaplivre.FfiMediaType
 import uniffi.zaplivre.FfiMessage
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -84,6 +97,9 @@ fun ChatScreen(
 
     // Voice recorder
     val voiceRecorderViewModel = remember { VoiceRecorderViewModel(context) }
+    val isVoiceRecording by voiceRecorderViewModel.isRecording.collectAsState()
+    val voiceWaveform by voiceRecorderViewModel.waveform.collectAsState()
+    val voiceDuration by voiceRecorderViewModel.recordingDuration.collectAsState()
 
     // Message actions state
     var selectedMessage by remember { mutableStateOf<FfiMessage?>(null) }
@@ -593,10 +609,11 @@ fun MessageInputBar(
     onSelectImages: (List<Uri>) -> Unit,
     onVoiceMessageRecorded: (java.io.File) -> Unit,
     onFilePicked: (Uri) -> Unit,
-    @Suppress("UNUSED_PARAMETER") onVideoPicked: (Uri) -> Unit,
+    onVideoPicked: (Uri) -> Unit,
     voiceRecorderViewModel: VoiceRecorderViewModel,
     isSending: Boolean
 ) {
+    val isVoiceRecording by voiceRecorderViewModel.isRecording.collectAsState()
     Surface(color = ZapColor.surface, modifier = Modifier.fillMaxWidth()) {
         Column {
             Divider(color = ZapColor.hairline)
@@ -607,6 +624,14 @@ fun MessageInputBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
+                if (isVoiceRecording) {
+                    // Barra de gravação inline (estilo WhatsApp): ocupa o lugar
+                    // do campo de texto + pickers, sem deslocar o layout.
+                    VoiceRecordingInlineBar(
+                        viewModel = voiceRecorderViewModel,
+                        onVoiceMessageRecorded = onVoiceMessageRecorded
+                    )
+                } else {
                 // Image picker button
                 ImagePickerButton(
                     onImagesPicked = onSelectImages,
@@ -618,6 +643,15 @@ fun MessageInputBar(
                 com.zaplivre.ui.components.FilePickerButton(
                     onFilePicked = onFilePicked,
                     enabled = !isSending
+                )
+
+                // Video picker button
+                com.zaplivre.ui.components.VideoPickerButton(
+                    onVideoPicked = { info ->
+                        onVideoPicked(info.uri)
+                    },
+                    enabled = !isSending,
+                    context = androidx.compose.ui.platform.LocalContext.current
                 )
 
                 OutlinedTextField(
@@ -677,6 +711,7 @@ fun MessageInputBar(
                         onVoiceMessageRecorded = onVoiceMessageRecorded
                     )
                 }
+                }
             }
         }
     }
@@ -699,6 +734,14 @@ fun MessageBubble(
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
+    // Mídia associada à mensagem (imagem/vídeo/áudio/documento)
+    var mediaItems by remember(message.messageId) { mutableStateOf<List<uniffi.zaplivre.FfiMedia>>(emptyList()) }
+    LaunchedEffect(message.messageId) {
+        if (message.messageType in MEDIA_MESSAGE_TYPES) {
+            mediaItems = ZapLivreClientWrapper.getMessageMedia(message.messageId)
+        }
+    }
+
     Column(modifier = Modifier.fillMaxWidth()) {
         Box {
             ZapBubbleContainer(
@@ -709,8 +752,14 @@ fun MessageBubble(
                 },
             ) { fg ->
                 Column {
-                    message.contentPlaintext?.let { content ->
-                        Text(text = content, style = ZapType.body, color = fg)
+                    when (message.messageType) {
+                        "image" -> ImageMessageContent(mediaItems.firstOrNull { it.mediaType == FfiMediaType.IMAGE }, isOwnMessage)
+                        "video" -> VideoMessageContent(mediaItems.firstOrNull { it.mediaType == FfiMediaType.VIDEO }, isOwnMessage)
+                        "voice", "voice_message" -> VoiceMessageContent(mediaItems.firstOrNull { it.mediaType == FfiMediaType.VOICE_MESSAGE }, isOwnMessage)
+                        "document" -> DocumentMessageContent(mediaItems.firstOrNull { it.mediaType == FfiMediaType.DOCUMENT }, isOwnMessage)
+                        else -> message.contentPlaintext?.let { content ->
+                            Text(text = content, style = ZapType.body, color = fg)
+                        }
                     }
                     Spacer(modifier = Modifier.height(2.dp))
                     MessageStatusIndicator(message = message, isOwnMessage = isOwnMessage)
@@ -752,6 +801,170 @@ fun MessageBubble(
                     modifier = Modifier.widthIn(max = 280.dp)
                 )
             }
+        }
+    }
+}
+
+/** Tipos de mensagem que carregam um registro de mídia associado */
+private val MEDIA_MESSAGE_TYPES = setOf("image", "video", "voice", "voice_message", "document")
+
+/**
+ * Conteúdo de imagem: thumbnail renderizado a partir do arquivo local.
+ */
+@Composable
+private fun ImageMessageContent(media: uniffi.zaplivre.FfiMedia?, isOwnMessage: Boolean) {
+    var showViewer by remember { mutableStateOf(false) }
+    val path = media?.localPath ?: media?.thumbnailPath
+    val file = path?.let { File(it) }?.takeIf { it.exists() }
+
+    if (file != null) {
+        AsyncImage(
+            model = file,
+            contentDescription = media?.fileName ?: "Imagem",
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .widthIn(max = 240.dp)
+                .heightIn(max = 320.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .clickable { showViewer = true }
+        )
+        if (showViewer && media != null) {
+            MediaViewerDialog(media = media, onDismiss = { showViewer = false })
+        }
+    } else {
+        // Mídia ainda não baixada localmente — mostra placeholder
+        MediaPlaceholder("Imagem", isOwnMessage)
+    }
+}
+
+/**
+ * Conteúdo de vídeo: thumbnail + ícone de play.
+ */
+@Composable
+private fun VideoMessageContent(media: uniffi.zaplivre.FfiMedia?, isOwnMessage: Boolean) {
+    var showViewer by remember { mutableStateOf(false) }
+    val path = media?.localPath ?: media?.thumbnailPath
+    val file = path?.let { File(it) }?.takeIf { it.exists() }
+
+    Box(
+        modifier = Modifier
+            .widthIn(max = 240.dp)
+            .height(180.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.Black)
+            .clickable { showViewer = true },
+        contentAlignment = Alignment.Center
+    ) {
+        if (file != null) {
+            AsyncImage(
+                model = file,
+                contentDescription = media?.fileName ?: "Vídeo",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+        // Play overlay
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(Color.Black.copy(alpha = 0.55f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Default.Phone, // placeholder visual
+                contentDescription = "Play",
+                tint = Color.White,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+        if (showViewer && media != null) {
+            MediaViewerDialog(media = media, onDismiss = { showViewer = false })
+        }
+    }
+}
+
+/**
+ * Conteúdo de voz: player com duração (VoiceMessageBubble).
+ */
+@Composable
+private fun VoiceMessageContent(media: uniffi.zaplivre.FfiMedia?, isOwnMessage: Boolean) {
+    val path = media?.localPath
+    val file = path?.let { File(it) }?.takeIf { it.exists() }
+    if (file != null) {
+        VoiceMessageBubble(
+            audioFilePath = file.absolutePath,
+            durationSeconds = media?.durationSeconds,
+            isOwnMessage = isOwnMessage,
+            timestamp = ""
+        )
+    } else {
+        MediaPlaceholder("Voz", isOwnMessage)
+    }
+}
+
+/**
+ * Conteúdo de documento: nome do arquivo.
+ */
+@Composable
+private fun DocumentMessageContent(media: uniffi.zaplivre.FfiMedia?, isOwnMessage: Boolean) {
+    val primaryColor = if (isOwnMessage) ZapColor.bubbleOutInk else ZapColor.bubbleInInk
+    val secondaryColor = if (isOwnMessage) ZapColor.bubbleOutInk.copy(alpha = 0.8f) else ZapColor.slate
+    val sizeBytes = media?.fileSize
+    Column {
+        Text(
+            text = media?.fileName ?: "Documento",
+            style = ZapType.body,
+            color = primaryColor
+        )
+        if (sizeBytes != null) {
+            Text(
+                text = formatFileSize(sizeBytes),
+                style = ZapType.caption,
+                color = secondaryColor
+            )
+        }
+    }
+}
+
+/**
+ * Placeholder para mídia ainda não baixada.
+ */
+@Composable
+private fun MediaPlaceholder(label: String, isOwnMessage: Boolean) {
+    Text(
+        text = "[$label]",
+        style = ZapType.body,
+        color = if (isOwnMessage) ZapColor.bubbleOutInk else ZapColor.bubbleInInk
+    )
+}
+
+private fun formatFileSize(bytes: Long): String {
+    return when {
+        bytes >= 1024 * 1024 -> String.format(Locale.getDefault(), "%.1f MB", bytes / 1024f / 1024f)
+        bytes >= 1024 -> String.format(Locale.getDefault(), "%.1f KB", bytes / 1024f)
+        else -> "$bytes B"
+    }
+}
+
+/**
+ * Abre o visualizador fullscreen de mídia (Dialog local) para a mídia clicada.
+ */
+@Composable
+private fun MediaViewerDialog(
+    media: uniffi.zaplivre.FfiMedia,
+    onDismiss: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            com.zaplivre.ui.screens.media.MediaViewerScreen(
+                mediaItems = listOf(media),
+                initialIndex = 0,
+                onNavigateBack = onDismiss
+            )
         }
     }
 }
