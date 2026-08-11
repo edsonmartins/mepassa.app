@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { formatMessageTime } from '../utils/format'
+import { VoiceMessageBubble } from '../components/VoiceMessageBubble'
 
 interface Message {
   id: string
@@ -227,11 +228,11 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
   }
 
   useEffect(() => {
-    const pendingImages = messages.filter(
-      (msg) => msg.message_type === 'image' && mediaIndex[msg.id]
+    const pendingMedia = messages.filter(
+      (msg) => ['image', 'video', 'voice_message', 'audio'].includes(msg.message_type) && mediaIndex[msg.id]
     )
 
-    for (const msg of pendingImages) {
+    for (const msg of pendingMedia) {
       const media = mediaIndex[msg.id]
       if (!media) continue
       if (mediaUrls[media.media_hash]) continue
@@ -247,7 +248,7 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
           for (let i = 0; i < len; i += 1) {
             bytes[i] = binary.charCodeAt(i)
           }
-          const blob = new Blob([bytes], { type: media.mime_type || 'image/jpeg' })
+          const blob = new Blob([bytes], { type: media.mime_type || 'application/octet-stream' })
           const url = URL.createObjectURL(blob)
           setMediaUrls((prev) => ({ ...prev, [media.media_hash]: url }))
         } catch (error) {
@@ -452,6 +453,37 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
                     ) : (
                       <p className="whitespace-pre-wrap text-sm text-gray-500">
                         Carregando imagem...
+                      </p>
+                    )
+                  ) : msg.message_type === 'video' && mediaIndex[msg.id] ? (
+                    mediaUrls[mediaIndex[msg.id].media_hash] ? (
+                      <div className="relative max-w-[240px] rounded-lg overflow-hidden">
+                        <img
+                          src={mediaUrls[mediaIndex[msg.id].media_hash]}
+                          alt={mediaIndex[msg.id].file_name || 'video'}
+                          className="w-full h-auto object-cover"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                          <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v18l14-9L5 3z" />
+                          </svg>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="whitespace-pre-wrap text-sm text-gray-500">
+                        Carregando vídeo...
+                      </p>
+                    )
+                  ) : msg.message_type === 'voice_message' && mediaIndex[msg.id] ? (
+                    mediaUrls[mediaIndex[msg.id].media_hash] ? (
+                      <VoiceMessageBubble
+                        audioFilePath={mediaUrls[mediaIndex[msg.id].media_hash]}
+                        durationSeconds={mediaIndex[msg.id].duration_seconds ?? undefined}
+                        isOwnMessage={isSentByMe(msg)}
+                      />
+                    ) : (
+                      <p className="whitespace-pre-wrap text-sm text-gray-500">
+                        Carregando áudio...
                       </p>
                     )
                   ) : (

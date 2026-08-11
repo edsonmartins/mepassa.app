@@ -82,3 +82,37 @@ export function messageFixture(overrides: Record<string, unknown> = {}) {
     ...overrides,
   }
 }
+
+/** Fixture de mídia no formato do comando get_conversation_media */
+export interface MediaItemFixture {
+  id: number
+  media_hash: string
+  message_id: string
+  media_type: string
+  file_name?: string | null
+  file_size?: number | null
+  mime_type?: string | null
+  local_path?: string | null
+  thumbnail_path?: string | null
+  width?: number | null
+  height?: number | null
+  duration_seconds?: number | null
+}
+
+export function mediaItemFixture(overrides: Record<string, unknown> = {}): MediaItemFixture {
+  return {
+    id: 1,
+    media_hash: 'abc123hash',
+    message_id: 'msg-1',
+    media_type: 'image',
+    file_name: 'test.jpg',
+    file_size: 1024,
+    mime_type: 'image/jpeg',
+    local_path: '/tmp/test.jpg',
+    thumbnail_path: null,
+    width: 640,
+    height: 480,
+    duration_seconds: null,
+    ...overrides,
+  }
+}

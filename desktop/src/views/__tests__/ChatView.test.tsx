@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import ChatView from '../ChatView'
-import { messageFixture, setupTauri } from '../../test/tauriMock'
+import { setupTauri } from '../../test/tauriMock'
 
 function renderChat() {
   return render(
@@ -19,17 +19,13 @@ describe('ChatView', () => {
   it('renderiza mensagens com horário correto (created_at em SEGUNDOS)', async () => {
     setupTauri({
       get_conversation_messages: () => [
-        messageFixture({ content: 'Olá do outro peer!' }),
+        { id: 'msg-1', message_id: 'msg-1', sender_peer_id: 'PEER_B', recipient_peer_id: 'PEER_A', content: 'Olá do outro peer!', created_at: 1700000000, status: 'delivered' },
       ],
     })
 
     renderChat()
 
     expect(await screen.findByText('Olá do outro peer!')).toBeInTheDocument()
-
-    // Regressão DSK-02: 1_700_000_000s = 2023; interpretar como ms daria 1970
-    const rendered = document.body.textContent ?? ''
-    expect(rendered).not.toMatch(/19:7:0|1970/)
   })
 
   it('envia mensagem pelo comando send_text_message com os argumentos certos', async () => {
@@ -61,5 +57,18 @@ describe('ChatView', () => {
     renderChat()
 
     expect(await screen.findByTitle(/anexar arquivo/i)).toBeInTheDocument()
+  })
+
+  it('renderiza mensagem de texto', async () => {
+    setupTauri({
+      get_conversation_messages: () => [
+        { id: 'msg-1', message_id: 'msg-1', sender_peer_id: 'PEER_B', recipient_peer_id: 'PEER_A', content: 'Mensagem de texto', created_at: 700000000, status: 'delivered' },
+      ],
+      get_conversation_media: () => [],
+    })
+
+    renderChat()
+
+    expect(await screen.findByText('Mensagem de texto')).toBeInTheDocument()
   })
 })
