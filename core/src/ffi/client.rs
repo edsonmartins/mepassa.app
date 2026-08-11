@@ -354,6 +354,10 @@ enum ClientCommand {
         limit: Option<u32>,
         response: oneshot::Sender<Result<Vec<types::FfiMedia>, ZapLivreFfiError>>,
     },
+    GetMessageMedia {
+        message_id: String,
+        response: oneshot::Sender<Result<Vec<types::FfiMedia>, ZapLivreFfiError>>,
+    },
     // Message action commands (FASE 16 - Forward & Delete)
     DeleteMessage {
         message_id: String,
@@ -893,6 +897,16 @@ async fn run_client_task_arc(
                 let _ = response.send(result);
             }
             // Message action handlers (FASE 16 - Forward & Delete)
+            ClientCommand::GetMessageMedia {
+                message_id,
+                response,
+            } => {
+                let result = client
+                    .get_message_media(&message_id)
+                    .map(|media_vec| media_vec.into_iter().map(|m| m.into()).collect())
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
+            }
             ClientCommand::DeleteMessage {
                 message_id,
                 response,
@@ -2358,6 +2372,27 @@ impl ZapLivreClient {
                 conversation_id,
                 media_type,
                 limit,
+                response: tx,
+            })
+            .map_err(|_| ZapLivreFfiError::Other {
+                details: "Failed to send command".to_string(),
+            })?;
+
+        rx.blocking_recv().map_err(|_| ZapLivreFfiError::Other {
+            details: "Failed to receive response".to_string(),
+        })?
+    }
+
+    /// Get media records for a specific message
+    pub fn get_message_media(
+        &self,
+        message_id: String,
+    ) -> Result<Vec<types::FfiMedia>, ZapLivreFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::GetMessageMedia {
+                message_id,
                 response: tx,
             })
             .map_err(|_| ZapLivreFfiError::Other {

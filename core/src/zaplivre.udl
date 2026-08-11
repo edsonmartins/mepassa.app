@@ -366,6 +366,9 @@ interface ZapLivreClient {
     [Throws=ZapLivreFfiError]
     sequence<FfiMedia> get_conversation_media(string conversation_id, FfiMediaType? media_type, u32? limit);
 
+    [Throws=ZapLivreFfiError]
+    sequence<FfiMedia> get_message_media(string message_id);
+
     // Message actions (FASE 16 - Forward & Delete)
     [Throws=ZapLivreFfiError]
     void delete_message(string message_id);

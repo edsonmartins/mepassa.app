@@ -1051,20 +1051,23 @@ impl Client {
         // Generate message ID
         let message_id = uuid::Uuid::new_v4().to_string();
 
-        // Calculate media hash (salt with message_id to avoid collisions)
-        let mut media_hash = Self::compute_media_hash(&compressed_data, None);
-        if let Ok(Some(_existing)) = self.database.get_media_by_hash(&media_hash) {
-            media_hash = Self::compute_media_hash(&compressed_data, Some(&message_id));
+        // Content hash (what the receiver validates) is always unsalted.
+        // A salted hash is used only for local storage to avoid UNIQUE collisions
+        // when the same bytes are sent again.
+        let content_hash = Self::compute_media_hash(&compressed_data, None);
+        let mut storage_hash = content_hash.clone();
+        if let Ok(Some(_existing)) = self.database.get_media_by_hash(&storage_hash) {
+            storage_hash = Self::compute_media_hash(&compressed_data, Some(&message_id));
         }
 
-        let local_path = self.write_media_file(&media_hash, Some(&file_name), &compressed_data)?;
+        let local_path = self.write_media_file(&storage_hash, Some(&file_name), &compressed_data)?;
         let media_type = MediaType::Image;
         let summary = crate::media::media_summary(media_type.as_str(), Some(&file_name), None);
         let inline = Self::should_inline_media(compressed_data.len());
         let outcome = if inline {
             let content = Self::build_media_envelope(
                 media_type.clone(),
-                media_hash.clone(),
+                content_hash.clone(),
                 Some(file_name.clone()),
                 Some("image/jpeg".to_string()),
                 None,
@@ -1079,7 +1082,7 @@ impl Client {
             let timestamp = chrono::Utc::now().timestamp_millis();
             let offer = MediaOffer {
                 message_id: message_id.clone(),
-                media_hash: media_hash.clone(),
+                media_hash: content_hash.clone(),
                 media_type: media_type.as_str().to_string(),
                 file_name: file_name.clone(),
                 mime_type: "image/jpeg".to_string(),
@@ -1121,7 +1124,7 @@ impl Client {
             content_encrypted: if inline {
                 let content = Self::build_media_envelope(
                     media_type.clone(),
-                    media_hash.clone(),
+                    content_hash.clone(),
                     Some(file_name.clone()),
                     Some("image/jpeg".to_string()),
                     None,
@@ -1144,7 +1147,7 @@ impl Client {
 
         // Store media record
         let new_media = crate::storage::NewMedia {
-            media_hash: media_hash.clone(),
+            media_hash: storage_hash,
             message_id: message_id.clone(),
             media_type,
             file_name: Some(file_name),
@@ -1182,12 +1185,15 @@ impl Client {
         // Generate message ID
         let message_id = uuid::Uuid::new_v4().to_string();
 
-        let mut media_hash = Self::compute_media_hash(audio_data, None);
-        if let Ok(Some(_existing)) = self.database.get_media_by_hash(&media_hash) {
-            media_hash = Self::compute_media_hash(audio_data, Some(&message_id));
+        // Content hash is validated by the receiver; storage hash avoids
+        // UNIQUE collisions when the same audio bytes are sent again.
+        let content_hash = Self::compute_media_hash(audio_data, None);
+        let mut storage_hash = content_hash.clone();
+        if let Ok(Some(_existing)) = self.database.get_media_by_hash(&storage_hash) {
+            storage_hash = Self::compute_media_hash(audio_data, Some(&message_id));
         }
 
-        let local_path = self.write_media_file(&media_hash, Some(&file_name), audio_data)?;
+        let local_path = self.write_media_file(&storage_hash, Some(&file_name), audio_data)?;
         let media_type = MediaType::VoiceMessage;
         let summary = crate::media::media_summary(
             media_type.as_str(),
@@ -1198,7 +1204,7 @@ impl Client {
         let outcome = if inline {
             let content = Self::build_media_envelope(
                 media_type.clone(),
-                media_hash.clone(),
+                content_hash.clone(),
                 Some(file_name.clone()),
                 Some("audio/aac".to_string()),
                 None,
@@ -1213,7 +1219,7 @@ impl Client {
             let timestamp = chrono::Utc::now().timestamp_millis();
             let offer = MediaOffer {
                 message_id: message_id.clone(),
-                media_hash: media_hash.clone(),
+                media_hash: content_hash.clone(),
                 media_type: media_type.as_str().to_string(),
                 file_name: file_name.clone(),
                 mime_type: "audio/aac".to_string(),
@@ -1255,7 +1261,7 @@ impl Client {
             content_encrypted: if inline {
                 let content = Self::build_media_envelope(
                     media_type.clone(),
-                    media_hash.clone(),
+                    content_hash.clone(),
                     Some(file_name.clone()),
                     Some("audio/aac".to_string()),
                     None,
@@ -1278,7 +1284,7 @@ impl Client {
 
         // Store media record
         let new_media = crate::storage::NewMedia {
-            media_hash: media_hash.clone(),
+            media_hash: storage_hash,
             message_id: message_id.clone(),
             media_type,
             file_name: Some(file_name),
@@ -1316,19 +1322,20 @@ impl Client {
         // Generate message ID
         let message_id = uuid::Uuid::new_v4().to_string();
 
-        let mut media_hash = Self::compute_media_hash(file_data, None);
-        if let Ok(Some(_existing)) = self.database.get_media_by_hash(&media_hash) {
-            media_hash = Self::compute_media_hash(file_data, Some(&message_id));
+        let content_hash = Self::compute_media_hash(file_data, None);
+        let mut storage_hash = content_hash.clone();
+        if let Ok(Some(_existing)) = self.database.get_media_by_hash(&storage_hash) {
+            storage_hash = Self::compute_media_hash(file_data, Some(&message_id));
         }
 
-        let local_path = self.write_media_file(&media_hash, Some(&file_name), file_data)?;
+        let local_path = self.write_media_file(&storage_hash, Some(&file_name), file_data)?;
         let media_type = MediaType::Document;
         let summary = crate::media::media_summary(media_type.as_str(), Some(&file_name), None);
         let inline = Self::should_inline_media(file_data.len());
         let outcome = if inline {
             let content = Self::build_media_envelope(
                 media_type.clone(),
-                media_hash.clone(),
+                content_hash.clone(),
                 Some(file_name.clone()),
                 Some(mime_type.clone()),
                 None,
@@ -1343,7 +1350,7 @@ impl Client {
             let timestamp = chrono::Utc::now().timestamp_millis();
             let offer = MediaOffer {
                 message_id: message_id.clone(),
-                media_hash: media_hash.clone(),
+                media_hash: content_hash.clone(),
                 media_type: media_type.as_str().to_string(),
                 file_name: file_name.clone(),
                 mime_type: mime_type.clone(),
@@ -1385,7 +1392,7 @@ impl Client {
             content_encrypted: if inline {
                 let content = Self::build_media_envelope(
                     media_type.clone(),
-                    media_hash.clone(),
+                    content_hash.clone(),
                     Some(file_name.clone()),
                     Some(mime_type.clone()),
                     None,
@@ -1408,7 +1415,7 @@ impl Client {
 
         // Store media record
         let new_media = crate::storage::NewMedia {
-            media_hash: media_hash.clone(),
+            media_hash: storage_hash,
             message_id: message_id.clone(),
             media_type,
             file_name: Some(file_name),
@@ -1452,12 +1459,15 @@ impl Client {
         // Generate message ID
         let message_id = uuid::Uuid::new_v4().to_string();
 
-        let mut media_hash = Self::compute_media_hash(video_data, None);
-        if let Ok(Some(_existing)) = self.database.get_media_by_hash(&media_hash) {
-            media_hash = Self::compute_media_hash(video_data, Some(&message_id));
+        // Content hash is validated by the receiver; storage hash avoids
+        // UNIQUE collisions when the same video bytes are sent again.
+        let content_hash = Self::compute_media_hash(video_data, None);
+        let mut storage_hash = content_hash.clone();
+        if let Ok(Some(_existing)) = self.database.get_media_by_hash(&storage_hash) {
+            storage_hash = Self::compute_media_hash(video_data, Some(&message_id));
         }
 
-        let local_path = self.write_media_file(&media_hash, Some(&file_name), video_data)?;
+        let local_path = self.write_media_file(&storage_hash, Some(&file_name), video_data)?;
         let media_type = MediaType::Video;
         let summary = crate::media::media_summary(
             media_type.as_str(),
@@ -1467,14 +1477,14 @@ impl Client {
 
         let mut thumbnail_path = None;
         if let Some(thumb_data) = thumbnail_data {
-            thumbnail_path = Some(self.write_thumbnail_file(&media_hash, thumb_data)?);
+            thumbnail_path = Some(self.write_thumbnail_file(&content_hash, thumb_data)?);
         }
 
         let inline = Self::should_inline_media(video_data.len());
         let outcome = if inline {
             let content = Self::build_media_envelope(
                 media_type.clone(),
-                media_hash.clone(),
+                content_hash.clone(),
                 Some(file_name.clone()),
                 Some("video/mp4".to_string()),
                 width,
@@ -1489,7 +1499,7 @@ impl Client {
             let timestamp = chrono::Utc::now().timestamp_millis();
             let offer = MediaOffer {
                 message_id: message_id.clone(),
-                media_hash: media_hash.clone(),
+                media_hash: content_hash.clone(),
                 media_type: media_type.as_str().to_string(),
                 file_name: file_name.clone(),
                 mime_type: "video/mp4".to_string(),
@@ -1531,7 +1541,7 @@ impl Client {
             content_encrypted: if inline {
                 let content = Self::build_media_envelope(
                     media_type.clone(),
-                    media_hash.clone(),
+                    content_hash.clone(),
                     Some(file_name.clone()),
                     Some("video/mp4".to_string()),
                     width,
@@ -1554,7 +1564,7 @@ impl Client {
 
         // Store media record
         let new_media = crate::storage::NewMedia {
-            media_hash: media_hash.clone(),
+            media_hash: storage_hash,
             message_id: message_id.clone(),
             media_type,
             file_name: Some(file_name),
@@ -1689,6 +1699,13 @@ impl Client {
     ) -> Result<Vec<crate::storage::Media>> {
         self.database
             .get_conversation_media(conversation_id, media_type, limit)
+            .map_err(|e| ZapLivreError::Storage(e.to_string()))
+    }
+
+    /// Get media records for a specific message
+    pub fn get_message_media(&self, message_id: &str) -> Result<Vec<crate::storage::Media>> {
+        self.database
+            .get_message_media(message_id)
             .map_err(|e| ZapLivreError::Storage(e.to_string()))
     }
 
