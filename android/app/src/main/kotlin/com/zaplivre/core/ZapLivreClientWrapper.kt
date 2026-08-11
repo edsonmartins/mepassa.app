@@ -1009,6 +1009,20 @@ object ZapLivreClientWrapper : ZapLivreClientApi {
     }
 
     /**
+     * Get media records for a specific message
+     */
+    suspend fun getMessageMedia(messageId: String): List<uniffi.zaplivre.FfiMedia> =
+        withContext(Dispatchers.IO) {
+            try {
+                val c = client ?: throw IllegalStateException("Client not initialized")
+                c.getMessageMedia(messageId)
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Failed to get message media", e)
+                emptyList()
+            }
+        }
+
+    /**
      * Download media by hash
      */
     suspend fun downloadMedia(mediaHash: String): ByteArray = withContext(Dispatchers.IO) {

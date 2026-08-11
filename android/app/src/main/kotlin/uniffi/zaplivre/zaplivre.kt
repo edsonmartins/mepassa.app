@@ -827,6 +827,8 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_get_groups(
     ): Int
+    external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_get_message_media(
+    ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_get_message_reactions(
     ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_get_prekey_bundle_json(
@@ -990,6 +992,8 @@ external fun uniffi_zaplivre_core_fn_method_zaplivreclient_get_group_sender_key_
 ): Long
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_get_groups(`ptr`: Long,
 ): Long
+external fun uniffi_zaplivre_core_fn_method_zaplivreclient_get_message_media(`ptr`: Long,`messageId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_get_message_reactions(`ptr`: Long,`messageId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_get_prekey_bundle_json(`ptr`: Long,
@@ -1246,6 +1250,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_get_groups() != 30978) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_get_message_media() != 6336) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_get_message_reactions() != 13689) {
@@ -1955,6 +1962,8 @@ public interface ZapLivreClientInterface {
     
     suspend fun `getGroups`(): List<FfiGroup>
     
+    fun `getMessageMedia`(`messageId`: kotlin.String): List<FfiMedia>
+    
     fun `getMessageReactions`(`messageId`: kotlin.String): List<FfiReaction>
     
     suspend fun `getPrekeyBundleJson`(): kotlin.String
@@ -2502,6 +2511,20 @@ open class ZapLivreClient: Disposable, AutoCloseable, ZapLivreClientInterface
         ZapLivreFfiException.ErrorHandler,
     )
     }
+
+    
+    @Throws(ZapLivreFfiException::class)override fun `getMessageMedia`(`messageId`: kotlin.String): List<FfiMedia> {
+            return FfiConverterSequenceTypeFfiMedia.lift(
+    callWithHandle {
+    uniffiRustCallWithError(ZapLivreFfiException) { _status ->
+    UniffiLib.uniffi_zaplivre_core_fn_method_zaplivreclient_get_message_media(
+        it,
+        FfiConverterString.lower(`messageId`),_status)
+}
+    }
+    )
+    }
+    
 
     
     @Throws(ZapLivreFfiException::class)override fun `getMessageReactions`(`messageId`: kotlin.String): List<FfiReaction> {

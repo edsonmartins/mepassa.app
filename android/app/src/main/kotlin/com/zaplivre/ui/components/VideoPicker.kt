@@ -101,21 +101,18 @@ private fun extractVideoInfo(context: Context, uri: Uri): VideoInfo? {
 
         retriever.release()
 
-        // Get file info
-        val cursor = context.contentResolver.query(uri, null, null, null, null)
-        val fileName = cursor?.use {
-            if (it.moveToFirst()) {
-                val nameIndex = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-                if (nameIndex >= 0) it.getString(nameIndex) else "video.mp4"
-            } else "video.mp4"
-        } ?: "video.mp4"
-
-        val fileSize = cursor?.use {
-            if (it.moveToFirst()) {
-                val sizeIndex = it.getColumnIndex(android.provider.OpenableColumns.SIZE)
-                if (sizeIndex >= 0) it.getLong(sizeIndex) else 0L
-            } else 0L
-        } ?: 0L
+        // Get file info (single cursor use — reusing the same query twice
+        // closes the cursor and the second read fails)
+        var fileName = "video.mp4"
+        var fileSize = 0L
+        context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                if (nameIndex >= 0) fileName = cursor.getString(nameIndex)
+                val sizeIndex = cursor.getColumnIndex(android.provider.OpenableColumns.SIZE)
+                if (sizeIndex >= 0) fileSize = cursor.getLong(sizeIndex)
+            }
+        }
 
         return VideoInfo(
             uri = uri,
