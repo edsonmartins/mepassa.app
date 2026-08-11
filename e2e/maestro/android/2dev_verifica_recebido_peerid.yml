@@ -1,0 +1,12 @@
+# 2-devices: verifica recebido pela conversa do peer ID (não username)
+appId: com.zaplivre
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "conversations_fab"
+    timeout: 20000
+- tapOn: ${PEER_ID_PREFIX}
+- extendedWaitUntil:
+    visible: ${MESSAGE}
+    timeout: 15000

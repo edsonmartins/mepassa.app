@@ -1,0 +1,18 @@
+# 2-devices: POCO verifica que recebeu a mensagem enviada pelo tablet
+# Sem clearState — usa a identidade já criada.
+appId: com.zaplivre
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "conversations_fab"
+    timeout: 20000
+# Espera a conversa nova aparecer na lista (vinda do outro device)
+- extendedWaitUntil:
+    visible: ${PEER_USERNAME}
+    timeout: 30000
+# Abre a conversa e confirma a mensagem recebida
+- tapOn: ${PEER_USERNAME}
+- extendedWaitUntil:
+    visible: ${MESSAGE}
+    timeout: 15000

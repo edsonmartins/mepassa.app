@@ -1,0 +1,13 @@
+# 2-devices: abre conversa do POCO no tablet e verifica badge + mensagem recebida
+appId: com.zaplivre
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "conversations_fab"
+    timeout: 20000
+- assertVisible: "1"
+- tapOn: "12D3KooWDon6PoAi…"
+- extendedWaitUntil:
+    visible: ${MESSAGE}
+    timeout: 15000

@@ -1,0 +1,16 @@
+# 2-devices: tablet responde no chat já aberto (para testar badge no POCO)
+appId: com.zaplivre
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "chat_input"
+    timeout: 15000
+- tapOn:
+    id: "chat_input"
+- inputText: "resposta pos-badge do poco"
+- tapOn:
+    id: "chat_send"
+- extendedWaitUntil:
+    visible: "resposta pos-badge do poco"
+    timeout: 15000

@@ -1,0 +1,21 @@
+# 2-devices: tablet abre conversa do POCO, confirma mensagens, responde, volta p/ lista
+appId: com.zaplivre
+---
+- launchApp
+- extendedWaitUntil:
+    visible: "poco1786296087"
+    timeout: 20000
+- assertVisible: "2"
+- tapOn: "poco1786296087"
+- extendedWaitUntil:
+    visible: "badge teste 2 do poco"
+    timeout: 15000
+- assertVisible: "badge teste 1 do poco"
+- tapOn:
+    id: "chat_input"
+- inputText: "resposta tablet badge teste"
+- tapOn:
+    id: "chat_send"
+- extendedWaitUntil:
+    visible: "resposta tablet badge teste"
+    timeout: 15000

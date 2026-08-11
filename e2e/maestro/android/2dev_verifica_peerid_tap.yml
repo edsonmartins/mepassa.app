@@ -1,0 +1,12 @@
+# 2-devices: verifica recebido — abre a conversa pelo texto exato truncado
+appId: com.zaplivre
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "conversations_fab"
+    timeout: 20000
+- tapOn: "12D3KooWKNbpaPoG…"
+- extendedWaitUntil:
+    visible: ${MESSAGE}
+    timeout: 15000

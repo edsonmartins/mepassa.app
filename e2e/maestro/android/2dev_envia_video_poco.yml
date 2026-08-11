@@ -1,0 +1,26 @@
+# 2-devices: POCO envia vídeo (botão vídeo → picker → 1º vídeo → Adicionar → Send)
+appId: com.zaplivre
+---
+- launchApp
+- extendedWaitUntil:
+    visible: "tablet1786296087"
+    timeout: 15000
+- tapOn: "tablet1786296087"
+- extendedWaitUntil:
+    visible: "Select video"
+    timeout: 10000
+- tapOn: "Select video"
+- extendedWaitUntil:
+    visible: "00:02"
+    timeout: 8000
+- tapOn:
+    text: "00:02"
+    index: 0
+- extendedWaitUntil:
+    visible: "Adicionar"
+    timeout: 5000
+- tapOn: "Adicionar"
+- extendedWaitUntil:
+    visible: "Send"
+    timeout: 8000
+- tapOn: "Send"

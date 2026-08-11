@@ -1,0 +1,33 @@
+# 2-devices: tablet envia mensagem de texto para o POCO (username único)
+# Sem clearState — a identidade já foi criada pelo _setup_two_devices.
+appId: com.zaplivre
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "conversations_fab"
+    timeout: 20000
+# Nova conversa → digita o username do outro device
+- tapOn:
+    id: "conversations_fab"
+- tapOn:
+    id: "new_chat_peer_input"
+- inputText: ${PEER_USERNAME}
+- tapOn:
+    id: "new_chat_confirm"
+# Enviar mensagem de texto
+- extendedWaitUntil:
+    visible:
+      id: "chat_input"
+    timeout: 15000
+- tapOn:
+    id: "chat_input"
+- inputText: ${MESSAGE}
+- assertVisible:
+    id: "chat_send"
+- tapOn:
+    id: "chat_send"
+# Apareceu como bolha (enviada)
+- extendedWaitUntil:
+    visible: ${MESSAGE}
+    timeout: 15000

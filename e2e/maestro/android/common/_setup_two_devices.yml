@@ -1,0 +1,30 @@
+# Helper 2-devices: cria identidade + registra username único e fica em Conversas
+appId: com.zaplivre
+---
+- clearState
+- evalScript: ${output.e2e_username = username}
+- launchApp:
+    permissions:
+      notifications: allow
+- extendedWaitUntil:
+    visible:
+      id: "onboarding_create"
+    timeout: 30000
+- tapOn:
+    id: "onboarding_create"
+- extendedWaitUntil:
+    visible: "Escolha seu username"
+    timeout: 15000
+- tapOn:
+    id: "onboarding_username_input"
+- inputText: ${username}
+- tapOn:
+    id: "onboarding_register"
+- extendedWaitUntil:
+    visible:
+      id: "conversations_settings"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "conversations_fab"
+    timeout: 15000

@@ -1,0 +1,27 @@
+# 2-devices: envia mensagem de voz (long-press grava; solta para enviar)
+appId: com.zaplivre
+---
+- launchApp
+- extendedWaitUntil:
+    visible: "poco1786296087"
+    timeout: 15000
+- tapOn: "poco1786296087"
+- extendedWaitUntil:
+    visible: "Hold to record voice message"
+    timeout: 10000
+- longPressOn:
+    id: "Hold to record voice message"
+    duration: 2000
+    release:true
+# Wait for recording UI to change to sending state
+- extendedWaitUntil:
+    visible: "Cancel recording"
+    timeout: 5000
+- tapOn:
+    id: "chat_mic_button"
+    desc: "Send voice message"
+    timeout: 5000
+# Wait for message to be sent (appears in chat as voice message)
+- extendedWaitUntil:
+    visible: "Voice message"
+    timeout: 15000

@@ -1,0 +1,26 @@
+# 2-devices: tablet envia vídeo (Select video → picker → 1º vídeo → Concluir → Send)
+appId: com.zaplivre
+---
+- launchApp
+- extendedWaitUntil:
+    visible: "poco1786296087"
+    timeout: 15000
+- tapOn: "poco1786296087"
+- extendedWaitUntil:
+    visible: "Select video"
+    timeout: 10000
+- tapOn: "Select video"
+- extendedWaitUntil:
+    visible: "Vídeo gravado.*"
+    timeout: 8000
+- tapOn:
+    text: "Vídeo gravado.*"
+    index: 0
+- extendedWaitUntil:
+    visible: "Concluir"
+    timeout: 5000
+- tapOn: "Concluir"
+- extendedWaitUntil:
+    visible: "Send"
+    timeout: 8000
+- tapOn: "Send"
