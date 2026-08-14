@@ -2114,6 +2114,27 @@ impl Client {
             .map_err(|e| ZapLivreError::Other(format!("WebRTC signaling error: {}", e)))
     }
 
+    #[cfg(not(feature = "voip"))]
+    pub async fn send_webrtc_offer(&self, _call_id: String, _sdp: String) -> Result<()> {
+        Err(ZapLivreError::Other("VoIP feature disabled".to_string()))
+    }
+
+    #[cfg(not(feature = "voip"))]
+    pub async fn send_webrtc_answer(&self, _call_id: String, _sdp: String) -> Result<()> {
+        Err(ZapLivreError::Other("VoIP feature disabled".to_string()))
+    }
+
+    #[cfg(not(feature = "voip"))]
+    pub async fn send_webrtc_ice_candidate(
+        &self,
+        _call_id: String,
+        _candidate: String,
+        _sdp_mid: Option<String>,
+        _sdp_m_line_index: Option<u16>,
+    ) -> Result<()> {
+        Err(ZapLivreError::Other("VoIP feature disabled".to_string()))
+    }
+
     #[cfg(feature = "voip")]
     /// Reject an incoming call
     pub async fn reject_call(&self, call_id: String, reason: Option<String>) -> Result<()> {

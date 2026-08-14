@@ -1990,35 +1990,50 @@ impl ZapLivreClient {
             })
     }
 
-    #[cfg(feature = "voip")]
     pub async fn send_webrtc_offer(
         &self,
         call_id: String,
         sdp: String,
     ) -> Result<(), ZapLivreFfiError> {
+        #[cfg(feature = "voip")]
         let (tx, rx) = oneshot::channel();
+        #[cfg(feature = "voip")]
+        {
         self.handle()
             .sender
             .send(ClientCommand::SendWebRtcOffer { call_id, sdp, response: tx })
             .map_err(|_| ZapLivreFfiError::Other { details: "Failed to send command".into() })?;
-        rx.await.map_err(|_| ZapLivreFfiError::Other { details: "Failed to receive response".into() })?
+        return rx.await.map_err(|_| ZapLivreFfiError::Other { details: "Failed to receive response".into() })?;
+        }
+        #[cfg(not(feature = "voip"))]
+        {
+            let _ = (call_id, sdp);
+            Err(ZapLivreFfiError::Other { details: "VoIP feature disabled".into() })
+        }
     }
 
-    #[cfg(feature = "voip")]
     pub async fn send_webrtc_answer(
         &self,
         call_id: String,
         sdp: String,
     ) -> Result<(), ZapLivreFfiError> {
+        #[cfg(feature = "voip")]
         let (tx, rx) = oneshot::channel();
+        #[cfg(feature = "voip")]
+        {
         self.handle()
             .sender
             .send(ClientCommand::SendWebRtcAnswer { call_id, sdp, response: tx })
             .map_err(|_| ZapLivreFfiError::Other { details: "Failed to send command".into() })?;
-        rx.await.map_err(|_| ZapLivreFfiError::Other { details: "Failed to receive response".into() })?
+        return rx.await.map_err(|_| ZapLivreFfiError::Other { details: "Failed to receive response".into() })?;
+        }
+        #[cfg(not(feature = "voip"))]
+        {
+            let _ = (call_id, sdp);
+            Err(ZapLivreFfiError::Other { details: "VoIP feature disabled".into() })
+        }
     }
 
-    #[cfg(feature = "voip")]
     pub async fn send_webrtc_ice_candidate(
         &self,
         call_id: String,
@@ -2026,7 +2041,10 @@ impl ZapLivreClient {
         sdp_mid: Option<String>,
         sdp_m_line_index: Option<u16>,
     ) -> Result<(), ZapLivreFfiError> {
+        #[cfg(feature = "voip")]
         let (tx, rx) = oneshot::channel();
+        #[cfg(feature = "voip")]
+        {
         self.handle()
             .sender
             .send(ClientCommand::SendWebRtcIceCandidate {
@@ -2037,7 +2055,13 @@ impl ZapLivreClient {
                 response: tx,
             })
             .map_err(|_| ZapLivreFfiError::Other { details: "Failed to send command".into() })?;
-        rx.await.map_err(|_| ZapLivreFfiError::Other { details: "Failed to receive response".into() })?
+        return rx.await.map_err(|_| ZapLivreFfiError::Other { details: "Failed to receive response".into() })?;
+        }
+        #[cfg(not(feature = "voip"))]
+        {
+            let _ = (call_id, candidate, sdp_mid, sdp_m_line_index);
+            Err(ZapLivreFfiError::Other { details: "VoIP feature disabled".into() })
+        }
     }
 
     /// Registra callback de eventos de mensagem (recebida/status/typing).

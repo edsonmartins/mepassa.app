@@ -204,8 +204,13 @@ impl MessageHandler {
             }
         };
         let peer_id = from_peer.to_string();
+        // Ed25519 libp2p PeerIds embed the authenticated public key in the
+        // identity multihash. Persist it so safety-number verification also
+        // works for contacts discovered automatically.
+        let authenticated_public_key = public_key_from_peer_id(&from_peer);
         let update = crate::storage::UpdateContact {
             prekey_bundle_json: Some(Some(bundle_json.clone())),
+            public_key: authenticated_public_key.clone().filter(|key| !key.is_empty()),
             last_seen_at: Some(chrono::Utc::now()),
             ..Default::default()
         };
@@ -216,7 +221,7 @@ impl MessageHandler {
                     peer_id,
                     username: None,
                     display_name: None,
-                    public_key: Vec::new(),
+                    public_key: authenticated_public_key.unwrap_or_default(),
                     prekey_bundle_json: Some(bundle_json),
                 })?;
             }
@@ -959,6 +964,17 @@ impl MessageHandler {
     }
 }
 
+/// Extract an Ed25519 public key from a libp2p identity-multihash PeerId.
+fn public_key_from_peer_id(peer_id: &PeerId) -> Option<Vec<u8>> {
+    let multihash = peer_id.as_ref();
+    if multihash.code() != 0x00 {
+        return None;
+    }
+    let public_key = libp2p::identity::PublicKey::try_decode_protobuf(multihash.digest()).ok()?;
+    let ed25519 = public_key.try_into_ed25519().ok()?;
+    Some(ed25519.to_bytes().to_vec())
+}
+
 /// Message events emitted to application layer
 #[derive(Debug, Clone)]
 pub enum MessageEvent {
@@ -1002,6 +1018,15 @@ pub enum MessageEvent {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn extracts_authenticated_ed25519_key_from_peer_id() {
+        let keypair = libp2p::identity::Keypair::generate_ed25519();
+        let peer_id = PeerId::from(keypair.public());
+        let extracted = public_key_from_peer_id(&peer_id).expect("ed25519 key must be embedded");
+        let expected = keypair.public().try_into_ed25519().unwrap().to_bytes();
+        assert_eq!(extracted, expected);
+    }
     use crate::storage::{contacts::NewContact, schema::init_schema};
     use libp2p::PeerId;
 
