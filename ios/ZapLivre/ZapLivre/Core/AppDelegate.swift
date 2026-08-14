@@ -41,4 +41,16 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     ) {
         pushManager?.didFailToRegisterForRemoteNotifications(error: error)
     }
+
+    // Handle content-available pushes while the app is in the background.
+    // This wakes the P2P layer so queued messages are delivered without
+    // requiring the user to open the conversation.
+    func application(
+        _ application: UIApplication,
+        didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+        fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+    ) {
+        pushManager?.handleNotification(userInfo: userInfo)
+        completionHandler(.newData)
+    }
 }

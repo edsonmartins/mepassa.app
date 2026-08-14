@@ -79,6 +79,18 @@ class ZapLivreCore: ObservableObject {
         return try await client?.localPeerId() ?? ""
     }
 
+    func identityFingerprint() async throws -> String {
+        try await client?.identityFingerprint() ?? ""
+    }
+
+    func contactIdentityFingerprint(peerId: String) async throws -> String {
+        try await client?.contactIdentityFingerprint(peerId: peerId) ?? ""
+    }
+
+    func contactTransparencyProof(peerId: String) async throws -> String {
+        try await client?.contactTransparencyProof(peerId: peerId) ?? ""
+    }
+
     /// Import existing identity from backup
     func importIdentity(backup: String) async throws {
         if client != nil {
@@ -264,6 +276,16 @@ class ZapLivreCore: ObservableObject {
             offset: offset
         ) ?? []
 
+        return messages.map { FfiMessageWrapper(ffi: $0) }
+    }
+
+    func getConversationMessagesBefore(peerId: String, limit: UInt32?, beforeCreatedAt: Int64?, beforeMessageId: String?) async throws -> [FfiMessageWrapper] {
+        let messages = try await client?.getConversationMessagesBefore(
+            peerId: peerId,
+            limit: limit,
+            beforeCreatedAt: beforeCreatedAt,
+            beforeMessageId: beforeMessageId
+        ) ?? []
         return messages.map { FfiMessageWrapper(ffi: $0) }
     }
 
@@ -691,6 +713,36 @@ class ZapLivreCore: ObservableObject {
         print("✅ Call event callback registered")
     }
 
+    func registerWebRtcSignalingCallback(_ callback: FfiWebRtcSignalingCallback) throws {
+        guard let client else { throw ZapLivreCoreError.notInitialized }
+        try client.registerWebrtcSignalingCallback(callback: callback)
+    }
+
+    func sendWebRtcOffer(callId: String, sdp: String) async throws {
+        guard let client else { throw ZapLivreCoreError.notInitialized }
+        try await client.sendWebrtcOffer(callId: callId, sdp: sdp)
+    }
+
+    func sendWebRtcAnswer(callId: String, sdp: String) async throws {
+        guard let client else { throw ZapLivreCoreError.notInitialized }
+        try await client.sendWebrtcAnswer(callId: callId, sdp: sdp)
+    }
+
+    func sendWebRtcIceCandidate(
+        callId: String,
+        candidate: String,
+        sdpMid: String?,
+        sdpMLineIndex: UInt16?
+    ) async throws {
+        guard let client else { throw ZapLivreCoreError.notInitialized }
+        try await client.sendWebrtcIceCandidate(
+            callId: callId,
+            candidate: candidate,
+            sdpMid: sdpMid,
+            sdpMLineIndex: sdpMLineIndex
+        )
+    }
+
     /// EVT-02: eventos de mensagem (substitui o polling das views)
     func registerMessageEventCallback(_ callback: FfiMessageEventCallback) async throws {
         guard let client = client else {
@@ -733,7 +785,8 @@ struct FfiMessageWrapper: Identifiable {
         self.recipientPeerId = ffi.recipientPeerId
         self.content = ffi.contentPlaintext
         self.messageType = ffi.messageType
-        self.createdAt = Date(timeIntervalSince1970: TimeInterval(ffi.createdAt) / 1000.0)
+        // Message timestamps persisted by the Rust storage layer are Unix seconds.
+        self.createdAt = Date(timeIntervalSince1970: TimeInterval(ffi.createdAt))
         self.status = ffi.status
     }
 }

@@ -53,6 +53,8 @@ pub struct VoIPIntegration {
 
     // Call lifecycle callback (incoming/state/ended)
     call_event_callback: Arc<RwLock<Option<Box<dyn crate::FfiCallEventCallback>>>>,
+    webrtc_signaling_callback:
+        Arc<RwLock<Option<Box<dyn crate::FfiWebRtcSignalingCallback>>>>,
 }
 
 impl VoIPIntegration {
@@ -104,6 +106,7 @@ impl VoIPIntegration {
             audio_frame_callback: Arc::new(RwLock::new(None)),
             voip_event_callback: Arc::new(RwLock::new(None)),
             call_event_callback: Arc::new(RwLock::new(None)),
+            webrtc_signaling_callback: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -159,6 +162,14 @@ impl VoIPIntegration {
         let mut cb = self.call_event_callback.write().await;
         *cb = Some(callback);
         tracing::info!("📞 Call event callback registered");
+    }
+
+    pub async fn register_webrtc_signaling_callback(
+        &self,
+        callback: Box<dyn crate::FfiWebRtcSignalingCallback>,
+    ) {
+        *self.webrtc_signaling_callback.write().await = Some(callback);
+        tracing::info!("Platform WebRTC signaling callback registered");
     }
 
     /// Run the integration event loop
@@ -354,6 +365,31 @@ impl VoIPIntegration {
                 // Remote peer accepted call (acknowledgment)
                 tracing::info!("✅ Call accepted by {} (call: {})", peer_id_str, call_id);
             }
+            SignalingMessage::PlatformOffer { call_id, sdp } => {
+                if let Some(callback) = self.webrtc_signaling_callback.read().await.as_ref() {
+                    callback.on_offer(call_id.clone(), sdp.clone());
+                }
+            }
+            SignalingMessage::PlatformAnswer { call_id, sdp } => {
+                if let Some(callback) = self.webrtc_signaling_callback.read().await.as_ref() {
+                    callback.on_answer(call_id.clone(), sdp.clone());
+                }
+            }
+            SignalingMessage::PlatformIceCandidate {
+                call_id,
+                candidate,
+                sdp_mid,
+                sdp_m_line_index,
+            } => {
+                if let Some(callback) = self.webrtc_signaling_callback.read().await.as_ref() {
+                    callback.on_ice_candidate(
+                        call_id.clone(),
+                        candidate.clone(),
+                        sdp_mid.clone(),
+                        *sdp_m_line_index,
+                    );
+                }
+            }
         }
 
         Ok(())
@@ -527,6 +563,52 @@ impl VoIPIntegration {
                 Err(super::VoipError::NetworkError(err.to_string()))
             }
         }
+    }
+
+    async fn send_call_signal(&self, call_id: &str, signal: SignalingMessage) -> Result<()> {
+        let remote_peer_id = {
+            let calls = self.call_manager.calls.read().await;
+            calls
+                .get(call_id)
+                .map(|call| call.remote_peer_id.clone())
+                .ok_or_else(|| super::VoipError::InvalidState("Call not found".to_string()))?
+        };
+        let peer_id = remote_peer_id.parse::<PeerId>().map_err(|e| {
+            super::VoipError::InvalidState(format!("Invalid peer ID: {}", e))
+        })?;
+        self.send_signal(peer_id, signal).await
+    }
+
+    pub async fn send_webrtc_offer(&self, call_id: String, sdp: String) -> Result<()> {
+        let signal = SignalingMessage::PlatformOffer {
+            call_id: call_id.clone(),
+            sdp,
+        };
+        self.send_call_signal(&call_id, signal).await
+    }
+
+    pub async fn send_webrtc_answer(&self, call_id: String, sdp: String) -> Result<()> {
+        let signal = SignalingMessage::PlatformAnswer {
+            call_id: call_id.clone(),
+            sdp,
+        };
+        self.send_call_signal(&call_id, signal).await
+    }
+
+    pub async fn send_webrtc_ice_candidate(
+        &self,
+        call_id: String,
+        candidate: String,
+        sdp_mid: Option<String>,
+        sdp_m_line_index: Option<u16>,
+    ) -> Result<()> {
+        let signal = SignalingMessage::PlatformIceCandidate {
+            call_id: call_id.clone(),
+            candidate,
+            sdp_mid,
+            sdp_m_line_index,
+        };
+        self.send_call_signal(&call_id, signal).await
     }
 
     /// Initiate a call to a peer

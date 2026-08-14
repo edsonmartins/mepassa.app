@@ -17,6 +17,10 @@ interface ZapLivreClientApi {
     /** Peer ID local (null enquanto o client não inicializa). */
     val localPeerId: StateFlow<String?>
 
+    suspend fun identityFingerprint(): String
+    suspend fun contactIdentityFingerprint(peerId: String): String
+    suspend fun contactTransparencyProof(peerId: String): String
+
     /** Eventos de mensagem vindos do core (EVT-01, substitui polling). */
     val messageEvents: SharedFlow<ZapLivreClientWrapper.MessageUiEvent>
 
@@ -28,6 +32,13 @@ interface ZapLivreClientApi {
         peerId: String,
         limit: UInt? = null,
         offset: UInt? = null
+    ): List<FfiMessage>
+
+    suspend fun getConversationMessagesBefore(
+        peerId: String,
+        limit: UInt? = null,
+        beforeCreatedAt: Long? = null,
+        beforeMessageId: String? = null
     ): List<FfiMessage>
 
     /** Envia mensagem de texto. */

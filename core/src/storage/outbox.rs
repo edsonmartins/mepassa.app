@@ -19,6 +19,17 @@ pub struct OutboundQueueEntry {
 }
 
 impl Database {
+    /// Wake queued messages for a peer as soon as its authenticated P2P
+    /// connection is established. The retry worker will flush them on its next
+    /// pass instead of waiting for the previous exponential backoff deadline.
+    pub fn wake_outbound_for_peer(&self, peer_id: &str) -> Result<usize> {
+        let updated = self.conn().execute(
+            "UPDATE outbound_queue SET next_attempt_at = unixepoch() WHERE peer_id = ?1",
+            rusqlite::params![peer_id],
+        )?;
+        Ok(updated)
+    }
+
     /// Enqueue a message for later delivery. Idempotent per message_id.
     pub fn enqueue_outbound(
         &self,

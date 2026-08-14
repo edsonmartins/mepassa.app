@@ -1,7 +1,6 @@
 package com.zaplivre.ui.screens.call
 
 import android.util.Log
-import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -15,7 +14,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -24,12 +22,10 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.zaplivre.core.ZapLivreClientWrapper
-import com.zaplivre.ui.components.RemoteVideoView
-import com.zaplivre.voip.CameraManager
 import com.zaplivre.voip.CallAudioManager
-import com.zaplivre.voip.VideoEncoder
+import com.zaplivre.voip.NativeWebRtcSession
 import kotlinx.coroutines.launch
-import uniffi.zaplivre.FfiVideoCodec
+import org.webrtc.SurfaceViewRenderer
 
 /**
  * VideoCallScreen - UI for video call with local preview and remote video
@@ -38,17 +34,17 @@ import uniffi.zaplivre.FfiVideoCodec
 @Composable
 fun VideoCallScreen(
     callId: String,
+    remotePeerId: String,
     peerName: String,
     onHangup: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
 
     val audioManager = remember { CallAudioManager(context) }
 
-    DisposableEffect(Unit) {
+    DisposableEffect(callId) {
         audioManager.startCall()
         onDispose {
             audioManager.stopCall()
@@ -70,64 +66,43 @@ fun VideoCallScreen(
     var isMuted by remember { mutableStateOf(false) }
     var callDuration by remember { mutableStateOf(0) }
 
-    // Camera manager
-    val cameraManager = remember { CameraManager(context) }
-    val videoEncoder = remember {
-        VideoEncoder(width = 640, height = 480) { encoded, _ ->
-            scope.launch {
-                try {
-                    ZapLivreClientWrapper.sendVideoFrame(
-                        callId = callId,
-                        frameData = encoded,
-                        width = 640u,
-                        height = 480u
-                    )
-                } catch (e: Exception) {
-                    // Frame drop is acceptable
-                }
-            }
+    var localRenderer by remember { mutableStateOf<SurfaceViewRenderer?>(null) }
+    var remoteRenderer by remember { mutableStateOf<SurfaceViewRenderer?>(null) }
+    var nativeSession by remember { mutableStateOf<NativeWebRtcSession?>(null) }
+
+    DisposableEffect(
+        callId,
+        remotePeerId,
+        cameraPermissionState.status.isGranted,
+        localRenderer,
+        remoteRenderer
+    ) {
+        if (cameraPermissionState.status.isGranted && localRenderer != null && remoteRenderer != null) {
+            val localPeerId = ZapLivreClientWrapper.localPeerId.value.orEmpty()
+            val session = NativeWebRtcSession(context, callId)
+            nativeSession = session
+            session.start(
+                localRenderer = localRenderer!!,
+                remoteRenderer = remoteRenderer!!,
+                createOffer = localPeerId < remotePeerId
+            )
+        }
+        onDispose {
+            nativeSession?.stop()
+            nativeSession = null
         }
     }
 
-    // Preview views
-    var localPreviewView by remember { mutableStateOf<PreviewView?>(null) }
-    
-    DisposableEffect(cameraPermissionState.status.isGranted, videoEnabled, localPreviewView) {
-        // Start camera when screen appears and permission is granted
-        if (cameraPermissionState.status.isGranted && videoEnabled && localPreviewView != null) {
-            videoEncoder.start()
-            cameraManager.startCamera(
-                lifecycleOwner = lifecycleOwner,
-                previewView = localPreviewView!!,
-                onFrameCallback = { data, width, height ->
-                    val pts = System.nanoTime() / 1000
-                    videoEncoder.encodeFrame(data, pts)
-                }
-            )
-
-            // Enable video track on WebRTC
-            scope.launch {
-                try {
-                    ZapLivreClientWrapper.enableVideo(callId, FfiVideoCodec.H264)
-                } catch (e: Exception) {
-                    Log.e("VideoCallScreen", "Failed to enable video", e)
-                }
-            }
-        }
-
-        onDispose {
-            cameraManager.stopCamera()
-            cameraManager.release()
-            videoEncoder.stop()
-        }
+    LaunchedEffect(videoEnabled, nativeSession) {
+        nativeSession?.setVideoEnabled(videoEnabled)
     }
 
     Box(
         modifier = modifier.fillMaxSize()
     ) {
         // Remote video (full screen)
-        RemoteVideoView(
-            callId = callId,
+        AndroidView(
+            factory = { ctx -> SurfaceViewRenderer(ctx).also { remoteRenderer = it } },
             modifier = Modifier.fillMaxSize()
         )
 
@@ -143,20 +118,7 @@ fun VideoCallScreen(
             ) {
                 AndroidView(
                     factory = { ctx ->
-                        PreviewView(ctx).also { preview ->
-                            localPreviewView = preview
-                            if (cameraPermissionState.status.isGranted && videoEnabled) {
-                                videoEncoder.start()
-                                cameraManager.startCamera(
-                                    lifecycleOwner = lifecycleOwner,
-                                    previewView = preview,
-                                    onFrameCallback = { data, width, height ->
-                                        val pts = System.nanoTime() / 1000
-                                        videoEncoder.encodeFrame(data, pts)
-                                    }
-                                )
-                            }
-                        }
+                        SurfaceViewRenderer(ctx).also { localRenderer = it }
                     },
                     modifier = Modifier.fillMaxSize()
                 )
@@ -203,36 +165,6 @@ fun VideoCallScreen(
                         }
 
                         videoEnabled = !videoEnabled
-                        if (videoEnabled && localPreviewView != null) {
-                            videoEncoder.start()
-                            cameraManager.startCamera(
-                                lifecycleOwner = lifecycleOwner,
-                                previewView = localPreviewView!!,
-                                onFrameCallback = { data, width, height ->
-                                    val pts = System.nanoTime() / 1000
-                                    videoEncoder.encodeFrame(data, pts)
-                                }
-                            )
-                            // Enable video track on WebRTC
-                            scope.launch {
-                                try {
-                                    ZapLivreClientWrapper.enableVideo(callId, FfiVideoCodec.H264)
-                                } catch (e: Exception) {
-                                    Log.e("VideoCallScreen", "Failed to enable video", e)
-                                }
-                            }
-                        } else {
-                            cameraManager.stopCamera()
-                            videoEncoder.stop()
-                            // Disable video track on WebRTC
-                            scope.launch {
-                                try {
-                                    ZapLivreClientWrapper.disableVideo(callId)
-                                } catch (e: Exception) {
-                                    Log.e("VideoCallScreen", "Failed to disable video", e)
-                                }
-                            }
-                        }
                     },
                     modifier = Modifier
                         .size(56.dp)
@@ -257,6 +189,7 @@ fun VideoCallScreen(
                             try {
                                 ZapLivreClientWrapper.toggleMute(callId)
                                 isMuted = audioManager.toggleMute()
+                                nativeSession?.setAudioEnabled(!isMuted)
                             } catch (e: Exception) {
                                 Log.e("VideoCallScreen", "Failed to toggle mute", e)
                             }
@@ -287,24 +220,7 @@ fun VideoCallScreen(
                             return@IconButton
                         }
 
-                        if (localPreviewView != null) {
-                            cameraManager.switchCamera(
-                                lifecycleOwner = lifecycleOwner,
-                                previewView = localPreviewView!!,
-                                onFrameCallback = { data, width, height ->
-                                    val pts = System.nanoTime() / 1000
-                                    videoEncoder.encodeFrame(data, pts)
-                                }
-                            )
-                            // Notify FFI about camera switch
-                            scope.launch {
-                                try {
-                                    ZapLivreClientWrapper.switchCamera(callId)
-                                } catch (e: Exception) {
-                                    Log.e("VideoCallScreen", "Failed to switch camera", e)
-                                }
-                            }
-                        }
+                        nativeSession?.switchCamera()
                     },
                     modifier = Modifier
                         .size(56.dp)

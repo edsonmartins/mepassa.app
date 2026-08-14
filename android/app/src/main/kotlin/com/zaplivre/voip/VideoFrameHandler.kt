@@ -24,6 +24,7 @@ class VideoFrameHandler(
     private var isDecoderConfigured = false
     private var currentWidth: Int = 640
     private var currentHeight: Int = 480
+    private var loggedFirstFrame = false
 
     companion object {
         private const val TAG = "VideoFrameHandler"
@@ -86,6 +87,10 @@ class VideoFrameHandler(
 
         val targetWidth = width.toInt()
         val targetHeight = height.toInt()
+        if (!loggedFirstFrame) {
+            Log.i(TAG, "First remote frame: ${frameData.size} bytes, ${targetWidth}x${targetHeight}")
+            loggedFirstFrame = true
+        }
         if (targetWidth > 0 && targetHeight > 0 &&
             (targetWidth != currentWidth || targetHeight != currentHeight)
         ) {

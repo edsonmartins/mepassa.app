@@ -1,7 +1,7 @@
 //! API handlers for Identity Server
 
 use axum::{
-    extract::{Query, State},
+    extract::{Path, Query, State},
     Json,
 };
 use base64::{engine::general_purpose, Engine as _};
@@ -54,6 +54,12 @@ pub struct LookupQuery {
     pub peer_id: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct TransparencyLogQuery {
+    pub from: Option<i64>,
+    pub limit: Option<i64>,
+}
+
 /// Lookup a username
 pub async fn lookup_handler(
     State(state): State<Arc<AppState>>,
@@ -86,6 +92,29 @@ pub async fn update_prekeys_handler(
 
     let response = db::update_prekeys(&state.db, &req.peer_id, &req.prekey_bundle).await?;
     Ok(Json(response))
+}
+
+/// Fetch an independently auditable proof for a peer's current identity key.
+pub async fn transparency_handler(
+    State(state): State<Arc<AppState>>,
+    Path(peer_id): Path<String>,
+) -> Result<Json<TransparencyResponse>> {
+    Ok(Json(db::transparency_for_peer(&state.db, &peer_id).await?))
+}
+
+/// Return an ordered segment of the log for an independent auditor.
+pub async fn transparency_log_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<TransparencyLogQuery>,
+) -> Result<Json<Vec<TransparencyLogEntry>>> {
+    Ok(Json(
+        db::transparency_log_segment(
+            &state.db,
+            query.from.unwrap_or(1),
+            query.limit.unwrap_or(100),
+        )
+        .await?,
+    ))
 }
 
 /// Health check endpoint

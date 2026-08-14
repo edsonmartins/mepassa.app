@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Vibration
@@ -29,8 +30,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.zaplivre.core.ZapLivreClientWrapper
 import com.zaplivre.ui.components.ZapAvatar
+import com.zaplivre.ui.components.PeerQrCode
 import com.zaplivre.ui.theme.ZapColor
 import com.zaplivre.ui.theme.ZapMetric
 import com.zaplivre.ui.theme.ZapType
@@ -78,6 +82,12 @@ fun SettingsScreen(
     var prekeyImportPeerId by remember { mutableStateOf("") }
     var prekeyImportJson by remember { mutableStateOf("") }
     var storageUsedMb by remember { mutableStateOf("calculando...") }
+    var showQrDialog by remember { mutableStateOf(false) }
+    var qrPayload by remember { mutableStateOf("") }
+
+    LaunchedEffect(localPeerId) {
+        qrPayload = localPeerId?.let { ZapLivreClientWrapper.qrIdentityPayload(it) }.orEmpty()
+    }
 
     fun dirSizeBytes(dir: java.io.File): Long =
         dir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
@@ -151,6 +161,7 @@ fun SettingsScreen(
             }
         },
         onImportPrekeys = { showPrekeyImportDialog = true },
+        onShowQrCode = { showQrDialog = true },
         onClearImageCache = {
             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                 context.cacheDir.listFiles()?.forEach { it.deleteRecursively() }
@@ -168,6 +179,30 @@ fun SettingsScreen(
         },
         onLogout = { showLogoutDialog = true },
     )
+
+    if (showQrDialog) {
+        Dialog(
+            onDismissRequest = { showQrDialog = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+        ) {
+            Surface(modifier = Modifier.fillMaxSize(), color = Color.White) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 8.dp, vertical = 32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Text("Meu QR Code", style = MaterialTheme.typography.headlineSmall)
+                    Spacer(Modifier.height(20.dp))
+                    PeerQrCode(payload = qrPayload, size = 344.dp)
+                    Spacer(Modifier.height(20.dp))
+                    Text("Escaneie para iniciar uma conversa")
+                    TextButton(onClick = { showQrDialog = false }) { Text("Fechar") }
+                }
+            }
+        }
+    }
 
     // Logout confirmation dialog
     if (showLogoutDialog) {
@@ -351,6 +386,7 @@ fun SettingsContent(
     onExportBackup: () -> Unit,
     onExportPrekeys: () -> Unit,
     onImportPrekeys: () -> Unit,
+    onShowQrCode: () -> Unit,
     onClearImageCache: () -> Unit,
     onClearVideoCache: () -> Unit,
     onLogout: () -> Unit,
@@ -445,6 +481,14 @@ fun SettingsContent(
             item { SettingsSectionHeader("Identidade") }
             item {
                 SettingsCard {
+                    SettingsClickableRow(
+                        icon = Icons.Filled.QrCode,
+                        title = "Meu QR Code",
+                        description = "Permitir que outro aparelho escaneie seu Peer ID",
+                        onClick = onShowQrCode,
+                        modifier = Modifier.testTag("settings_my_qr_code"),
+                    )
+                    SettingsRowDivider()
                     SettingsClickableRow(
                         icon = Icons.Filled.Backup,
                         title = "Exportar backup da identidade",

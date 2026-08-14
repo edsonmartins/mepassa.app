@@ -8,6 +8,7 @@
 
 import SwiftUI
 import UniformTypeIdentifiers
+import CoreImage.CIFilterBuiltins
 
 struct ChatView: View {
     let conversation: Conversation
@@ -15,6 +16,9 @@ struct ChatView: View {
     @EnvironmentObject var callManager: CallManager
     @State private var messageText = ""
     @State private var messages: [Message] = []
+    @State private var oldestMessageCursor: (Int64, String)?
+    @State private var isLoadingOlderMessages = false
+    @State private var hasOlderMessages = true
 
     // Image picker state
     @StateObject private var mediaPickerVM = MediaPickerViewModel()
@@ -36,6 +40,7 @@ struct ChatView: View {
 
     // Media gallery state
     @State private var showMediaGallery = false
+    @State private var showSecurityNumber = false
     @State private var activeVideoCallId: String?
 
     // Search state
@@ -52,6 +57,11 @@ struct ChatView: View {
                     } else {
                         ForEach(messages) { message in
                             messageRow(message)
+                                .onAppear {
+                                    if message.id == messages.first?.id {
+                                        loadOlderMessagesIfNeeded()
+                                    }
+                                }
                         }
                     }
                     Color.clear
@@ -64,9 +74,9 @@ struct ChatView: View {
                 proxy.scrollTo("bottom", anchor: .bottom)
             }
             .onChange(of: messages.count) { _ in
-                withAnimation(.easeOut(duration: 0.2)) {
-                    proxy.scrollTo("bottom", anchor: .bottom)
-                }
+                // Keep the initial history load stable; animating every row
+                // from its compact placeholder makes cards visibly "grow".
+                proxy.scrollTo("bottom", anchor: .bottom)
             }
         }
     }
@@ -94,11 +104,6 @@ struct ChatView: View {
     private func messageRow(_ message: Message) -> some View {
         VStack(alignment: message.isOutgoing ? .trailing : .leading, spacing: 4) {
             MessageBubble(message: message, media: mediaIndex[message.id])
-                .transition(.asymmetric(
-                    insertion: .move(edge: .bottom).combined(with: .opacity),
-                    removal: .opacity
-                ))
-                .animation(.easeOut(duration: 0.3), value: messages.count)
                 .contextMenu {
                     Button(action: {
                         selectedMessage = message
@@ -153,6 +158,12 @@ struct ChatView: View {
                 }
             )
         }
+        .sheet(isPresented: $showSecurityNumber) {
+            SecurityNumberView(
+                peerId: conversation.peerId,
+                peerName: conversation.displayName
+            )
+        }
         .sheet(isPresented: $showReactionPicker) {
             if let messageId = reactionPickerMessageId {
                 ReactionPicker { emoji in
@@ -166,6 +177,7 @@ struct ChatView: View {
                     if let callId = activeVideoCallId {
                         VideoCallScreen(
                             callId: callId,
+                            remotePeerId: conversation.peerId,
                             peerName: conversation.displayName,
                             onHangup: { activeVideoCallId = nil }
                         )
@@ -212,6 +224,10 @@ struct ChatView: View {
                     Image(systemName: "magnifyingglass")
                 }
                 .accessibilityIdentifier("chat_search")
+                Button(action: { showSecurityNumber = true }) {
+                    Image(systemName: "checkmark.shield")
+                }
+                .accessibilityLabel("Verificar segurança")
                 Button(action: startVoiceCall) {
                     Image(systemName: "phone")
                 }
@@ -228,6 +244,11 @@ struct ChatView: View {
         }
         .onDisappear {
             stopAutoRefresh()
+        }
+        .onReceive(mediaPickerVM.$uploadState) { state in
+            if state == .success {
+                loadMessages()
+            }
         }
     }
 
@@ -248,15 +269,16 @@ struct ChatView: View {
     }
 
     private var messageInputBar: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 4) {
                 // Image picker button
                 Button(action: {
                     showingImagePicker = true
                 }) {
                     Image(systemName: "photo.on.rectangle")
-                        .font(.system(size: 22))
+                        .font(.system(size: 18))
                         .foregroundColor(ZapColor.slate)
                 }
+                .frame(width: 28, height: 32)
 
                 // Document picker button
                 DocumentPickerButton(isEnabled: true) { fileURL in
@@ -287,6 +309,7 @@ struct ChatView: View {
                         }
                     }
                 }
+                .frame(width: 28, height: 32)
 
                 // Video picker button
                 VideoPickerButton(isEnabled: true) { videoInfo in
@@ -316,14 +339,15 @@ struct ChatView: View {
                         }
                     }
                 }
+                .frame(width: 28, height: 32)
 
                 // Text field
                 TextField("Mensagem", text: $messageText)
                     .accessibilityIdentifier("chat_input")
                     .textFieldStyle(.plain)
                     .font(ZapFont.body)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 9)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
                     .background(ZapColor.surface)
                     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                     .overlay(
@@ -368,14 +392,14 @@ struct ChatView: View {
                         Image(systemName: "arrow.up")
                             .font(.system(size: 18, weight: .bold))
                             .foregroundColor(.white)
-                            .frame(width: 38, height: 38)
+                            .frame(width: 46, height: 46)
                             .background(ZapColor.sparkGradient)
                             .clipShape(Circle())
                     }
                     .accessibilityIdentifier("chat_send")
                 }
             }
-            .padding(.horizontal)
+            .padding(.horizontal, 6)
             .padding(.vertical, 8)
             .background(
                 ZapColor.canvas
@@ -412,13 +436,15 @@ struct ChatView: View {
             do {
                 let ffiMessages = try await ZapLivreCore.shared.getConversationMessages(
                     peerId: conversation.peerId,
-                    limit: 100,
+                    limit: 50,
                     offset: 0
                 )
                 let mediaItems = try await ZapLivreCore.shared.getConversationMedia(
                     conversationId: conversation.id,
                     mediaType: nil,
-                    limit: 200
+                    // Media rows are metadata only; keep this aligned with
+                    // the initial message window and load file bytes on demand.
+                    limit: 50
                 )
 
                 let localPeerId = ZapLivreCore.shared.localPeerId ?? ""
@@ -432,6 +458,8 @@ struct ChatView: View {
                 }
 
                 await MainActor.run {
+                    if let oldest = displayMessages.first { self.oldestMessageCursor = (Int64(oldest.createdAt.timeIntervalSince1970), oldest.id) }
+                    self.hasOlderMessages = ffiMessages.count == 50
                     self.mediaIndex = Dictionary(uniqueKeysWithValues: mediaItems.map { ($0.messageId, $0) })
                     messages = displayMessages.map { ffiMsg in
                         Message(
@@ -448,6 +476,43 @@ struct ChatView: View {
                 }
             } catch {
                 print("❌ Error loading messages: \(error)")
+            }
+        }
+    }
+
+    private func loadOlderMessagesIfNeeded() {
+        guard hasOlderMessages, !isLoadingOlderMessages, !messages.isEmpty else { return }
+        isLoadingOlderMessages = true
+        guard let cursor = oldestMessageCursor else { return }
+        Task {
+            defer { Task { @MainActor in isLoadingOlderMessages = false } }
+            do {
+                let older = try await ZapLivreCore.shared.getConversationMessagesBefore(
+                    peerId: conversation.peerId,
+                    limit: 50,
+                    beforeCreatedAt: cursor.0,
+                    beforeMessageId: cursor.1
+                )
+                let localPeerId = ZapLivreCore.shared.localPeerId ?? ""
+                let display = older.reversed().map { ffiMsg in
+                    Message(
+                        id: ffiMsg.id,
+                        content: ffiMsg.content ?? "",
+                        messageType: ffiMsg.messageType,
+                        senderId: ffiMsg.senderPeerId,
+                        timestamp: ffiMsg.createdAt,
+                        isOutgoing: ffiMsg.senderPeerId == localPeerId,
+                        status: ffiMsg.status,
+                        ffiMessage: ffiMsg
+                    )
+                }
+                await MainActor.run {
+                    messages.insert(contentsOf: display, at: 0)
+                    if let first = display.first { oldestMessageCursor = (Int64(first.timestamp.timeIntervalSince1970), first.id) }
+                    hasOlderMessages = older.count == 50
+                }
+            } catch {
+                print("❌ Error loading older messages: \(error)")
             }
         }
     }
@@ -637,6 +702,145 @@ struct ChatView: View {
     }
 }
 
+/// Displays the authenticated identity fingerprint for a conversation.
+/// The local verification marker is intentionally kept on-device; a future
+/// transparency log can replace this marker without changing the UI contract.
+private struct SecurityNumberView: View {
+    let peerId: String
+    let peerName: String
+    @Environment(\.dismiss) private var dismiss
+    @State private var fingerprint = ""
+    @State private var storedFingerprint: String?
+    @State private var errorMessage: String?
+    @State private var isLoading = true
+    @State private var transparencyVerified = false
+
+    private var storageKey: String { "verified_identity_fingerprint_\(peerId)" }
+    private var isVerified: Bool { storedFingerprint == fingerprint && !fingerprint.isEmpty }
+    private var hasChanged: Bool {
+        guard let storedFingerprint, !storedFingerprint.isEmpty else { return false }
+        return !fingerprint.isEmpty && storedFingerprint != fingerprint
+    }
+
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 20) {
+                    Image(systemName: hasChanged ? "exclamationmark.shield.fill" : (isVerified ? "checkmark.shield.fill" : "shield.lefthalf.filled"))
+                        .font(.system(size: 52))
+                        .foregroundColor(hasChanged ? .orange : (isVerified ? .green : ZapColor.primary))
+                        .padding(.top, 18)
+
+                    Text("Número de segurança")
+                        .font(.title2.weight(.semibold))
+                    Text("Compare este código com o código exibido no dispositivo de \(peerName). Se forem iguais, a identidade autenticada é a mesma.")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+
+                    Group {
+                        if isLoading {
+                            ProgressView("Carregando identidade…")
+                        } else if let errorMessage {
+                            Label(errorMessage, systemImage: "exclamationmark.triangle")
+                                .foregroundColor(.orange)
+                                .multilineTextAlignment(.center)
+                        } else {
+                            Text(fingerprint)
+                                .font(.system(.title3, design: .monospaced).weight(.medium))
+                                .tracking(1.5)
+                                .multilineTextAlignment(.center)
+                                .padding(18)
+                                .frame(maxWidth: .infinity)
+                                .background(Color.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 14))
+                                .textSelection(.enabled)
+
+                            Image(uiImage: makeSecurityQRCode())
+                                .interpolation(.none)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 190, height: 190)
+                                .padding(12)
+                                .background(Color.white, in: RoundedRectangle(cornerRadius: 12))
+                                .accessibilityLabel("QR Code do número de segurança")
+
+                            Text("QR Code para comparação de segurança")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+
+                            Label(
+                                transparencyVerified ? "Identidade incluída no log de transparência" : "Log de transparência indisponível",
+                                systemImage: transparencyVerified ? "checkmark.seal.fill" : "questionmark.diamond"
+                            )
+                            .font(.footnote)
+                            .foregroundColor(transparencyVerified ? .green : .secondary)
+
+                            Button {
+                                UIPasteboard.general.string = fingerprint
+                            } label: {
+                                Label("Copiar código", systemImage: "doc.on.doc")
+                            }
+                            .buttonStyle(.bordered)
+
+                            if hasChanged {
+                                Label("A identidade deste contato mudou. Confirme novamente antes de confiar.", systemImage: "exclamationmark.shield.fill")
+                                    .font(.footnote)
+                                    .foregroundColor(.orange)
+                                    .multilineTextAlignment(.center)
+                            } else if isVerified {
+                                Label("Identidade verificada neste dispositivo", systemImage: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                            }
+
+                            Button(isVerified ? "Verificado" : "Marcar como verificado") {
+                                UserDefaults.standard.set(fingerprint, forKey: storageKey)
+                                storedFingerprint = fingerprint
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(fingerprint.isEmpty || isVerified)
+                        }
+                    }
+                }
+                .padding()
+            }
+            .navigationTitle("Segurança")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Fechar") { dismiss() }
+                }
+            }
+            .task { await loadFingerprint() }
+        }
+    }
+
+    private func loadFingerprint() async {
+        storedFingerprint = UserDefaults.standard.string(forKey: storageKey)
+        do {
+            fingerprint = try await ZapLivreCore.shared.contactIdentityFingerprint(peerId: peerId)
+            transparencyVerified = (try? await ZapLivreCore.shared.contactTransparencyProof(peerId: peerId))?.isEmpty == false
+        } catch {
+            errorMessage = "Não foi possível carregar a identidade deste contato."
+        }
+        isLoading = false
+    }
+
+    private func makeSecurityQRCode() -> UIImage {
+        let filter = CIFilter.qrCodeGenerator()
+        filter.message = Data("zaplivre-safety:v1:\(peerId):\(fingerprint)".utf8)
+        filter.correctionLevel = "M"
+        guard let output = filter.outputImage else {
+            return UIImage(systemName: "qrcode") ?? UIImage()
+        }
+        let scaled = output.transformed(by: CGAffineTransform(scaleX: 8, y: 8))
+        guard let cgImage = CIContext().createCGImage(scaled, from: scaled.extent) else {
+            return UIImage(systemName: "qrcode") ?? UIImage()
+        }
+        return UIImage(cgImage: cgImage)
+    }
+}
+
 struct MessageBubble: View {
     let message: Message
     let media: FfiMedia?
@@ -711,6 +915,7 @@ struct ImageMessageBubble: View {
     let media: FfiMedia
     let isOutgoing: Bool
     @State private var image: UIImage?
+    @State private var loadFailed = false
 
     var body: some View {
         Group {
@@ -720,6 +925,14 @@ struct ImageMessageBubble: View {
                     .scaledToFit()
                     .frame(maxWidth: 220)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
+            } else if loadFailed {
+                Label("Imagem indisponível", systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(isOutgoing ? Color.blue : Color.secondary.opacity(0.2))
+                    .foregroundColor(isOutgoing ? .white : .primary)
+                    .cornerRadius(16)
             } else {
                 Text("Carregando imagem...")
                     .padding(.horizontal, 12)
@@ -731,13 +944,71 @@ struct ImageMessageBubble: View {
         }
         .task {
             guard image == nil else { return }
+
+            var candidateURLs: [URL] = []
+            if let localPath = media.localPath {
+                let storedURL = URL(fileURLWithPath: localPath)
+                candidateURLs.append(storedURL)
+
+                // iOS may relocate the app data container after reinstalling an
+                // update. Preserve the path below Documents when that happens.
+                if let documentsRange = localPath.range(of: "/Documents/") {
+                    let relativePath = String(localPath[documentsRange.upperBound...])
+                    if let documentsURL = FileManager.default.urls(
+                        for: .documentDirectory,
+                        in: .userDomainMask
+                    ).first {
+                        candidateURLs.append(documentsURL.appendingPathComponent(relativePath))
+                    }
+                }
+
+            }
+
+            // Older media rows may not have local_path populated even though
+            // the core wrote the file using its deterministic hash-based name.
+            if let documentsURL = FileManager.default.urls(
+                for: .documentDirectory,
+                in: .userDomainMask
+            ).first {
+                let fileExtension = media.fileName
+                    .map { URL(fileURLWithPath: $0).pathExtension }
+                    .flatMap { $0.isEmpty ? nil : $0 } ?? "jpg"
+                candidateURLs.append(
+                    documentsURL
+                        .appendingPathComponent("zaplivre_data/media", isDirectory: true)
+                        .appendingPathComponent("\(media.mediaHash).\(fileExtension)")
+                )
+            }
+
+            for url in candidateURLs {
+                if let localData = try? Data(contentsOf: url),
+                   let localImage = UIImage(data: localData) {
+                    image = localImage
+                    return
+                }
+            }
+
+            let timeoutTask = Task {
+                try? await Task.sleep(nanoseconds: 10_000_000_000)
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    if image == nil {
+                        loadFailed = true
+                    }
+                }
+            }
+            defer { timeoutTask.cancel() }
+
             do {
                 let data = try await ZapLivreCore.shared.downloadMedia(mediaHash: media.mediaHash)
                 if let img = UIImage(data: data) {
                     image = img
+                } else {
+                    loadFailed = true
                 }
             } catch {
                 print("❌ Failed to load image: \(error)")
+                loadFailed = true
             }
         }
     }

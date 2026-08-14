@@ -2,14 +2,11 @@
 //!
 //! Handles microphone input and speaker output using cpal.
 
-use super::{Result, VoipError};
+use super::{Result, Sample, VoipError};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{Device, Host, Stream, StreamConfig};
 use std::sync::Arc;
 use tokio::sync::mpsc;
-
-/// Audio sample format (f32 for compatibility)
-pub type Sample = f32;
 
 /// Audio configuration
 #[derive(Debug, Clone)]

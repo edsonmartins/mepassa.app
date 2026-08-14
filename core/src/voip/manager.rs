@@ -16,8 +16,8 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::sync::{broadcast, RwLock};
 use webrtc::ice_transport::ice_server::RTCIceServer;
+use webrtc::peer_connection::peer_connection_state::RTCPeerConnectionState;
 #[cfg(feature = "voip")]
-use webrtc::track::track_local::TrackLocalWriter;
 
 /// TURN credentials from server
 #[derive(Debug, Clone)]
@@ -182,6 +182,34 @@ impl CallManager {
         let ice_servers = self.get_ice_servers().await;
         let mut peer = WebRTCPeer::new(ice_servers).await?;
 
+        let connection_event_tx = self.event_tx.clone();
+        let call_id_for_connection = call_id.clone();
+        peer.on_connection_state_change(move |state| {
+            let new_state = match state {
+                RTCPeerConnectionState::Connected => Some(CallState::Active),
+                RTCPeerConnectionState::Failed => Some(CallState::Ended {
+                    reason: CallEndReason::ConnectionFailed,
+                }),
+                _ => None,
+            };
+            if let Some(new_state) = new_state {
+                let _ = connection_event_tx.send(CallEvent::StateChanged {
+                    call_id: call_id_for_connection.clone(),
+                    new_state,
+                });
+            }
+        });
+
+        let first_video_rtp_tx = self.event_tx.clone();
+        let call_id_for_first_video_rtp = call_id.clone();
+        peer.on_first_remote_video_rtp(move || {
+            let _ = first_video_rtp_tx.send(CallEvent::StateChanged {
+                call_id: call_id_for_first_video_rtp.clone(),
+                new_state: CallState::Active,
+            });
+        })
+        .await;
+
         // Register callback for remote video frames
         let event_tx = self.event_tx.clone();
         let call_id_for_callback = call_id.clone();
@@ -226,6 +254,11 @@ impl CallManager {
         // Add audio track (only with voip feature - video-only calls don't need audio)
         #[cfg(feature = "voip")]
         peer.add_audio_track().await?;
+
+        // Negotiate the video m-line in the initial SDP. Enabling the camera
+        // later only starts sending frames and therefore does not require a
+        // second offer/answer exchange.
+        peer.add_video_track(VideoCodec::H264).await?;
 
         // Create offer
         let offer_sdp = peer.create_offer().await?;
@@ -273,6 +306,34 @@ impl CallManager {
         let ice_servers = self.get_ice_servers().await;
         let mut peer = WebRTCPeer::new(ice_servers).await?;
 
+        let connection_event_tx = self.event_tx.clone();
+        let call_id_for_connection = call_id.clone();
+        peer.on_connection_state_change(move |state| {
+            let new_state = match state {
+                RTCPeerConnectionState::Connected => Some(CallState::Active),
+                RTCPeerConnectionState::Failed => Some(CallState::Ended {
+                    reason: CallEndReason::ConnectionFailed,
+                }),
+                _ => None,
+            };
+            if let Some(new_state) = new_state {
+                let _ = connection_event_tx.send(CallEvent::StateChanged {
+                    call_id: call_id_for_connection.clone(),
+                    new_state,
+                });
+            }
+        });
+
+        let first_video_rtp_tx = self.event_tx.clone();
+        let call_id_for_first_video_rtp = call_id.clone();
+        peer.on_first_remote_video_rtp(move || {
+            let _ = first_video_rtp_tx.send(CallEvent::StateChanged {
+                call_id: call_id_for_first_video_rtp.clone(),
+                new_state: CallState::Active,
+            });
+        })
+        .await;
+
         // Register callback for remote video frames
         let event_tx = self.event_tx.clone();
         let call_id_for_callback = call_id.clone();
@@ -317,6 +378,9 @@ impl CallManager {
         // Add audio track (only with voip feature - video-only calls don't need audio)
         #[cfg(feature = "voip")]
         peer.add_audio_track().await?;
+
+        // Match the caller's pre-negotiated H.264 video transceiver.
+        peer.add_video_track(VideoCodec::H264).await?;
 
         // Set remote offer
         peer.set_remote_description(offer_sdp, "offer").await?;
@@ -393,13 +457,23 @@ impl CallManager {
 
     /// Handle incoming answer (for outgoing call)
     pub async fn handle_answer(&self, call_id: String, answer_sdp: String) -> Result<()> {
-        let peers = self.peers.read().await;
-        let peer_lock = peers
+        let peer_lock = self
+            .peers
+            .read()
+            .await
             .get(&call_id)
+            .cloned()
             .ok_or_else(|| VoipError::InvalidState("Call not found".to_string()))?;
 
-        let peer = peer_lock.read().await;
-        peer.set_remote_description(answer_sdp, "answer").await?;
+        {
+            let peer = peer_lock.read().await;
+            peer.set_remote_description(answer_sdp, "answer").await?;
+        }
+
+        // Answer-side trickle candidates can arrive before the answer SDP.
+        // Apply every candidate that was deferred while remoteDescription was
+        // still absent.
+        self.drain_pending_ice(&call_id).await;
 
         // Update state to connecting
         {
@@ -453,9 +527,30 @@ impl CallManager {
             return Ok(());
         };
 
-        let peer = peer_lock.read().await;
-        peer.add_ice_candidate(candidate, sdp_mid, sdp_m_line_index)
-            .await?;
+        let add_result = {
+            let peer = peer_lock.read().await;
+            peer.add_ice_candidate(candidate.clone(), sdp_mid.clone(), sdp_m_line_index)
+                .await
+        };
+
+        if let Err(error) = add_result {
+            // A peer may already exist while the remote SDP answer has not
+            // arrived yet. That is a normal trickle-ICE race, not a reason to
+            // discard the candidate.
+            const MAX_PENDING_ICE: usize = 64;
+            let mut pending = self.pending_ice.write().await;
+            let entry = pending.entry(call_id.clone()).or_default();
+            if entry.len() < MAX_PENDING_ICE {
+                entry.push((candidate, sdp_mid, sdp_m_line_index));
+                tracing::debug!(
+                    "🧊 ICE candidate deferred for call {} after add failed: {}",
+                    call_id,
+                    error
+                );
+                return Ok(());
+            }
+            return Err(error);
+        }
 
         tracing::debug!("🧊 ICE candidate added for call: {}", call_id);
 
@@ -565,7 +660,8 @@ impl CallManager {
             .get(call_id)
             .ok_or_else(|| VoipError::InvalidState("Call not found".to_string()))?;
 
-        // Get mutable access to add video track
+        // The track is normally negotiated with the initial SDP. Keep this
+        // call idempotent for older/in-progress calls.
         let mut peer = peer_lock.write().await;
         peer.add_video_track(codec).await?;
 
@@ -600,13 +696,13 @@ impl CallManager {
     /// Disable video for an active call
     pub async fn disable_video(&self, call_id: &str) -> Result<()> {
         let peers = self.peers.read().await;
-        let peer_lock = peers
+        let _peer_lock = peers
             .get(call_id)
             .ok_or_else(|| VoipError::InvalidState("Call not found".to_string()))?;
 
-        // Get mutable access to remove video track
-        let mut peer = peer_lock.write().await;
-        peer.remove_video_track().await?;
+        // Keep the negotiated transceiver in place. The platform stops camera
+        // capture, so no frames are sent while video is disabled. Removing the
+        // track here would require renegotiation and breaks re-enable.
 
         // Update video enabled state
         {
@@ -707,7 +803,11 @@ impl CallManager {
         let mut encoder = encoder.lock().await;
         if let Some(packet) = encoder.encode(&samples)? {
             audio_track
-                .write(&packet)
+                .write_sample(&webrtc::media::Sample {
+                    data: packet.into(),
+                    duration: std::time::Duration::from_millis(20),
+                    ..Default::default()
+                })
                 .await
                 .map_err(|e| VoipError::NetworkError(format!("Failed to write RTP: {}", e)))?;
         }
@@ -715,7 +815,11 @@ impl CallManager {
         while encoder.buffered_samples() >= encoder.frame_size() {
             if let Some(packet) = encoder.encode(&[])? {
                 audio_track
-                    .write(&packet)
+                    .write_sample(&webrtc::media::Sample {
+                        data: packet.into(),
+                        duration: std::time::Duration::from_millis(20),
+                        ..Default::default()
+                    })
                     .await
                     .map_err(|e| VoipError::NetworkError(format!("Failed to write RTP: {}", e)))?;
             } else {

@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.zaplivre.core.ZapLivreClientWrapper
 import com.zaplivre.voip.CallAudioManager
+import com.zaplivre.voip.VoipAudioBridge
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.seconds
@@ -65,8 +66,10 @@ fun CallScreen(
     // Iniciar gerenciamento de áudio
     DisposableEffect(Unit) {
         audioManager.startCall()
+        VoipAudioBridge.start(context, callId, "voice-screen")
         onDispose {
             audioManager.stopCall()
+            VoipAudioBridge.stop(callId, "voice-screen")
         }
     }
 

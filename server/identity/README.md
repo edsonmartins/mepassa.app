@@ -106,6 +106,23 @@ Atualiza os prekeys de um username (rotação de chaves).
 - `404 USERNAME_NOT_FOUND` - Peer ID não encontrado
 - `429 RATE_LIMIT_EXCEEDED` - Limite de 50 updates/hora excedido
 
+### Transparência de chaves
+
+O servidor mantém `key_transparency_log`, uma cadeia append-only em que cada
+entrada inclui `previous_hash` e `entry_hash`. A inicialização cria a tabela
+quando necessário e inclui registros antigos de forma idempotente.
+
+`GET /api/v1/transparency/keys/{peer_id}` retorna a prova da identidade e a
+raiz atual do log. Para auditoria independente, `GET
+/api/v1/transparency/log?from=1&limit=100` retorna um segmento ordenado (limite
+máximo de 1000 entradas). O auditor deve recomputar cada hash e comparar o
+`previous_hash` com a entrada anterior; para segmentos posteriores ao primeiro,
+deve fornecer o hash raiz do segmento anterior como confiança inicial.
+
+O log não substitui a verificação presencial do usuário e ainda deve ser
+publicado para um auditor externo antes de ser tratado como transparência
+global.
+
 ### GET /health
 Health check endpoint (sem rate limiting).
 

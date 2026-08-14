@@ -534,6 +534,35 @@ impl RtpDepacketizer {
 
             // Append fragment payload (skip FU indicator and header)
             self.frame_buffer.extend_from_slice(&packet.payload[2..]);
+        } else if nalu_type == 24 {
+            // STAP-A aggregation packet (RFC 6184 section 5.7). WebRTC
+            // packetizers commonly aggregate SPS and PPS this way before an
+            // IDR frame. Convert every contained NALU back to Annex B.
+            let mut offset = 1;
+            while offset + 2 <= packet.payload.len() {
+                let nalu_len = u16::from_be_bytes([
+                    packet.payload[offset],
+                    packet.payload[offset + 1],
+                ]) as usize;
+                offset += 2;
+
+                if nalu_len == 0 || offset + nalu_len > packet.payload.len() {
+                    return Err(VoipError::SignalingError(
+                        "Invalid H.264 STAP-A packet".to_string(),
+                    ));
+                }
+
+                self.frame_buffer.extend_from_slice(&H264_START_CODE);
+                self.frame_buffer
+                    .extend_from_slice(&packet.payload[offset..offset + nalu_len]);
+                offset += nalu_len;
+            }
+
+            if offset != packet.payload.len() {
+                return Err(VoipError::SignalingError(
+                    "Invalid H.264 STAP-A trailing data".to_string(),
+                ));
+            }
         } else {
             // Single NALU packet
             self.frame_buffer.extend_from_slice(&H264_START_CODE);
@@ -705,6 +734,27 @@ mod tests {
         }
 
         assert_eq!(reconstructed_frame.unwrap(), original_frame);
+    }
+
+    #[test]
+    fn test_h264_stap_a_depacketization() {
+        let sps = [0x67, 0x42, 0x00, 0x1f];
+        let pps = [0x68, 0xce, 0x06, 0xe2];
+        let mut payload = vec![0x78];
+        payload.extend_from_slice(&(sps.len() as u16).to_be_bytes());
+        payload.extend_from_slice(&sps);
+        payload.extend_from_slice(&(pps.len() as u16).to_be_bytes());
+        payload.extend_from_slice(&pps);
+
+        let packet = RtpPacket::new(RtpHeader::new(1, 90_000, 42, 96, true), payload);
+        let mut depacketizer = RtpDepacketizer::new(VideoCodec::H264);
+        let frame = depacketizer.depacketize(&packet).unwrap().unwrap();
+
+        let mut expected = Vec::from(H264_START_CODE);
+        expected.extend_from_slice(&sps);
+        expected.extend_from_slice(&H264_START_CODE);
+        expected.extend_from_slice(&pps);
+        assert_eq!(frame, expected);
     }
 
     #[test]

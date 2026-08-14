@@ -176,6 +176,38 @@ impl Database {
         Ok(messages)
     }
 
+    /// Get the next older batch using a stable `(created_at, message_id)` cursor.
+    pub fn get_conversation_messages_before(
+        &self,
+        conversation_id: &str,
+        limit: Option<usize>,
+        before_created_at: Option<i64>,
+        before_message_id: Option<&str>,
+    ) -> Result<Vec<Message>> {
+        let conn = self.conn();
+        let limit = limit.unwrap_or(50);
+        let mut stmt = conn.prepare(
+            r#"
+            SELECT id, message_id, conversation_id, sender_peer_id, recipient_peer_id,
+                   message_type, content_encrypted, content_plaintext, created_at,
+                   sent_at, received_at, read_at, status, is_deleted, parent_message_id
+            FROM messages
+            WHERE conversation_id = ?1 AND is_deleted = 0
+              AND (?2 IS NULL OR created_at < ?2
+                   OR (created_at = ?2 AND message_id < COALESCE(?3, '')))
+            ORDER BY created_at DESC, message_id DESC
+            LIMIT ?4
+            "#,
+        )?;
+        let messages = stmt
+            .query_map(
+                params![conversation_id, before_created_at, before_message_id, limit],
+                |row| self.message_from_row(row),
+            )?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        Ok(messages)
+    }
+
     /// Update message
     pub fn update_message(&self, message_id: &str, update: &UpdateMessage) -> Result<()> {
         let conn = self.conn();

@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -44,6 +45,7 @@ import com.zaplivre.core.ZapLivreClientWrapper
 import com.zaplivre.core.VoiceRecorderViewModel
 import com.zaplivre.ui.components.ImagePickerButton
 import com.zaplivre.ui.components.MessageStatusIndicator
+import com.zaplivre.ui.components.PeerQrCode
 import com.zaplivre.ui.components.SelectedImagesPreview
 import com.zaplivre.ui.components.VoiceMessageBubble
 import com.zaplivre.ui.components.VoiceRecordButton
@@ -105,6 +107,29 @@ fun ChatScreen(
     var selectedMessage by remember { mutableStateOf<FfiMessage?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showForwardDialog by remember { mutableStateOf(false) }
+    var showSecurityDialog by remember { mutableStateOf(false) }
+    var securityFingerprint by remember { mutableStateOf<String?>(null) }
+    var securityError by remember { mutableStateOf<String?>(null) }
+    var securityVerified by remember { mutableStateOf(false) }
+    var transparencyVerified by remember { mutableStateOf(false) }
+
+    LaunchedEffect(peerId, showSecurityDialog) {
+        if (showSecurityDialog) {
+            val preferences = context.getSharedPreferences("security_numbers", android.content.Context.MODE_PRIVATE)
+            val saved = preferences.getString("fingerprint_$peerId", null)
+            securityVerified = false
+            securityFingerprint = null
+            securityError = null
+            transparencyVerified = false
+            try {
+                securityFingerprint = ZapLivreClientWrapper.contactIdentityFingerprint(peerId)
+                securityVerified = !securityFingerprint.isNullOrBlank() && securityFingerprint == saved
+                transparencyVerified = ZapLivreClientWrapper.contactTransparencyProof(peerId).isNotBlank()
+            } catch (error: Exception) {
+                securityError = "Não foi possível carregar a identidade deste contato."
+            }
+        }
+    }
 
     // Reactions state
     var messageReactions by remember { mutableStateOf<Map<String, List<com.zaplivre.ui.components.ReactionCount>>>(emptyMap()) }
@@ -116,6 +141,12 @@ fun ChatScreen(
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
             listState.animateScrollToItem(messages.lastIndex)
+        }
+    }
+
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.firstVisibleItemIndex }.collect { index ->
+            if (index == 0) chatViewModel.loadOlderMessages()
         }
     }
 
@@ -256,6 +287,12 @@ fun ChatScreen(
                     }
                     IconButton(onClick = onStartCall) {
                         Icon(Icons.Default.Phone, "Iniciar chamada", tint = ZapColor.primary)
+                    }
+                    IconButton(
+                        onClick = { showSecurityDialog = true },
+                        modifier = Modifier.testTag("chat_security")
+                    ) {
+                        Icon(Icons.Default.Security, "Verificar segurança", tint = ZapColor.slate)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -461,17 +498,7 @@ fun ChatScreen(
                     items = messages,
                     key = { it.messageId }
                 ) { message ->
-                    AnimatedVisibility(
-                        visible = true,
-                        enter = slideInVertically(
-                            initialOffsetY = { it / 4 },
-                            animationSpec = tween(300, easing = FastOutSlowInEasing)
-                        ) + fadeIn(
-                            animationSpec = tween(300)
-                        ),
-                        modifier = Modifier.animateItemPlacement()
-                    ) {
-                        MessageBubble(
+                    MessageBubble(
                             message = message,
                             isOwnMessage = message.senderPeerId == localPeerId,
                             reactions = messageReactions[message.messageId] ?: emptyList(),
@@ -492,8 +519,7 @@ fun ChatScreen(
                             onAddReactionClick = {
                                 showReactionPickerForMessage(message.messageId)
                         }
-                    )
-                    }
+                        )
                 }
             }
         }
@@ -593,6 +619,56 @@ fun ChatScreen(
             onDismiss = {
                 showReactionPicker = false
                 reactionPickerMessageId = null
+            }
+        )
+    }
+
+    if (showSecurityDialog) {
+        val currentFingerprint = securityFingerprint
+        AlertDialog(
+            onDismissRequest = { showSecurityDialog = false },
+            icon = { Icon(Icons.Default.Security, contentDescription = null, tint = ZapColor.primary) },
+            title = { Text("Número de segurança") },
+            text = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Compare este código com o exibido no dispositivo do contato.", style = ZapType.body, color = ZapColor.slate)
+                    Spacer(Modifier.height(16.dp))
+                    when {
+                        securityError != null -> Text(securityError!!, color = ZapColor.danger)
+                        currentFingerprint == null -> CircularProgressIndicator()
+                        else -> {
+                            Text(currentFingerprint, style = ZapType.rowName.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace), color = ZapColor.ink, modifier = Modifier.fillMaxWidth().background(ZapColor.canvas, RoundedCornerShape(12.dp)).padding(14.dp))
+                            Spacer(Modifier.height(14.dp))
+                            PeerQrCode(
+                                payload = "zaplivre-safety:v1:$peerId:$currentFingerprint",
+                                size = 190.dp
+                            )
+                            Text("QR Code para comparação de segurança", style = ZapType.caption, color = ZapColor.slate)
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                if (transparencyVerified) "Identidade incluída no log de transparência" else "Log de transparência indisponível",
+                                style = ZapType.caption,
+                                color = if (transparencyVerified) ZapColor.online else ZapColor.slate
+                            )
+                            Spacer(Modifier.height(10.dp))
+                            Text(if (securityVerified) "Identidade verificada neste dispositivo" else "Ainda não verificado", color = if (securityVerified) ZapColor.online else ZapColor.slate, style = ZapType.caption)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                if (currentFingerprint != null && !securityVerified) {
+                    TextButton(onClick = {
+                        context.getSharedPreferences("security_numbers", android.content.Context.MODE_PRIVATE).edit().putString("fingerprint_$peerId", currentFingerprint).apply()
+                        securityVerified = true
+                    }) { Text("Marcar como verificado") }
+                } else TextButton(onClick = { showSecurityDialog = false }) { Text("Fechar") }
+            },
+            dismissButton = {
+                if (currentFingerprint != null) TextButton(onClick = {
+                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Número de segurança", currentFingerprint))
+                }) { Text("Copiar") }
             }
         )
     }

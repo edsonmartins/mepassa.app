@@ -3,13 +3,13 @@
 //! Handles WebRTC peer connections, media tracks (audio + video), and ICE/DTLS.
 
 use super::codec::{OpusConfig, OpusDecoder};
-use super::rtp_video::{RtpDepacketizer, RtpPacket, RtpPacketizer};
+use super::rtp_video::{RtpDepacketizer, RtpPacket};
 use super::video::VideoCodec;
 use super::VoipError;
 use crate::voip::Result;
 use interceptor::registry::Registry;
 use std::sync::Arc;
-use std::time::Instant;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::sync::{Mutex, RwLock};
 use webrtc::api::interceptor_registry::register_default_interceptors;
 use webrtc::api::media_engine::MediaEngine;
@@ -21,26 +21,22 @@ use webrtc::peer_connection::configuration::RTCConfiguration;
 use webrtc::peer_connection::peer_connection_state::RTCPeerConnectionState;
 use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
 use webrtc::peer_connection::RTCPeerConnection;
-use webrtc::rtp_transceiver::rtp_codec::RTCRtpCodecCapability;
-use webrtc::track::track_local::track_local_static_rtp::TrackLocalStaticRTP;
-use webrtc::track::track_local::{TrackLocal, TrackLocalWriter};
+use webrtc::rtp_transceiver::rtp_codec::{
+    RTCRtpCodecCapability, RTCRtpCodecParameters, RTPCodecType,
+};
+use webrtc::rtp_transceiver::rtp_sender::RTCRtpSender;
+use webrtc::track::track_local::track_local_static_sample::TrackLocalStaticSample;
+use webrtc::track::track_local::TrackLocal;
 
 /// WebRTC peer connection wrapper
 pub struct WebRTCPeer {
     peer_connection: Arc<RTCPeerConnection>,
-    audio_track: Option<Arc<TrackLocalStaticRTP>>,
-    video_track: Option<Arc<TrackLocalStaticRTP>>,
+    audio_track: Option<Arc<TrackLocalStaticSample>>,
+    video_track: Option<Arc<TrackLocalStaticSample>>,
+    video_sender: Option<Arc<RTCRtpSender>>,
     remote_video_callback: Arc<RwLock<Option<Arc<dyn Fn(Vec<u8>, u32, u32) + Send + Sync>>>>,
+    remote_video_rtp_callback: Arc<RwLock<Option<Arc<dyn Fn() + Send + Sync>>>>,
     remote_audio_callback: Arc<RwLock<Option<Arc<dyn Fn(Vec<u8>, u32, u32) + Send + Sync>>>>,
-    video_rtp_state: Mutex<VideoRtpState>,
-    video_packetizer: Mutex<Option<RtpPacketizer>>,
-}
-
-struct VideoRtpState {
-    ssrc: u32,
-    ts_base: u32,
-    started_at: Instant,
-    clock_rate: u32,
 }
 
 impl WebRTCPeer {
@@ -49,9 +45,40 @@ impl WebRTCPeer {
         // Create a MediaEngine for audio
         let mut media_engine = MediaEngine::default();
 
-        // Register Opus codec (standard for WebRTC audio)
+        // Advertise only codecs for which this bridge actually provides
+        // encoded media. Multiple default video alternatives can negotiate a
+        // payload that the H.264-only Android encoder cannot bind to.
         media_engine
-            .register_default_codecs()
+            .register_codec(
+                RTCRtpCodecParameters {
+                    capability: RTCRtpCodecCapability {
+                        mime_type: "audio/opus".to_owned(),
+                        clock_rate: 48_000,
+                        channels: 2,
+                        sdp_fmtp_line: "minptime=10;useinbandfec=1".to_owned(),
+                        rtcp_feedback: vec![],
+                    },
+                    payload_type: 111,
+                    ..Default::default()
+                },
+                RTPCodecType::Audio,
+            )
+            .and_then(|_| {
+                media_engine.register_codec(
+                    RTCRtpCodecParameters {
+                        capability: RTCRtpCodecCapability {
+                            mime_type: "video/H264".to_owned(),
+                            clock_rate: 90_000,
+                            channels: 0,
+                            sdp_fmtp_line: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f".to_owned(),
+                            rtcp_feedback: vec![],
+                        },
+                        payload_type: 125,
+                        ..Default::default()
+                    },
+                    RTPCodecType::Video,
+                )
+            })
             .map_err(|e| VoipError::WebRtcError(format!("Failed to register codecs: {}", e)))?;
 
         // Create SettingEngine
@@ -89,16 +116,20 @@ impl WebRTCPeer {
         let remote_video_callback: Arc<
             RwLock<Option<Arc<dyn Fn(Vec<u8>, u32, u32) + Send + Sync>>>,
         > = Arc::new(RwLock::new(None));
+        let remote_video_rtp_callback: Arc<RwLock<Option<Arc<dyn Fn() + Send + Sync>>>> =
+            Arc::new(RwLock::new(None));
         let remote_audio_callback: Arc<
             RwLock<Option<Arc<dyn Fn(Vec<u8>, u32, u32) + Send + Sync>>>,
         > = Arc::new(RwLock::new(None));
 
         let video_cb = Arc::clone(&remote_video_callback);
+        let video_rtp_cb = Arc::clone(&remote_video_rtp_callback);
         let audio_cb = Arc::clone(&remote_audio_callback);
 
         // Register handler for when remote track is added (audio/video)
         peer_connection.on_track(Box::new(move |track, _receiver, _transceiver| {
             let video_cb = Arc::clone(&video_cb);
+            let video_rtp_cb = Arc::clone(&video_rtp_cb);
             let audio_cb = Arc::clone(&audio_cb);
 
             Box::pin(async move {
@@ -109,8 +140,14 @@ impl WebRTCPeer {
                             Arc::new(Mutex::new(RtpDepacketizer::new(VideoCodec::H264)));
                         let mut last_width = 640u32;
                         let mut last_height = 480u32;
+                        let first_rtp_reported = AtomicBool::new(false);
 
                         while let Ok((rtp_packet, _)) = track.read_rtp().await {
+                            if !first_rtp_reported.swap(true, Ordering::Relaxed) {
+                                if let Some(callback) = video_rtp_cb.read().await.clone() {
+                                    callback();
+                                }
+                            }
                             let header = rtp_packet.header;
                             let packet = RtpPacket::new(
                                 super::rtp_video::RtpHeader {
@@ -183,15 +220,10 @@ impl WebRTCPeer {
             peer_connection,
             audio_track: None,
             video_track: None,
+            video_sender: None,
             remote_video_callback,
+            remote_video_rtp_callback,
             remote_audio_callback,
-            video_rtp_state: Mutex::new(VideoRtpState {
-                ssrc: rand::random::<u32>(),
-                ts_base: rand::random::<u32>(),
-                started_at: Instant::now(),
-                clock_rate: 90_000,
-            }),
-            video_packetizer: Mutex::new(None),
         })
     }
 
@@ -207,6 +239,13 @@ impl WebRTCPeer {
         Ok(())
     }
 
+    pub async fn on_first_remote_video_rtp<F>(&self, callback: F)
+    where
+        F: Fn() + Send + Sync + 'static,
+    {
+        *self.remote_video_rtp_callback.write().await = Some(Arc::new(callback));
+    }
+
     /// Register callback for remote audio frames (decoded PCM16)
     pub async fn on_remote_audio_frame<F>(&self, callback: F) -> Result<()>
     where
@@ -215,6 +254,18 @@ impl WebRTCPeer {
         let mut cb = self.remote_audio_callback.write().await;
         *cb = Some(Arc::new(callback));
         Ok(())
+    }
+
+    /// Register a callback for the actual ICE/DTLS peer connection state.
+    pub fn on_connection_state_change<F>(&self, callback: F)
+    where
+        F: Fn(RTCPeerConnectionState) + Send + Sync + 'static,
+    {
+        self.peer_connection
+            .on_peer_connection_state_change(Box::new(move |state| {
+                callback(state);
+                Box::pin(async {})
+            }));
     }
 
     /// Register callback for local ICE candidates
@@ -242,12 +293,12 @@ impl WebRTCPeer {
     /// Add audio track to the peer connection
     pub async fn add_audio_track(&mut self) -> Result<()> {
         // Create an audio track (Opus codec)
-        let audio_track = Arc::new(TrackLocalStaticRTP::new(
+        let audio_track = Arc::new(TrackLocalStaticSample::new(
             RTCRtpCodecCapability {
                 mime_type: "audio/opus".to_owned(),
                 clock_rate: 48000,
                 channels: 2,
-                sdp_fmtp_line: "".to_owned(),
+                sdp_fmtp_line: "minptime=10;useinbandfec=1".to_owned(),
                 rtcp_feedback: vec![],
             },
             "audio".to_owned(),
@@ -269,8 +320,11 @@ impl WebRTCPeer {
 
     /// Add video track to the peer connection
     pub async fn add_video_track(&mut self, codec: VideoCodec) -> Result<()> {
+        if self.video_track.is_some() {
+            return Ok(());
+        }
         // Create a video track with specified codec
-        let video_track = Arc::new(TrackLocalStaticRTP::new(
+        let video_track = Arc::new(TrackLocalStaticSample::new(
             RTCRtpCodecCapability {
                 mime_type: codec.mime_type().to_owned(),
                 clock_rate: codec.clock_rate(),
@@ -283,24 +337,21 @@ impl WebRTCPeer {
         ));
 
         // Add track to peer connection
-        let _rtp_sender = self
+        let rtp_sender = self
             .peer_connection
             .add_track(Arc::clone(&video_track) as Arc<dyn TrackLocal + Send + Sync>)
             .await
             .map_err(|e| VoipError::WebRtcError(format!("Failed to add video track: {}", e)))?;
 
+        // Keep the sender alive for the entire call and continuously consume
+        // RTCP feedback (PLI/NACK/receiver reports), as required by the
+        // webrtc-rs media examples.
+        let rtcp_sender = Arc::clone(&rtp_sender);
+        tokio::spawn(async move {
+            while rtcp_sender.read_rtcp().await.is_ok() {}
+        });
+        self.video_sender = Some(rtp_sender);
         self.video_track = Some(video_track);
-        {
-            let mut state = self.video_rtp_state.lock().await;
-            state.started_at = Instant::now();
-            state.clock_rate = codec.clock_rate();
-        }
-        {
-            let state = self.video_rtp_state.lock().await;
-            let mut packetizer = self.video_packetizer.lock().await;
-            *packetizer = Some(RtpPacketizer::new(state.ssrc, codec));
-        }
-
         tracing::info!(
             "✅ Video track added to peer connection - codec: {:?}",
             codec
@@ -313,41 +364,16 @@ impl WebRTCPeer {
     /// Frame data should be pre-encoded (H.264 NALUs or VP8 frames)
     pub async fn send_video_frame(&self, frame: &[u8]) -> Result<()> {
         if let Some(video_track) = &self.video_track {
-            let timestamp = {
-                let state = self.video_rtp_state.lock().await;
-                let elapsed = state.started_at.elapsed();
-                let elapsed_ts = (elapsed.as_secs_f64() * state.clock_rate as f64) as u32;
-                state.ts_base.wrapping_add(elapsed_ts)
-            };
-
-            let packets = {
-                let mut packetizer = self.video_packetizer.lock().await;
-                let packetizer = packetizer.as_mut().ok_or_else(|| {
-                    VoipError::InvalidState("Video packetizer not initialized".to_string())
-                })?;
-                packetizer.packetize(frame, timestamp)
-            };
-
-            for packet in packets {
-                let packet = webrtc::rtp::packet::Packet {
-                    header: webrtc::rtp::header::Header {
-                        version: packet.header.version,
-                        padding: packet.header.padding,
-                        extension: packet.header.extension,
-                        marker: packet.header.marker,
-                        payload_type: packet.header.payload_type,
-                        sequence_number: packet.header.sequence_number,
-                        timestamp: packet.header.timestamp,
-                        ssrc: packet.header.ssrc,
-                        ..Default::default()
-                    },
-                    payload: packet.payload.into(),
-                };
-
-                video_track.write_rtp(&packet).await.map_err(|e| {
+            video_track
+                .write_sample(&webrtc::media::Sample {
+                    data: frame.to_vec().into(),
+                    duration: std::time::Duration::from_micros(66_667),
+                    ..Default::default()
+                })
+                .await
+                .map_err(|e| {
                     VoipError::WebRtcError(format!("Failed to write video frame: {}", e))
                 })?;
-            }
 
             Ok(())
         } else {
@@ -366,6 +392,7 @@ impl WebRTCPeer {
         }
 
         self.video_track = None;
+        self.video_sender = None;
 
         // Trigger renegotiation by creating new offer
         let _ = self.create_offer().await?;
@@ -486,7 +513,7 @@ impl WebRTCPeer {
     }
 
     /// Get audio track for sending audio data
-    pub fn audio_track(&self) -> Option<Arc<TrackLocalStaticRTP>> {
+    pub fn audio_track(&self) -> Option<Arc<TrackLocalStaticSample>> {
         self.audio_track.clone()
     }
 }
@@ -737,6 +764,92 @@ mod tests {
 
         assert!(result.is_ok());
         assert!(peer.audio_track().is_some());
+    }
+
+    #[tokio::test]
+    async fn test_offer_negotiates_h264_video_for_sending() {
+        let mut peer = WebRTCPeer::new(vec![]).await.unwrap();
+        peer.add_audio_track().await.unwrap();
+        peer.add_video_track(VideoCodec::H264).await.unwrap();
+
+        let offer = peer.create_offer().await.unwrap();
+        let video_section = offer
+            .split("m=video")
+            .nth(1)
+            .expect("offer must contain a video media section");
+        assert!(video_section.contains("a=sendrecv"));
+        assert!(video_section.to_ascii_lowercase().contains("h264/90000"));
+    }
+
+    #[tokio::test]
+    async fn test_h264_frame_reaches_remote_peer() {
+        let mut sender = WebRTCPeer::new(vec![]).await.unwrap();
+        let mut receiver = WebRTCPeer::new(vec![]).await.unwrap();
+        sender.add_audio_track().await.unwrap();
+        receiver.add_audio_track().await.unwrap();
+        sender.add_video_track(VideoCodec::H264).await.unwrap();
+        receiver.add_video_track(VideoCodec::H264).await.unwrap();
+
+        let (frame_tx, mut frame_rx) = tokio::sync::mpsc::unbounded_channel();
+        receiver
+            .on_remote_video_frame(move |frame, _, _| {
+                let _ = frame_tx.send(frame);
+            })
+            .await
+            .unwrap();
+
+        let offer = sender.peer_connection.create_offer(None).await.unwrap();
+        let mut sender_gathered = sender.peer_connection.gathering_complete_promise().await;
+        sender
+            .peer_connection
+            .set_local_description(offer)
+            .await
+            .unwrap();
+        sender_gathered.recv().await;
+        receiver
+            .peer_connection
+            .set_remote_description(sender.peer_connection.local_description().await.unwrap())
+            .await
+            .unwrap();
+
+        let answer = receiver.peer_connection.create_answer(None).await.unwrap();
+        let mut receiver_gathered = receiver.peer_connection.gathering_complete_promise().await;
+        receiver
+            .peer_connection
+            .set_local_description(answer)
+            .await
+            .unwrap();
+        receiver_gathered.recv().await;
+        sender
+            .peer_connection
+            .set_remote_description(receiver.peer_connection.local_description().await.unwrap())
+            .await
+            .unwrap();
+
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            while sender.connection_state()
+                != webrtc::peer_connection::peer_connection_state::RTCPeerConnectionState::Connected
+            {
+                tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .expect("local WebRTC peers did not connect");
+
+        let frame = [
+            0, 0, 0, 1, 0x67, 0x42, 0xe0, 0x1f, 0, 0, 0, 1, 0x68, 0xce, 0x06, 0xe2,
+            0, 0, 0, 1, 0x65, 0x88, 0x84,
+        ];
+        sender.send_video_frame(&frame).await.unwrap();
+
+        let received = tokio::time::timeout(std::time::Duration::from_secs(5), frame_rx.recv())
+            .await
+            .expect("remote peer did not receive an H.264 frame")
+            .expect("video callback channel closed");
+        assert!(received.windows(4).any(|bytes| bytes == [0, 0, 0, 1]));
+
+        sender.close().await.unwrap();
+        receiver.close().await.unwrap();
     }
 
     #[test]

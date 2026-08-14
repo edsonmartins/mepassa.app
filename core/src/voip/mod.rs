@@ -2,7 +2,7 @@
 //!
 //! WebRTC voice/video calls (P2P + TURN relay).
 
-#[cfg(feature = "voip")]
+#[cfg(feature = "voip_audio")]
 pub mod audio;
 pub mod call;
 #[cfg(feature = "voip")]
@@ -42,9 +42,13 @@ pub enum VoipError {
 
 pub type Result<T> = std::result::Result<T, VoipError>;
 
+/// Sample do áudio VoIP (f32). Definido aqui (fora de `audio`) para que
+/// codec/webrtc usem o mesmo tipo sem depender de `cpal`.
+pub type Sample = f32;
+
 // Re-exports for convenience
-#[cfg(feature = "voip")]
-pub use audio::{AudioCapture, AudioConfig, AudioPlayback, Sample};
+#[cfg(feature = "voip_audio")]
+pub use audio::{AudioCapture, AudioConfig, AudioPlayback};
 pub use call::{Call, CallDirection, CallEndReason, CallState, CallStats};
 #[cfg(feature = "voip")]
 pub use codec::{OpusCodec, OpusConfig, OpusDecoder, OpusEncoder};

@@ -13,12 +13,14 @@ import java.nio.ByteBuffer
  * MVP: expects NV21 input and outputs H.264 Annex B NAL units.
  */
 class VideoEncoder(
-    private val width: Int,
-    private val height: Int,
-    private val onEncoded: (ByteArray, Boolean) -> Unit
+    private val onEncoded: (ByteArray, Boolean, Int, Int) -> Unit
 ) {
     private var encoder: MediaCodec? = null
     private var configData: ByteArray? = null
+    private var width: Int = 0
+    private var height: Int = 0
+    private var loggedFirstOutput = false
+    private var lastInputPresentationTimeUs = 0L
 
     companion object {
         private const val TAG = "VideoEncoder"
@@ -29,11 +31,20 @@ class VideoEncoder(
         private const val TIMEOUT_US = 10_000L
     }
 
-    fun start() {
-        if (encoder != null) return
+    private fun start(frameWidth: Int, frameHeight: Int) {
+        if (encoder != null && width == frameWidth && height == frameHeight) return
+        stop()
+        width = frameWidth
+        height = frameHeight
 
         val format = MediaFormat.createVideoFormat(MIME_TYPE, width, height).apply {
             setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible)
+            // Keep the encoder output consistent with the H.264 capability
+            // negotiated by the Rust WebRTC peer (profile-level-id=42e01f).
+            // Some devices, notably the Samsung tablet used in testing,
+            // otherwise select High Profile while advertising Baseline in SDP.
+            setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline)
+            setInteger(MediaFormat.KEY_LEVEL, MediaCodecInfo.CodecProfileLevel.AVCLevel31)
             setInteger(MediaFormat.KEY_BIT_RATE, BITRATE)
             setInteger(MediaFormat.KEY_FRAME_RATE, FPS)
             setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, IFRAME_INTERVAL)
@@ -56,13 +67,33 @@ class VideoEncoder(
             encoder?.release()
             encoder = null
             configData = null
+            loggedFirstOutput = false
+            lastInputPresentationTimeUs = 0L
             Log.i(TAG, "🛑 Video encoder stopped")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Failed to stop encoder", e)
         }
     }
 
-    fun encodeFrame(nv21: ByteArray, presentationTimeUs: Long) {
+    @Synchronized
+    fun encodeFrame(
+        nv21: ByteArray,
+        frameWidth: Int,
+        frameHeight: Int,
+        presentationTimeUs: Long
+    ) {
+        if (frameWidth <= 0 || frameHeight <= 0 || frameWidth % 2 != 0 || frameHeight % 2 != 0) {
+            Log.w(TAG, "Dropping invalid frame size ${frameWidth}x${frameHeight}")
+            return
+        }
+        val minimumFrameIntervalUs = 1_000_000L / FPS
+        if (lastInputPresentationTimeUs != 0L &&
+            presentationTimeUs - lastInputPresentationTimeUs < minimumFrameIntervalUs
+        ) {
+            return
+        }
+        lastInputPresentationTimeUs = presentationTimeUs
+        start(frameWidth, frameHeight)
         val codec = encoder ?: return
         val inputIndex = codec.dequeueInputBuffer(TIMEOUT_US)
         if (inputIndex >= 0) {
@@ -70,6 +101,11 @@ class VideoEncoder(
             inputBuffer?.clear()
 
             val nv12 = nv21ToNv12(nv21)
+            if (inputBuffer == null || nv12.size > inputBuffer.capacity()) {
+                Log.w(TAG, "Dropping ${frameWidth}x${frameHeight} frame: ${nv12.size} bytes exceed encoder buffer ${inputBuffer?.capacity() ?: 0}")
+                codec.queueInputBuffer(inputIndex, 0, 0, presentationTimeUs, 0)
+                return
+            }
             inputBuffer?.put(nv12)
 
             codec.queueInputBuffer(
@@ -103,7 +139,12 @@ class VideoEncoder(
                 } else {
                     outData
                 }
-                onEncoded(payload, isKeyFrame)
+                if (!loggedFirstOutput) {
+                    val prefix = payload.take(8).joinToString(" ") { "%02x".format(it) }
+                    Log.i(TAG, "First encoded frame: ${payload.size} bytes, key=$isKeyFrame, prefix=$prefix")
+                    loggedFirstOutput = true
+                }
+                onEncoded(payload, isKeyFrame, width, height)
             }
 
             codec.releaseOutputBuffer(outputIndex, false)

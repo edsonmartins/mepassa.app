@@ -16,8 +16,11 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import uniffi.zaplivre.*
 import java.io.File
+import java.net.Inet4Address
+import java.net.NetworkInterface
 import android.util.Base64
 import com.zaplivre.voip.VoipEventHandler
+import com.zaplivre.voip.VoipAudioBridge
 
 /**
  * Wrapper Singleton para ZapLivreClient do UniFFI
@@ -45,6 +48,18 @@ object ZapLivreClientWrapper : ZapLivreClientApi {
     private val _localPeerId = MutableStateFlow<String?>(null)
     override val localPeerId: StateFlow<String?> = _localPeerId.asStateFlow()
 
+    override suspend fun identityFingerprint(): String = withContext(Dispatchers.IO) {
+        getClient().identityFingerprint()
+    }
+
+    override suspend fun contactIdentityFingerprint(peerId: String): String = withContext(Dispatchers.IO) {
+        getClient().contactIdentityFingerprint(peerId)
+    }
+
+    override suspend fun contactTransparencyProof(peerId: String): String = withContext(Dispatchers.IO) {
+        getClient().contactTransparencyProof(peerId)
+    }
+
     // ─── Eventos de chamada (core -> UI) ───────────────────────────────────
     data class IncomingCallEvent(val callId: String, val callerPeerId: String)
 
@@ -56,6 +71,21 @@ object ZapLivreClientWrapper : ZapLivreClientApi {
 
     private val _callEnded = MutableStateFlow<Pair<String, FfiCallEndReason>?>(null)
     val callEnded: StateFlow<Pair<String, FfiCallEndReason>?> = _callEnded.asStateFlow()
+
+    sealed interface WebRtcSignal {
+        val callId: String
+        data class Offer(override val callId: String, val sdp: String) : WebRtcSignal
+        data class Answer(override val callId: String, val sdp: String) : WebRtcSignal
+        data class Ice(
+            override val callId: String,
+            val candidate: String,
+            val sdpMid: String?,
+            val sdpMLineIndex: UShort?
+        ) : WebRtcSignal
+    }
+
+    private val _webRtcSignals = MutableSharedFlow<WebRtcSignal>(replay = 16, extraBufferCapacity = 48)
+    val webRtcSignals: SharedFlow<WebRtcSignal> = _webRtcSignals.asSharedFlow()
 
     /** Limpa o evento de chamada recebida após a UI navegar */
     fun consumeIncomingCall() {
@@ -111,6 +141,25 @@ object ZapLivreClientWrapper : ZapLivreClientApi {
             if (_incomingCall.value?.callId == callId) {
                 _incomingCall.value = null
             }
+        }
+    }
+
+    private val webRtcSignalingCallback = object : FfiWebRtcSignalingCallback {
+        override fun onOffer(callId: String, sdp: String) {
+            _webRtcSignals.tryEmit(WebRtcSignal.Offer(callId, sdp))
+        }
+
+        override fun onAnswer(callId: String, sdp: String) {
+            _webRtcSignals.tryEmit(WebRtcSignal.Answer(callId, sdp))
+        }
+
+        override fun onIceCandidate(
+            callId: String,
+            candidate: String,
+            sdpMid: String?,
+            sdpMLineIndex: UShort?
+        ) {
+            _webRtcSignals.tryEmit(WebRtcSignal.Ice(callId, candidate, sdpMid, sdpMLineIndex))
         }
     }
 
@@ -183,8 +232,19 @@ object ZapLivreClientWrapper : ZapLivreClientApi {
             // o callee nunca fica sabendo de uma chamada recebida
             try {
                 client!!.registerCallEventCallback(callEventCallback)
+                client!!.registerWebrtcSignalingCallback(webRtcSignalingCallback)
             } catch (e: Exception) {
                 if (!e.message.orEmpty().contains("VoIP/video feature disabled")) Log.e(TAG, "Failed to register call event callback", e)
+            }
+
+            // Android owns microphone capture/playback; the Rust core encodes,
+            // transports and decodes the PCM frames through this callback.
+            try {
+                client!!.registerAudioFrameCallback(VoipAudioBridge)
+            } catch (e: Exception) {
+                if (!e.message.orEmpty().contains("VoIP feature is not enabled")) {
+                    Log.e(TAG, "Failed to register audio frame callback", e)
+                }
             }
 
             // Eventos de mensagem (EVT-01): substitui o polling das telas
@@ -344,6 +404,20 @@ object ZapLivreClientWrapper : ZapLivreClientApi {
         }
     }
 
+    override suspend fun getConversationMessagesBefore(
+        peerId: String,
+        limit: UInt?,
+        beforeCreatedAt: Long?,
+        beforeMessageId: String?
+    ): List<FfiMessage> = withContext(Dispatchers.IO) {
+        try {
+            getClient().getConversationMessagesBefore(peerId, limit, beforeCreatedAt, beforeMessageId)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to get older conversation messages", e)
+            emptyList()
+        }
+    }
+
     /**
      * Envia mensagem de texto
      */
@@ -397,6 +471,72 @@ object ZapLivreClientWrapper : ZapLivreClientApi {
                 false
             }
         }
+
+    /**
+     * Conteúdo compartilhável do QR: Peer ID e endereço TCP alcançável na LAN.
+     * O core normalmente escuta em 0.0.0.0; no QR substituímos esse wildcard
+     * pelo IPv4 real do aparelho para que o outro dispositivo possa discá-lo.
+     */
+    suspend fun qrIdentityPayload(peerId: String): String = withContext(Dispatchers.IO) {
+        try {
+            // The service starts the listener asynchronously. Give libp2p a
+            // short window to publish the dynamic TCP port before falling back
+            // to a bare peer ID (which cannot be dialed by iOS).
+            var listenAddress: String? = null
+            repeat(10) {
+                listenAddress = getClient().listeningAddresses()
+                    .firstOrNull { it.contains("/ip4/") && it.contains("/tcp/") }
+                if (listenAddress != null) return@repeat
+                kotlinx.coroutines.delay(200)
+            }
+            val resolvedListenAddress = listenAddress ?: return@withContext peerId
+            val localIp = NetworkInterface.getNetworkInterfaces().toList()
+                .flatMap { it.inetAddresses.toList() }
+                .filterIsInstance<Inet4Address>()
+                .firstOrNull { !it.isLoopbackAddress && it.isSiteLocalAddress }
+                ?.hostAddress
+                ?: return@withContext peerId
+            val reachableAddress = resolvedListenAddress.replace(
+                Regex("/ip4/[^/]+/"),
+                "/ip4/$localIp/",
+            )
+            // Keep the invitation tiny and easy for cameras to decode. The
+            // authenticated connection exchanges prekeys after dialing.
+            "$peerId@$reachableAddress"
+        } catch (e: Exception) {
+            Log.w(TAG, "Unable to build QR address; sharing Peer ID only", e)
+            peerId
+        }
+    }
+
+    /** Converte arrays numéricos do formato core para o DTO Base64 compacto. */
+    private fun compactPublicPrekeys(bundleJson: String): String {
+        val source = org.json.JSONObject(bundleJson)
+        fun encoded(name: String): String {
+            val values = source.getJSONArray(name)
+            val bytes = ByteArray(values.length()) { values.getInt(it).toByte() }
+            return Base64.encodeToString(bytes, Base64.NO_WRAP)
+        }
+        return org.json.JSONObject()
+            .put("identity_key", encoded("identity_key"))
+            .put("signal_identity_key", encoded("signal_identity_key"))
+            .put("signal_registration_id", source.getInt("signal_registration_id"))
+            .put("signal_device_id", source.getInt("signal_device_id"))
+            .put("signed_prekey_id", source.getInt("signed_prekey_id"))
+            .put("signed_prekey", encoded("signed_prekey"))
+            .put("signed_prekey_signature", encoded("signed_prekey_signature"))
+            .put("kyber_prekey_id", source.getInt("kyber_prekey_id"))
+            .put("kyber_prekey", encoded("kyber_prekey"))
+            .put("kyber_prekey_signature", encoded("kyber_prekey_signature"))
+            .put("one_time_prekey", source.optJSONObject("one_time_prekey")?.let { oneTime ->
+                val values = oneTime.getJSONArray("public_key")
+                val bytes = ByteArray(values.length()) { values.getInt(it).toByte() }
+                org.json.JSONObject()
+                    .put("id", oneTime.getInt("id"))
+                    .put("public_key", Base64.encodeToString(bytes, Base64.NO_WRAP))
+            } ?: org.json.JSONObject.NULL)
+            .toString()
+    }
 
     /**
      * Inicia escuta em um endereço
@@ -506,6 +646,30 @@ object ZapLivreClientWrapper : ZapLivreClientApi {
             Log.e(TAG, "Failed to hangup call", e)
             false
         }
+    }
+
+    internal suspend fun sendAudioFrame(
+        callId: String,
+        audioData: List<UByte>,
+        sampleRate: UInt,
+        channels: UInt
+    ) = withContext(Dispatchers.IO) {
+        getClient().sendAudioFrame(callId, audioData, sampleRate, channels)
+    }
+
+    internal suspend fun sendWebRtcOffer(callId: String, sdp: String) =
+        withContext(Dispatchers.IO) { getClient().sendWebrtcOffer(callId, sdp) }
+
+    internal suspend fun sendWebRtcAnswer(callId: String, sdp: String) =
+        withContext(Dispatchers.IO) { getClient().sendWebrtcAnswer(callId, sdp) }
+
+    internal suspend fun sendWebRtcIceCandidate(
+        callId: String,
+        candidate: String,
+        sdpMid: String?,
+        sdpMLineIndex: UShort?
+    ) = withContext(Dispatchers.IO) {
+        getClient().sendWebrtcIceCandidate(callId, candidate, sdpMid, sdpMLineIndex)
     }
 
     /**

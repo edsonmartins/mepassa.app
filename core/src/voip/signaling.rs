@@ -35,6 +35,15 @@ pub enum SignalingMessage {
 
     /// Notify call accepted (before sending answer)
     CallAccept { call_id: String },
+
+    PlatformOffer { call_id: String, sdp: String },
+    PlatformAnswer { call_id: String, sdp: String },
+    PlatformIceCandidate {
+        call_id: String,
+        candidate: String,
+        sdp_mid: Option<String>,
+        sdp_m_line_index: Option<u16>,
+    },
 }
 
 impl SignalingMessage {
@@ -46,7 +55,10 @@ impl SignalingMessage {
             | Self::IceCandidate { call_id, .. }
             | Self::CallReject { call_id, .. }
             | Self::CallHangup { call_id, .. }
-            | Self::CallAccept { call_id, .. } => call_id,
+            | Self::CallAccept { call_id, .. }
+            | Self::PlatformOffer { call_id, .. }
+            | Self::PlatformAnswer { call_id, .. }
+            | Self::PlatformIceCandidate { call_id, .. } => call_id,
         }
     }
 
@@ -86,6 +98,11 @@ impl fmt::Display for SignalingMessage {
             }
             Self::CallAccept { call_id } => {
                 write!(f, "CallAccept({})", call_id)
+            }
+            Self::PlatformOffer { call_id, .. } => write!(f, "PlatformOffer({})", call_id),
+            Self::PlatformAnswer { call_id, .. } => write!(f, "PlatformAnswer({})", call_id),
+            Self::PlatformIceCandidate { call_id, .. } => {
+                write!(f, "PlatformIceCandidate({})", call_id)
             }
         }
     }

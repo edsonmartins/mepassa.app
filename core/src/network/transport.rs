@@ -61,10 +61,22 @@ pub fn build_transport(
     // Resolver /dns4//dns6//dnsaddr antes de discar - sem isso TODOS os
     // endereços por domínio (bootstraps de produção) falham com
     // MultiaddrNotSupported (bug encontrado no primeiro run real)
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     let transport = libp2p::dns::tokio::Transport::system(transport)
         .map_err(|e| ZapLivreError::Network(format!("Failed to create DNS transport: {}", e)))?
         .boxed();
+
+    // iOS applications do not have a readable /etc/resolv.conf inside their
+    // sandbox. Hickory's system resolver therefore fails while constructing
+    // the client, before an identity can even be created. Use an explicit DNS
+    // configuration for libp2p's /dns4, /dns6 and /dnsaddr multiaddrs.
+    #[cfg(target_os = "ios")]
+    let transport = libp2p::dns::tokio::Transport::custom(
+        transport,
+        libp2p::dns::ResolverConfig::cloudflare(),
+        libp2p::dns::ResolverOpts::default(),
+    )
+    .boxed();
 
     Ok((transport, relay_behaviour))
 }

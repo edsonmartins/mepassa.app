@@ -72,7 +72,11 @@ camino = "1.1"
 
 [features]
 default = []
-voip = ["webrtc", "interceptor", "opus", "cpal"]
+# VoIP de voz: WebRTC + Opus (+ interceptor). Sem cpal para ser portable p/
+# Android (o áudio entra/sai via FFI send/register_audio_frame, não via cpal).
+voip = ["webrtc", "interceptor", "opus"]
+# Captura/playback de áudio host (desktop) via cpal — não disponível no Android.
+voip_audio = ["voip", "cpal"]
 video = ["webrtc", "interceptor"]  # Video-only (no audio deps)
 integration-tests = []
 

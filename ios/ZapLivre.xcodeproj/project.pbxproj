@@ -35,10 +35,12 @@
 		463C5FF61C9524100441F4B6 /* AudioManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C16ED1A60D399276714AA3D /* AudioManager.swift */; };
 		47C7543BE0A45F2AF643922A /* MessageSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0F5A20D24D6CAE5F06E310 /* MessageSearchView.swift */; };
 		4949F83A31E9487C4D39F940 /* MessageStatusIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47DC89FBCB19C79AE015D513 /* MessageStatusIndicator.swift */; };
+		4AB4C4B72FB3B15C6883ECC6 /* NativeWebRtcSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2440D4A11234C016CC29CE1 /* NativeWebRtcSession.swift */; };
 		4AEF86E722C7646DE57DF607 /* CallEventHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DCF35D9D3A9A7CB0525CEC3 /* CallEventHandler.swift */; };
 		4BB4ACFCEEA8D5E46684F14C /* CallManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E4C957406ACD82A7FCF1F6 /* CallManager.swift */; };
 		4D7F1A9AAF09EE81830790A6 /* ImagePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC5F6BEFC3C620CD354AC9B8 /* ImagePicker.swift */; };
 		5798DBDDC926DB9F45A0EC1E /* MessageEventHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C7A1CE5D31B34FAB7BC06A7 /* MessageEventHandler.swift */; };
+		5A1C8637C24A7EF7B3E253DC /* StreamWebRTC in Frameworks */ = {isa = PBXBuildFile; productRef = 327AC84F930E7B25CD3EE0F0 /* StreamWebRTC */; };
 		5ECBE015B53734A3E3DC8D51 /* AvatarPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7FDD64BEB7E855B75462F21 /* AvatarPicker.swift */; };
 		5F3DE67F5401C1EF76297522 /* SkeletonLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3220A1CF789C0442FC846BBF /* SkeletonLoader.swift */; };
 		603DAE64AA3B98D3216C6A12 /* CallScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41C962CC354C94AAD0CB323E /* CallScreen.swift */; };
@@ -71,6 +73,7 @@
 		BF45860064C2CC119852FD3C /* DesignPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AB5F6038507C8ABDF6DC3B /* DesignPreviewView.swift */; };
 		C5F69DC6A7AFC999400DDA5B /* VoiceRecordButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4037CF4DF7B9066DCB9B88CC /* VoiceRecordButton.swift */; };
 		CA58D3B970E793F6FB1EFD3D /* VideoPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7C37FCB0012C5318EAA585B /* VideoPicker.swift */; };
+		CCBF6601E231A30A10073D0B /* WebRtcSignalingBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ACD88EEC4D15F824352C1F7 /* WebRtcSignalingBridge.swift */; };
 		CFBD8143FFC18F316F72E44C /* VoipEventHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = D38E83A05F9CD0F4EC7B9974 /* VoipEventHandler.swift */; };
 		D0ACE5815228AEE814AC8162 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97D68C99560F26B8876BCA7C /* ProfileView.swift */; };
 		DD67A02DCBE2A0D4EA6B6A4F /* IncomingCallScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4191FD7D305D6F04A7F51064 /* IncomingCallScreen.swift */; };
@@ -101,6 +104,7 @@
 		1A75FB752E10FA1D2D168215 /* libresolv.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; path = libresolv.tbd; sourceTree = "<group>"; };
 		21DA188D6C15ECF6003D9295 /* VideoFrameHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoFrameHandler.swift; sourceTree = "<group>"; };
 		263728704EB8B962C2C8ACFA /* ZapLivreTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ZapLivreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		2ACD88EEC4D15F824352C1F7 /* WebRtcSignalingBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebRtcSignalingBridge.swift; sourceTree = "<group>"; };
 		308F5DB3BBBD619707FD499B /* ZapLivre.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ZapLivre.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		31CABBBFADB87E5204877F57 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
 		3220A1CF789C0442FC846BBF /* SkeletonLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkeletonLoader.swift; sourceTree = "<group>"; };
@@ -157,6 +161,7 @@
 		D941263CFED041CD6C8F370E /* VoiceRecorderViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceRecorderViewModel.swift; sourceTree = "<group>"; };
 		DAD32A6056EA6506DC3F375E /* QRScannerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRScannerViewController.swift; sourceTree = "<group>"; };
 		DE85424C870E1B1954AAB96C /* ZapLivreCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZapLivreCore.swift; sourceTree = "<group>"; };
+		E2440D4A11234C016CC29CE1 /* NativeWebRtcSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeWebRtcSession.swift; sourceTree = "<group>"; };
 		E2B2B85F390AA12C2EFDC502 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		E3616F2752B91E1B4523B0FF /* ZapButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZapButtonStyle.swift; sourceTree = "<group>"; };
 		E3D106EC66F3020345A2319F /* ZapTextBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZapTextBubble.swift; sourceTree = "<group>"; };
@@ -177,6 +182,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5A1C8637C24A7EF7B3E253DC /* StreamWebRTC in Frameworks */,
 				B20D7107C1B7B9320785D2D8 /* Foundation.framework in Frameworks */,
 				39B08313BFB6458E670E32A8 /* SwiftUI.framework in Frameworks */,
 				E5CD35CC76D64F93BEDF2A1C /* CallKit.framework in Frameworks */,
@@ -316,9 +322,11 @@
 				4DCF35D9D3A9A7CB0525CEC3 /* CallEventHandler.swift */,
 				75E4C957406ACD82A7FCF1F6 /* CallManager.swift */,
 				9B62F2B3AF961B5EC3A3D9F5 /* CameraManager.swift */,
+				E2440D4A11234C016CC29CE1 /* NativeWebRtcSession.swift */,
 				9AA670C61C4E01403DCA1BF5 /* VideoEncoder.swift */,
 				21DA188D6C15ECF6003D9295 /* VideoFrameHandler.swift */,
 				D38E83A05F9CD0F4EC7B9974 /* VoipEventHandler.swift */,
+				2ACD88EEC4D15F824352C1F7 /* WebRtcSignalingBridge.swift */,
 			);
 			path = VoIP;
 			sourceTree = "<group>";
@@ -384,6 +392,7 @@
 			);
 			name = ZapLivre;
 			packageProductDependencies = (
+				327AC84F930E7B25CD3EE0F0 /* StreamWebRTC */,
 			);
 			productName = ZapLivre;
 			productReference = 308F5DB3BBBD619707FD499B /* ZapLivre.app */;
@@ -436,6 +445,9 @@
 			);
 			mainGroup = 36D0377CF1002A570C214BE4;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				C3D80A276172CBB10D325657 /* XCRemoteSwiftPackageReference "stream-video-swift-webrtc" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 0C8F6546C3A15E74DF43CE07 /* Products */;
 			projectDirPath = "";
@@ -505,6 +517,7 @@
 				4949F83A31E9487C4D39F940 /* MessageStatusIndicator.swift in Sources */,
 				42750F1BFEF7578F3A3E0FCB /* MessageUtils.swift in Sources */,
 				8DD7AD2C466FB82982B3BAA6 /* MyQRCodeView.swift in Sources */,
+				4AB4C4B72FB3B15C6883ECC6 /* NativeWebRtcSession.swift in Sources */,
 				3B690CEB4D14525D65B82D70 /* NewChatView.swift in Sources */,
 				D0ACE5815228AEE814AC8162 /* ProfileView.swift in Sources */,
 				B30C7B7701607A2CC49C1220 /* PushNotificationManager.swift in Sources */,
@@ -525,6 +538,7 @@
 				C5F69DC6A7AFC999400DDA5B /* VoiceRecordButton.swift in Sources */,
 				880C78B8EBCEA0B24B4AB5E5 /* VoiceRecorderViewModel.swift in Sources */,
 				CFBD8143FFC18F316F72E44C /* VoipEventHandler.swift in Sources */,
+				CCBF6601E231A30A10073D0B /* WebRtcSignalingBridge.swift in Sources */,
 				789DEF4D7995B12FC093F3B8 /* ZapButtonStyle.swift in Sources */,
 				DDC5D4FE2F73C519B16B3679 /* ZapLivreApp.swift in Sources */,
 				9E04684B4EBC6E96692BF4F2 /* ZapLivreCore.swift in Sources */,
@@ -876,6 +890,25 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		C3D80A276172CBB10D325657 /* XCRemoteSwiftPackageReference "stream-video-swift-webrtc" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/GetStream/stream-video-swift-webrtc.git";
+			requirement = {
+				kind = exactVersion;
+				version = 148.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		327AC84F930E7B25CD3EE0F0 /* StreamWebRTC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C3D80A276172CBB10D325657 /* XCRemoteSwiftPackageReference "stream-video-swift-webrtc" */;
+			productName = StreamWebRTC;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = C127630547A53E53268609C2 /* Project object */;
 }

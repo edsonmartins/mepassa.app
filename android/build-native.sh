@@ -116,10 +116,12 @@ export CMAKE_ANDROID_NDK="$NDK_PATH"
 export CMAKE_ANDROID_NDK_aarch64_linux_android="$NDK_PATH"
 export CMAKE_TOOLCHAIN_FILE_aarch64_linux_android="$NDK_PATH/build/cmake/android.toolchain.cmake"
 export CMAKE_TOOLCHAIN_FILE="$NDK_PATH/build/cmake/android.toolchain.cmake"
-export CMAKE_aarch64_linux_android="-DCMAKE_TOOLCHAIN_FILE=$NDK_PATH/build/cmake/android.toolchain.cmake -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-24"
 export CMAKE_MAKE_PROGRAM="/usr/bin/make"
 export CMAKE_GENERATOR="Unix Makefiles"
-cargo build --release --target aarch64-linux-android -p zaplivre-core
+# Wrapper do cmake: inclui ABI/PLATFORM/policy p/ libopus (audiopus_sys) e
+# funciona com o CMake 4+ (que rejeita cmake_minimum_required antigo).
+export CMAKE="$ANDROID_DIR/scripts/cmake-android-wrapper.sh"
+cargo build --release --features voip --target aarch64-linux-android -p zaplivre-core
 mkdir -p "$JNILIBS_DIR/arm64-v8a"
 cp "$PROJECT_ROOT/target/aarch64-linux-android/release/libzaplivre_core.so" \
    "$JNILIBS_DIR/arm64-v8a/libzaplivre_core.so"
@@ -136,14 +138,14 @@ echo ""
 echo -e "${GREEN}Building for Android ARMv7 (armv7-linux-androideabi)...${NC}"
 export CC_armv7_linux_androideabi="$TOOLCHAIN_PATH/armv7a-linux-androideabi24-clang"
 export CXX_armv7_linux_androideabi="$TOOLCHAIN_PATH/armv7a-linux-androideabi24-clang++"
-cargo build --release --target armv7-linux-androideabi -p zaplivre-core
+cargo build --release --features voip --target armv7-linux-androideabi -p zaplivre-core
 echo ""
 
 # Build for Android x86_64 (emulators)
 echo -e "${GREEN}Building for Android x86_64 (x86_64-linux-android)...${NC}"
 export CC_x86_64_linux_android="$TOOLCHAIN_PATH/x86_64-linux-android24-clang"
 export CXX_x86_64_linux_android="$TOOLCHAIN_PATH/x86_64-linux-android24-clang++"
-cargo build --release --target x86_64-linux-android -p zaplivre-core
+cargo build --release --features voip --target x86_64-linux-android -p zaplivre-core
 echo ""
 
 # Copy libraries to jniLibs

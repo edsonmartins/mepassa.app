@@ -55,6 +55,14 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/v1/register", post(handlers::register_handler))
         .route("/api/v1/lookup", get(handlers::lookup_handler))
         .route("/api/v1/prekeys", put(handlers::update_prekeys_handler))
+        .route(
+            "/api/v1/transparency/keys/:peer_id",
+            get(handlers::transparency_handler),
+        )
+        .route(
+            "/api/v1/transparency/log",
+            get(handlers::transparency_log_handler),
+        )
         // Rate limiting middleware for API routes
         .layer(middleware::from_fn_with_state(
             state.clone(),

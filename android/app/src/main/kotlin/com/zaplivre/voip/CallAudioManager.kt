@@ -38,7 +38,7 @@ class CallAudioManager(private val context: Context) {
 
         // Salvar configurações atuais
         savedAudioMode = audioManager.mode
-        savedSpeakerphoneOn = audioManager.isSpeakerphoneOn
+        savedSpeakerphoneOn = isSpeakerphoneOn()
         savedMicrophoneMute = audioManager.isMicrophoneMute
 
         // Configurar modo de comunicação (otimizado para voz)
@@ -50,17 +50,16 @@ class CallAudioManager(private val context: Context) {
         // Verificar se há Bluetooth conectado
         if (hasBluetoothDevice()) {
             Log.i(TAG, "Bluetooth device detected, routing to Bluetooth")
-            audioManager.isBluetoothScoOn = true
-            audioManager.startBluetoothSco()
+            routeToBluetoothIfAvailable()
         } else {
             // Por padrão, usar earpiece (não speaker)
-            audioManager.isSpeakerphoneOn = false
+            setSpeakerphone(false)
         }
 
         // Unmute por padrão
         audioManager.isMicrophoneMute = false
 
-        Log.i(TAG, "Call audio started - Mode: ${audioManager.mode}, Speaker: ${audioManager.isSpeakerphoneOn}, BT: ${audioManager.isBluetoothScoOn}")
+        Log.i(TAG, "Call audio started - Mode: ${audioManager.mode}, Speaker: ${isSpeakerphoneOn()}, Device: ${currentDeviceName()}")
     }
 
     /**
@@ -69,15 +68,23 @@ class CallAudioManager(private val context: Context) {
     fun stopCall() {
         Log.i(TAG, "Stopping call audio management")
 
-        // Parar Bluetooth SCO se estava ativo
-        if (audioManager.isBluetoothScoOn) {
-            audioManager.stopBluetoothSco()
-            audioManager.isBluetoothScoOn = false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            audioManager.clearCommunicationDevice()
+        } else {
+            @Suppress("DEPRECATION")
+            if (audioManager.isBluetoothScoOn) {
+                @Suppress("DEPRECATION")
+                audioManager.stopBluetoothSco()
+                @Suppress("DEPRECATION")
+                audioManager.isBluetoothScoOn = false
+            }
         }
 
         // Restaurar configurações originais
         audioManager.mode = savedAudioMode
-        audioManager.isSpeakerphoneOn = savedSpeakerphoneOn
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            setSpeakerphoneLegacy(savedSpeakerphoneOn)
+        }
         audioManager.isMicrophoneMute = savedMicrophoneMute
 
         // Abandon audio focus
@@ -92,31 +99,36 @@ class CallAudioManager(private val context: Context) {
      * @return true se speakerphone está ativado após toggle
      */
     fun toggleSpeakerphone(): Boolean {
-        val newState = !audioManager.isSpeakerphoneOn
-
-        // Se ativar speakerphone, desativar Bluetooth
-        if (newState && audioManager.isBluetoothScoOn) {
-            audioManager.stopBluetoothSco()
-            audioManager.isBluetoothScoOn = false
-        }
-
-        audioManager.isSpeakerphoneOn = newState
-        Log.i(TAG, "Speakerphone toggled: $newState")
-
-        return newState
+        setSpeakerphone(!isSpeakerphoneOn())
+        return isSpeakerphoneOn()
     }
 
     /**
      * Force speakerphone state
      */
     fun setSpeakerphone(enabled: Boolean) {
-        if (enabled && audioManager.isBluetoothScoOn) {
-            audioManager.stopBluetoothSco()
-            audioManager.isBluetoothScoOn = false
+        val routed = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val targetType = if (enabled) {
+                AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
+            } else {
+                AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
+            }
+            val target = audioManager.availableCommunicationDevices.firstOrNull {
+                it.type == targetType
+            }
+            if (target != null) {
+                audioManager.setCommunicationDevice(target)
+            } else if (!enabled) {
+                audioManager.clearCommunicationDevice()
+                true
+            } else {
+                false
+            }
+        } else {
+            setSpeakerphoneLegacy(enabled)
+            true
         }
-
-        audioManager.isSpeakerphoneOn = enabled
-        Log.i(TAG, "Speakerphone set to: $enabled")
+        Log.i(TAG, "Speakerphone requested: $enabled, routed: $routed, device: ${currentDeviceName()}")
     }
 
     /**
@@ -143,7 +155,12 @@ class CallAudioManager(private val context: Context) {
     /**
      * Verifica se speakerphone está ativado
      */
-    fun isSpeakerphoneOn(): Boolean = audioManager.isSpeakerphoneOn
+    fun isSpeakerphoneOn(): Boolean = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        audioManager.communicationDevice?.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
+    } else {
+        @Suppress("DEPRECATION")
+        audioManager.isSpeakerphoneOn
+    }
 
     /**
      * Verifica se microfone está mutado
@@ -175,16 +192,45 @@ class CallAudioManager(private val context: Context) {
      * Rotear áudio para Bluetooth (se disponível)
      */
     fun routeToBluetoothIfAvailable(): Boolean {
-        if (hasBluetoothDevice()) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val bluetooth = audioManager.availableCommunicationDevices.firstOrNull {
+                it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
+                    it.type == AudioDeviceInfo.TYPE_BLE_HEADSET ||
+                    it.type == AudioDeviceInfo.TYPE_BLE_SPEAKER
+            }
+            if (bluetooth != null && audioManager.setCommunicationDevice(bluetooth)) {
+                Log.i(TAG, "Audio routed to Bluetooth: ${bluetooth.productName}")
+                return true
+            }
+        } else if (hasBluetoothDevice()) {
+            @Suppress("DEPRECATION")
             audioManager.isSpeakerphoneOn = false
+            @Suppress("DEPRECATION")
             audioManager.isBluetoothScoOn = true
+            @Suppress("DEPRECATION")
             audioManager.startBluetoothSco()
             Log.i(TAG, "Audio routed to Bluetooth")
             return true
-        } else {
-            Log.w(TAG, "No Bluetooth device available")
-            return false
         }
+        Log.w(TAG, "No Bluetooth communication device available")
+        return false
+    }
+
+    @Suppress("DEPRECATION")
+    private fun setSpeakerphoneLegacy(enabled: Boolean) {
+        if (enabled && audioManager.isBluetoothScoOn) {
+            audioManager.stopBluetoothSco()
+            audioManager.isBluetoothScoOn = false
+        }
+        audioManager.isSpeakerphoneOn = enabled
+    }
+
+    private fun currentDeviceName(): String = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        audioManager.communicationDevice?.let { "${it.productName} (type=${it.type})" } ?: "system default"
+    } else if (isSpeakerphoneOn()) {
+        "speaker"
+    } else {
+        "earpiece/bluetooth"
     }
 
     /**

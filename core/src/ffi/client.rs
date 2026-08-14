@@ -148,6 +148,24 @@ enum ClientCommand {
         offset: Option<usize>,
         response: oneshot::Sender<Result<Vec<FfiMessage>, ZapLivreFfiError>>,
     },
+    GetConversationMessagesBefore {
+        peer_id: String,
+        limit: Option<usize>,
+        before_created_at: Option<i64>,
+        before_message_id: Option<String>,
+        response: oneshot::Sender<Result<Vec<FfiMessage>, ZapLivreFfiError>>,
+    },
+    IdentityFingerprint {
+        response: oneshot::Sender<Result<String, ZapLivreFfiError>>,
+    },
+    ContactIdentityFingerprint {
+        peer_id: String,
+        response: oneshot::Sender<Result<String, ZapLivreFfiError>>,
+    },
+    ContactTransparencyProof {
+        peer_id: String,
+        response: oneshot::Sender<Result<String, ZapLivreFfiError>>,
+    },
     ListConversations {
         response: oneshot::Sender<Result<Vec<FfiConversation>, ZapLivreFfiError>>,
     },
@@ -249,6 +267,29 @@ enum ClientCommand {
     #[allow(dead_code)]
     RegisterCallEventCallback {
         callback: Box<dyn crate::FfiCallEventCallback>,
+    },
+    #[cfg(feature = "voip")]
+    SendWebRtcOffer {
+        call_id: String,
+        sdp: String,
+        response: oneshot::Sender<Result<(), ZapLivreFfiError>>,
+    },
+    #[cfg(feature = "voip")]
+    SendWebRtcAnswer {
+        call_id: String,
+        sdp: String,
+        response: oneshot::Sender<Result<(), ZapLivreFfiError>>,
+    },
+    #[cfg(feature = "voip")]
+    SendWebRtcIceCandidate {
+        call_id: String,
+        candidate: String,
+        sdp_mid: Option<String>,
+        sdp_m_line_index: Option<u16>,
+        response: oneshot::Sender<Result<(), ZapLivreFfiError>>,
+    },
+    RegisterWebRtcSignalingCallback {
+        callback: Box<dyn crate::FfiWebRtcSignalingCallback>,
     },
     RegisterMessageEventCallback {
         callback: Box<dyn crate::FfiMessageEventCallback>,
@@ -482,6 +523,34 @@ async fn run_client_task_arc(
                     .map_err(|e| e.into());
                 let _ = response.send(result);
             }
+            ClientCommand::GetConversationMessagesBefore {
+                peer_id,
+                limit,
+                before_created_at,
+                before_message_id,
+                response,
+            } => {
+                let result = client
+                    .get_conversation_messages_before(
+                        &peer_id,
+                        limit,
+                        before_created_at,
+                        before_message_id.as_deref(),
+                    )
+                    .map(|messages| messages.into_iter().map(FfiMessage::from).collect())
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            ClientCommand::IdentityFingerprint { response } => {
+                let _ = response.send(Ok(client.identity_fingerprint().await));
+            }
+            ClientCommand::ContactIdentityFingerprint { peer_id, response } => {
+                let _ = response.send(client.contact_identity_fingerprint(&peer_id).map_err(Into::into));
+            }
+            ClientCommand::ContactTransparencyProof { peer_id, response } => {
+                let result = client.contact_transparency_proof(&peer_id).await.map_err(Into::into);
+                let _ = response.send(result);
+            }
             ClientCommand::ListConversations { response } => {
                 let result = client
                     .list_conversations()
@@ -644,6 +713,34 @@ async fn run_client_task_arc(
                     let _ = callback;
                     tracing::warn!("VoIP/video feature disabled; ignoring call event callback");
                 }
+            }
+            #[cfg(feature = "voip")]
+            ClientCommand::SendWebRtcOffer { call_id, sdp, response } => {
+                let result = client.send_webrtc_offer(call_id, sdp).await.map_err(Into::into);
+                let _ = response.send(result);
+            }
+            #[cfg(feature = "voip")]
+            ClientCommand::SendWebRtcAnswer { call_id, sdp, response } => {
+                let result = client.send_webrtc_answer(call_id, sdp).await.map_err(Into::into);
+                let _ = response.send(result);
+            }
+            #[cfg(feature = "voip")]
+            ClientCommand::SendWebRtcIceCandidate {
+                call_id,
+                candidate,
+                sdp_mid,
+                sdp_m_line_index,
+                response,
+            } => {
+                let result = client
+                    .send_webrtc_ice_candidate(call_id, candidate, sdp_mid, sdp_m_line_index)
+                    .await
+                    .map_err(Into::into);
+                let _ = response.send(result);
+            }
+            ClientCommand::RegisterWebRtcSignalingCallback { callback } => {
+                #[cfg(any(feature = "voip", feature = "video"))]
+                client.register_webrtc_signaling_callback(callback).await;
             }
             ClientCommand::RegisterMessageEventCallback { callback } => {
                 client
@@ -1174,6 +1271,29 @@ impl ZapLivreClient {
         })
     }
 
+    pub fn identity_fingerprint(&self) -> Result<String, ZapLivreFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle().sender.send(ClientCommand::IdentityFingerprint { response: tx })
+            .map_err(|_| ZapLivreFfiError::Other { details: "Failed to send command".into() })?;
+        execute_future(rx).map_err(|_| ZapLivreFfiError::Other { details: "Failed to receive response".into() })?
+    }
+
+    pub fn contact_identity_fingerprint(&self, peer_id: String) -> Result<String, ZapLivreFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle().sender.send(ClientCommand::ContactIdentityFingerprint { peer_id, response: tx })
+            .map_err(|_| ZapLivreFfiError::Other { details: "Failed to send command".into() })?;
+        execute_future(rx).map_err(|_| ZapLivreFfiError::Other { details: "Failed to receive response".into() })?
+    }
+
+    pub fn contact_transparency_proof(&self, peer_id: String) -> Result<String, ZapLivreFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::ContactTransparencyProof { peer_id, response: tx })
+            .map_err(|_| ZapLivreFfiError::Other { details: "Client command channel closed".to_string() })?;
+        execute_future(rx).map_err(|_| ZapLivreFfiError::Other { details: "Client response channel closed".to_string() })?
+    }
+
     /// Sign a backend HTTP request without exposing the private identity key.
     pub async fn sign_auth_request(
         &self,
@@ -1372,6 +1492,28 @@ impl ZapLivreClient {
                 details: "Failed to send command".to_string(),
             })?;
 
+        execute_future(rx).map_err(|_| ZapLivreFfiError::Other {
+            details: "Failed to receive response".to_string(),
+        })?
+    }
+
+    pub fn get_conversation_messages_before(
+        &self,
+        peer_id: String,
+        limit: Option<u32>,
+        before_created_at: Option<i64>,
+        before_message_id: Option<String>,
+    ) -> Result<Vec<FfiMessage>, ZapLivreFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle().sender.send(ClientCommand::GetConversationMessagesBefore {
+            peer_id,
+            limit: limit.map(|l| l as usize),
+            before_created_at,
+            before_message_id,
+            response: tx,
+        }).map_err(|_| ZapLivreFfiError::Other {
+            details: "Failed to send command".to_string(),
+        })?;
         execute_future(rx).map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
@@ -1834,6 +1976,68 @@ impl ZapLivreClient {
                 details: "VoIP/video feature disabled".to_string(),
             })
         }
+    }
+
+    pub fn register_webrtc_signaling_callback(
+        &self,
+        callback: Box<dyn crate::FfiWebRtcSignalingCallback>,
+    ) -> Result<(), ZapLivreFfiError> {
+        self.handle()
+            .sender
+            .send(ClientCommand::RegisterWebRtcSignalingCallback { callback })
+            .map_err(|_| ZapLivreFfiError::Other {
+                details: "Failed to send command".to_string(),
+            })
+    }
+
+    #[cfg(feature = "voip")]
+    pub async fn send_webrtc_offer(
+        &self,
+        call_id: String,
+        sdp: String,
+    ) -> Result<(), ZapLivreFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::SendWebRtcOffer { call_id, sdp, response: tx })
+            .map_err(|_| ZapLivreFfiError::Other { details: "Failed to send command".into() })?;
+        rx.await.map_err(|_| ZapLivreFfiError::Other { details: "Failed to receive response".into() })?
+    }
+
+    #[cfg(feature = "voip")]
+    pub async fn send_webrtc_answer(
+        &self,
+        call_id: String,
+        sdp: String,
+    ) -> Result<(), ZapLivreFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::SendWebRtcAnswer { call_id, sdp, response: tx })
+            .map_err(|_| ZapLivreFfiError::Other { details: "Failed to send command".into() })?;
+        rx.await.map_err(|_| ZapLivreFfiError::Other { details: "Failed to receive response".into() })?
+    }
+
+    #[cfg(feature = "voip")]
+    pub async fn send_webrtc_ice_candidate(
+        &self,
+        call_id: String,
+        candidate: String,
+        sdp_mid: Option<String>,
+        sdp_m_line_index: Option<u16>,
+    ) -> Result<(), ZapLivreFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::SendWebRtcIceCandidate {
+                call_id,
+                candidate,
+                sdp_mid,
+                sdp_m_line_index,
+                response: tx,
+            })
+            .map_err(|_| ZapLivreFfiError::Other { details: "Failed to send command".into() })?;
+        rx.await.map_err(|_| ZapLivreFfiError::Other { details: "Failed to receive response".into() })?
     }
 
     /// Registra callback de eventos de mensagem (recebida/status/typing).

@@ -84,6 +84,18 @@ pub trait FfiCallEventCallback: Send + Sync {
     fn on_call_ended(&self, call_id: String, reason: crate::ffi::FfiCallEndReason);
 }
 
+pub trait FfiWebRtcSignalingCallback: Send + Sync {
+    fn on_offer(&self, call_id: String, sdp: String);
+    fn on_answer(&self, call_id: String, sdp: String);
+    fn on_ice_candidate(
+        &self,
+        call_id: String,
+        candidate: String,
+        sdp_mid: Option<String>,
+        sdp_m_line_index: Option<u16>,
+    );
+}
+
 // Message events callback (core -> apps; substitui polling de mensagens)
 pub trait FfiMessageEventCallback: Send + Sync {
     fn on_message_received(&self, message_id: String, from_peer_id: String);

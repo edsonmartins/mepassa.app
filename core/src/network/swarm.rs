@@ -583,6 +583,21 @@ impl NetworkManager {
 
                 self.connection_manager
                     .record_success(peer_id, connection_type);
+
+                // Exchange public prekeys automatically after the authenticated
+                // transport is up. This is an internal control frame and does
+                // not create a visible chat message.
+                if let Some(handler) = self.message_handler.clone() {
+                    handler.wake_pending_outbound(&peer_id);
+                    match handler.create_prekey_bundle_sync(&peer_id).await {
+                        Ok(sync) => {
+                            if let Err(e) = self.send_message(peer_id, sync) {
+                                tracing::warn!("Failed to send automatic prekeys: {}", e);
+                            }
+                        }
+                        Err(e) => tracing::warn!("Failed to create automatic prekeys: {}", e),
+                    }
+                }
             }
             SwarmEvent::ConnectionClosed { peer_id, cause, .. } => {
                 tracing::info!("Disconnected from {}: {:?}", peer_id, cause);

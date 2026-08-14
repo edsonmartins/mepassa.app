@@ -19,7 +19,7 @@ pub struct Message {
     #[prost(enumeration = "MessageType", tag = "5")]
     pub r#type: i32,
     /// Message payload (one of the following)
-    #[prost(oneof = "message::Payload", tags = "10, 11, 12, 13, 14, 15, 16, 17")]
+    #[prost(oneof = "message::Payload", tags = "10, 11, 12, 13, 14, 15, 16, 17, 18")]
     pub payload: ::core::option::Option<message::Payload>,
 }
 /// Nested message and enum types in `Message`.
@@ -44,7 +44,18 @@ pub mod message {
         MediaRequest(super::MediaRequest),
         #[prost(message, tag = "17")]
         MediaChunk(super::MediaChunk),
+        #[prost(message, tag = "18")]
+        PrekeyBundleSync(super::PreKeyBundleSync),
     }
+}
+/// Public Signal prekeys exchanged automatically after the authenticated P2P
+/// connection is established. This is control metadata and is never shown in
+/// the conversation UI.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PreKeyBundleSync {
+    #[prost(string, tag = "1")]
+    pub bundle_json: ::prost::alloc::string::String,
 }
 /// Text message
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -189,6 +200,7 @@ pub enum MessageType {
     MediaOffer = 6,
     MediaRequest = 7,
     MediaChunk = 8,
+    PrekeyBundleSync = 9,
 }
 impl MessageType {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -206,6 +218,7 @@ impl MessageType {
             MessageType::MediaOffer => "MESSAGE_TYPE_MEDIA_OFFER",
             MessageType::MediaRequest => "MESSAGE_TYPE_MEDIA_REQUEST",
             MessageType::MediaChunk => "MESSAGE_TYPE_MEDIA_CHUNK",
+            MessageType::PrekeyBundleSync => "MESSAGE_TYPE_PREKEY_BUNDLE_SYNC",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -220,6 +233,7 @@ impl MessageType {
             "MESSAGE_TYPE_MEDIA_OFFER" => Some(Self::MediaOffer),
             "MESSAGE_TYPE_MEDIA_REQUEST" => Some(Self::MediaRequest),
             "MESSAGE_TYPE_MEDIA_CHUNK" => Some(Self::MediaChunk),
+            "MESSAGE_TYPE_PREKEY_BUNDLE_SYNC" => Some(Self::PrekeyBundleSync),
             _ => None,
         }
     }

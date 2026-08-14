@@ -82,6 +82,12 @@ callback interface FfiCallEventCallback {
     void on_call_ended(string call_id, FfiCallEndReason reason);
 };
 
+callback interface FfiWebRtcSignalingCallback {
+    void on_offer(string call_id, string sdp);
+    void on_answer(string call_id, string sdp);
+    void on_ice_candidate(string call_id, string candidate, string? sdp_mid, u16? sdp_m_line_index);
+};
+
 // Message events callback (core -> apps; substitui polling de mensagens)
 // Eventos são "thin": carregam IDs; o app busca os dados via
 // get_conversation_messages/list_conversations como já faz hoje.
@@ -215,6 +221,15 @@ interface ZapLivreClient {
     [Throws=ZapLivreFfiError]
     string local_peer_id();
 
+    [Throws=ZapLivreFfiError]
+    string identity_fingerprint();
+
+    [Throws=ZapLivreFfiError]
+string contact_identity_fingerprint(string peer_id);
+
+[Throws=ZapLivreFfiError]
+string contact_transparency_proof(string peer_id);
+
     [Throws=ZapLivreFfiError, Async]
     string register_username(string username);
 
@@ -241,6 +256,9 @@ interface ZapLivreClient {
 
     [Throws=ZapLivreFfiError]
     sequence<FfiMessage> get_conversation_messages(string peer_id, u32? limit, u32? offset);
+
+    [Throws=ZapLivreFfiError]
+    sequence<FfiMessage> get_conversation_messages_before(string peer_id, u32? limit, i64? before_created_at, string? before_message_id);
 
     [Throws=ZapLivreFfiError]
     sequence<FfiConversation> list_conversations();
@@ -306,6 +324,18 @@ interface ZapLivreClient {
 
     [Throws=ZapLivreFfiError]
     void register_call_event_callback(FfiCallEventCallback callback);
+
+    [Throws=ZapLivreFfiError]
+    void register_webrtc_signaling_callback(FfiWebRtcSignalingCallback callback);
+
+    [Throws=ZapLivreFfiError, Async]
+    void send_webrtc_offer(string call_id, string sdp);
+
+    [Throws=ZapLivreFfiError, Async]
+    void send_webrtc_answer(string call_id, string sdp);
+
+    [Throws=ZapLivreFfiError, Async]
+    void send_webrtc_ice_candidate(string call_id, string candidate, string? sdp_mid, u16? sdp_m_line_index);
 
     [Throws=ZapLivreFfiError]
     void register_message_event_callback(FfiMessageEventCallback callback);

@@ -2,7 +2,7 @@
 //!
 //! Handles encoding and decoding of audio using Opus codec.
 
-use super::{audio::Sample, Result, VoipError};
+use super::{Result, Sample, VoipError};
 use opus::{Application, Channels, Decoder, Encoder};
 
 /// Opus codec configuration

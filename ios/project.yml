@@ -10,6 +10,11 @@ settings:
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
 
+packages:
+  StreamWebRTC:
+    url: https://github.com/GetStream/stream-video-swift-webrtc.git
+    exactVersion: 148.0.0
+
 targets:
   ZapLivre:
     type: application
@@ -144,6 +149,8 @@ targets:
             - "-Wl,-headerpad_max_install_names"
 
     dependencies:
+      - package: StreamWebRTC
+        product: StreamWebRTC
       # System frameworks
       - framework: Foundation.framework
         embed: false

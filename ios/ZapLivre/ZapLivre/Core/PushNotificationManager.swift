@@ -136,7 +136,7 @@ class PushNotificationManager: NSObject, ObservableObject {
     }
 
     /// Handle incoming push notification
-    func handleNotification(userInfo: [AnyHashable: Any]) {
+    func handleNotification(userInfo: [AnyHashable: Any], openConversation: Bool = false) {
         print("📨 Push notification received")
 
         // Extract notification data
@@ -161,10 +161,30 @@ class PushNotificationManager: NSObject, ObservableObject {
         }
 
         // Handle custom data
-        if let peerId = userInfo["peer_id"] as? String ?? userInfo["peerId"] as? String {
+        // The push target's `peer_id` identifies this device. The sender is
+        // carried in the data payload and is the peer we must dial.
+        if let peerId = userInfo["sender_peer_id"] as? String
+            ?? userInfo["senderPeerId"] as? String
+            ?? userInfo["peer_id"] as? String
+            ?? userInfo["peerId"] as? String {
             print("   From peer: \(peerId)")
-            DispatchQueue.main.async { [weak self] in
-                self?.appState?.openConversation(peerId: peerId)
+            // A push is also a wake-up signal for the direct P2P transport.
+            // Dial in the background/foreground without requiring the user to
+            // open the conversation first; the core then updates unread state.
+            if let addr = UserDefaults.standard.string(forKey: "zaplivre.multiaddr.\(peerId)") {
+                Task {
+                    do {
+                        try await ZapLivreCore.shared.connectToPeer(peerId: peerId, multiaddr: addr)
+                        print("✅ P2P connection started from push wake-up")
+                    } catch {
+                        print("⚠️ Push wake-up connection failed: \(error)")
+                    }
+                }
+            }
+            if openConversation {
+                DispatchQueue.main.async { [weak self] in
+                    self?.appState?.openConversation(peerId: peerId)
+                }
             }
         }
     }
@@ -201,7 +221,7 @@ extension PushNotificationManager: UNUserNotificationCenterDelegate {
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         print("📬 User tapped notification")
-        handleNotification(userInfo: response.notification.request.content.userInfo)
+        handleNotification(userInfo: response.notification.request.content.userInfo, openConversation: true)
         completionHandler()
     }
 }

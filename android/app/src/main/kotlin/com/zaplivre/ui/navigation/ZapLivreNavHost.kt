@@ -401,6 +401,7 @@ fun ZapLivreNavHost(
 
             VideoCallScreen(
                 callId = callId,
+                remotePeerId = remotePeerId,
                 peerName = remotePeerId.take(16) + "...",
                 onHangup = {
                     navController.popBackStack(Screen.Conversations.route, inclusive = false)

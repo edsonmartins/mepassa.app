@@ -50,6 +50,8 @@ struct Aps {
     sound: String,
     #[serde(rename = "mutable-content")]
     mutable_content: u8,
+    #[serde(rename = "content-available")]
+    content_available: u8,
     #[serde(skip_serializing_if = "Option::is_none")]
     badge: Option<u32>,
 }
@@ -224,6 +226,7 @@ impl ApnsClient {
                 },
                 sound: "default".to_string(),
                 mutable_content: 1,
+                content_available: 1,
                 badge,
             },
             custom: data.clone(),

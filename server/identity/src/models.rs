@@ -76,6 +76,29 @@ pub struct UpdatePrekeysResponse {
     pub updated_at: DateTime<Utc>,
 }
 
+/// Public proof that a registered identity is included in the append-only log.
+#[derive(Debug, Serialize)]
+pub struct TransparencyResponse {
+    pub peer_id: String,
+    pub public_key: String,
+    pub fingerprint: String,
+    pub sequence: i64,
+    pub entry_hash: String,
+    pub previous_hash: String,
+    pub log_root_sequence: i64,
+    pub log_root_hash: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TransparencyLogEntry {
+    pub sequence: i64,
+    pub peer_id: String,
+    pub public_key: String,
+    pub previous_hash: String,
+    pub entry_hash: String,
+    pub created_at: DateTime<Utc>,
+}
+
 /// Health check response
 #[derive(Debug, Serialize)]
 pub struct HealthResponse {

@@ -150,6 +150,19 @@ pub struct UpdatePrekeysResponse {
     pub updated_at: DateTime<Utc>,
 }
 
+/// Proof returned by the identity server's append-only key log.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct TransparencyProof {
+    pub peer_id: String,
+    pub public_key: String,
+    pub fingerprint: String,
+    pub sequence: i64,
+    pub entry_hash: String,
+    pub previous_hash: String,
+    pub log_root_sequence: i64,
+    pub log_root_hash: String,
+}
+
 /// Error response from Identity Server
 #[derive(Debug, Deserialize)]
 struct ErrorResponse {
@@ -203,6 +216,16 @@ impl IdentityClient {
             base_url: base_url.into(),
             client,
         })
+    }
+
+    /// Fetch the identity's inclusion proof and current transparency root.
+    pub async fn transparency_proof(&self, peer_id: &str) -> Result<TransparencyProof> {
+        let url = format!("{}/api/v1/transparency/keys/{}", self.base_url, peer_id);
+        let response = self.client.get(url).send().await?;
+        if !response.status().is_success() {
+            return Err(Self::error_from_response(response).await);
+        }
+        Ok(response.json().await?)
     }
 
     /// Register a new username

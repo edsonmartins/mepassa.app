@@ -5,6 +5,7 @@ pub mod error;
 pub mod handlers;
 pub mod models;
 pub mod rate_limit;
+pub mod transparency;
 
 use redis::aio::ConnectionManager;
 use sqlx::PgPool;

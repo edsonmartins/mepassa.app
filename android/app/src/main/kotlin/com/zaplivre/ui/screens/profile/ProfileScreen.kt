@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.zaplivre.core.ZapLivreClientWrapper
+import com.zaplivre.ui.components.PeerQrCode
 import kotlinx.coroutines.launch
 
 /**
@@ -56,6 +57,11 @@ fun ProfileScreen(
     var showPrekeyImportDialog by remember { mutableStateOf(false) }
     var prekeyImportPeerId by remember { mutableStateOf("") }
     var prekeyImportJson by remember { mutableStateOf("") }
+    var qrPayload by remember { mutableStateOf("") }
+
+    LaunchedEffect(localPeerId) {
+        qrPayload = localPeerId?.let { ZapLivreClientWrapper.qrIdentityPayload(it) }.orEmpty()
+    }
 
     Scaffold(
         topBar = {
@@ -280,24 +286,14 @@ fun ProfileScreen(
                 Text("Importar prekeys")
             }
 
-            // QR Code placeholder
             Surface(
                 modifier = Modifier
                     .size(200.dp)
-                    .padding(16.dp)
-                    .testTag("qr_image"),
+                    .padding(8.dp),
                 shape = MaterialTheme.shapes.medium,
                 color = Color.White
             ) {
-                Box(
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "QR CODE\n${localPeerId?.take(8) ?: ""}...",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
-                    )
-                }
+                PeerQrCode(payload = qrPayload, size = 184.dp)
             }
 
             Text(

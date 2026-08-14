@@ -35,6 +35,12 @@ pub struct AppState {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Explicitly select rustls' crypto provider. Multiple TLS consumers (FCM/APNs)
+    // make automatic provider selection ambiguous with rustls 0.23.
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .map_err(|_| "failed to install rustls crypto provider")?;
+
     // Load environment variables
     dotenvy::dotenv().ok();
 

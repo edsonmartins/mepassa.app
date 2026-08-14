@@ -21,8 +21,9 @@ class CameraManager(private val context: Context) {
     
     companion object {
         private const val TAG = "CameraManager"
-        private val cameraExecutor = Executors.newSingleThreadExecutor()
     }
+
+    private val cameraExecutor = Executors.newSingleThreadExecutor()
 
     private var cameraProvider: ProcessCameraProvider? = null
     private var camera: Camera? = null
@@ -66,7 +67,24 @@ class CameraManager(private val context: Context) {
                         analysis.setAnalyzer(cameraExecutor) { imageProxy ->
                             try {
                                 val data = yuv420ToNv21(imageProxy)
-                                onFrameCallback(data, imageProxy.width, imageProxy.height)
+                                val rotation = imageProxy.imageInfo.rotationDegrees
+                                val rotated = rotateNv21(
+                                    data,
+                                    imageProxy.width,
+                                    imageProxy.height,
+                                    rotation
+                                )
+                                val outputWidth = if (rotation == 90 || rotation == 270) {
+                                    imageProxy.height
+                                } else {
+                                    imageProxy.width
+                                }
+                                val outputHeight = if (rotation == 90 || rotation == 270) {
+                                    imageProxy.width
+                                } else {
+                                    imageProxy.height
+                                }
+                                onFrameCallback(rotated, outputWidth, outputHeight)
                             } catch (e: Exception) {
                                 Log.e(TAG, "Error processing frame", e)
                             } finally {
@@ -202,5 +220,49 @@ class CameraManager(private val context: Context) {
         }
 
         return nv21
+    }
+
+    private fun rotateNv21(data: ByteArray, width: Int, height: Int, degrees: Int): ByteArray {
+        if (degrees == 0) return data
+        val output = ByteArray(data.size)
+        val ySize = width * height
+        var position = 0
+
+        when (degrees) {
+            90 -> {
+                for (x in 0 until width) {
+                    for (y in height - 1 downTo 0) output[position++] = data[y * width + x]
+                }
+                for (x in 0 until width step 2) {
+                    for (y in height / 2 - 1 downTo 0) {
+                        val source = ySize + y * width + x
+                        output[position++] = data[source]
+                        output[position++] = data[source + 1]
+                    }
+                }
+            }
+            180 -> {
+                for (index in ySize - 1 downTo 0) output[position++] = data[index]
+                for (index in data.size - 2 downTo ySize step 2) {
+                    output[position++] = data[index]
+                    output[position++] = data[index + 1]
+                }
+            }
+            270 -> {
+                for (x in width - 1 downTo 0) {
+                    for (y in 0 until height) output[position++] = data[y * width + x]
+                }
+                for (x in width - 2 downTo 0 step 2) {
+                    for (y in 0 until height / 2) {
+                        val source = ySize + y * width + x
+                        output[position++] = data[source]
+                        output[position++] = data[source + 1]
+                    }
+                }
+            }
+            else -> return data
+        }
+
+        return output
     }
 }

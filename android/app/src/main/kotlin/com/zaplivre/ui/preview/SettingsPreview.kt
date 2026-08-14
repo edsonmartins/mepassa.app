@@ -38,6 +38,7 @@ fun SettingsPreviewContent() {
         onExportBackup = {},
         onExportPrekeys = {},
         onImportPrekeys = {},
+        onShowQrCode = {},
         onClearImageCache = {},
         onClearVideoCache = {},
         onLogout = {},

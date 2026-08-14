@@ -182,6 +182,11 @@ dependencies {
     // Accompanist (permissions, etc)
     implementation("com.google.accompanist:accompanist-permissions:0.32.0")
 
+    // A single native WebRTC pipeline owns capture, codecs, RTP and rendering.
+    // Keep this pinned: SDP compatibility must be tested on both physical devices
+    // before upgrading the bundled Chromium/WebRTC implementation.
+    implementation("io.github.webrtc-sdk:android:144.7559.09")
+
     // CameraX (FASE 14 - Video Calls)
     val cameraxVersion = "1.3.1"
     implementation("androidx.camera:camera-core:$cameraxVersion")
@@ -193,6 +198,9 @@ dependencies {
     implementation("androidx.activity:activity-ktx:1.8.2")
     implementation("io.coil-kt:coil-compose:2.5.0")
     implementation("io.coil-kt:coil-gif:2.5.0")
+
+    // QR da identidade, lido pelo scanner nativo do iOS/Android.
+    implementation("com.google.zxing:core:3.5.3")
 
     // Firebase (Push Notifications)
     implementation(platform("com.google.firebase:firebase-bom:32.7.0"))

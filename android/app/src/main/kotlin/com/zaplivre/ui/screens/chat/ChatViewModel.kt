@@ -49,6 +49,9 @@ class ChatViewModel(
     val sendResults: SharedFlow<SendResult> = _sendResults.asSharedFlow()
 
     val localPeerId: StateFlow<String?> = api.localPeerId
+    private var oldestCursor: Pair<Long, String>? = null
+    private var hasOlderMessages = true
+    private var loadingOlderMessages = false
 
     init {
         viewModelScope.launch {
@@ -115,14 +118,38 @@ class ChatViewModel(
         viewModelScope.launch { refreshMessages() }
     }
 
+    fun loadOlderMessages() {
+        if (loadingOlderMessages || !hasOlderMessages || oldestCursor == null) return
+        loadingOlderMessages = true
+        viewModelScope.launch {
+            try {
+                val cursor = oldestCursor!!
+                val fetched = api.getConversationMessagesBefore(peerId, 50u, cursor.first, cursor.second)
+                    .filterNot { api.isLegacyGroupKeyMessage(it) }
+                    .reversed()
+                _messages.value = fetched + _messages.value
+                fetched.minWithOrNull(compareBy<FfiMessage> { it.createdAt }.thenBy { it.messageId })?.let {
+                    oldestCursor = it.createdAt.toLong() to it.messageId
+                }
+                hasOlderMessages = fetched.size == 50
+            } finally {
+                loadingOlderMessages = false
+            }
+        }
+    }
+
     private suspend fun refreshMessages() {
         try {
-            val fetched = api.getConversationMessages(peerId)
+            val fetched = api.getConversationMessages(peerId, 50u, null)
             // O core retorna DESC (mais recente primeiro); o chat exibe em
             // ordem cronológica (mais antiga no topo, mais nova no fim).
             _messages.value = fetched
                 .filterNot { api.isLegacyGroupKeyMessage(it) }
                 .reversed()
+            fetched.minWithOrNull(compareBy<FfiMessage> { it.createdAt }.thenBy { it.messageId })?.let {
+                oldestCursor = it.createdAt.toLong() to it.messageId
+            }
+            hasOlderMessages = fetched.size == 50
         } catch (_: Exception) {
             // mantém a lista atual; o safety net tentará de novo
         }

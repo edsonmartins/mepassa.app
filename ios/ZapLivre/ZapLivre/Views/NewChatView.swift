@@ -9,6 +9,13 @@
 import SwiftUI
 
 struct NewChatView: View {
+    private struct ContactQRCode: Decodable {
+        let v: Int
+        let peerId: String
+        let multiaddr: String
+        let prekeyBundle: String?
+    }
+
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var appState: AppState
     @State private var peerId = ""
@@ -17,8 +24,44 @@ struct NewChatView: View {
     @State private var isStartingChat = false
     @State private var errorMessage: String?
 
-    /// Parse QR data in format "peerId@multiaddr" or just "peerId"
-    private func parseQRData(_ data: String) {
+    /// Formato atual: JSON versionado com material público de contato.
+    /// Mantém compatibilidade com os QRs antigos `peerId@multiaddr`.
+    @discardableResult
+    private func parseQRData(_ data: String) -> Bool {
+        if data.first == "{" {
+            do {
+                let qr = try JSONDecoder().decode(ContactQRCode.self, from: Data(data.utf8))
+                guard qr.v == 1,
+                      qr.peerId.starts(with: "12D3KooW") || qr.peerId.starts(with: "Qm"),
+                      qr.multiaddr.starts(with: "/ip4/") || qr.multiaddr.starts(with: "/ip6/")
+                else {
+                    throw QRCodeError.invalidPayload
+                }
+
+                // O core normaliza a estrutura; a assinatura da signed prekey
+                // é verificada pela implementação Signal ao criar a sessão.
+                // New invitation QR codes contain only peer/address. Public
+                // prekeys are exchanged automatically after authenticated P2P
+                // connection; accept the legacy embedded bundle for backward
+                // compatibility.
+                if let bundle = qr.prekeyBundle {
+                    try ZapLivreCore.shared.storePeerPrekeyBundle(
+                        peerId: qr.peerId,
+                        bundleJson: bundle
+                    )
+                }
+                peerId = qr.peerId
+                multiaddr = qr.multiaddr
+                UserDefaults.standard.set(qr.multiaddr, forKey: "zaplivre.multiaddr.\(qr.peerId)")
+                print("📱 Imported secure QR for peerId=\(peerId), multiaddr=\(qr.multiaddr)")
+                return true
+            } catch {
+                errorMessage = "QR de contato inválido ou com prekeys incompatíveis"
+                print("❌ Invalid secure contact QR: \(error)")
+                return false
+            }
+        }
+
         if data.contains("@") {
             let parts = data.split(separator: "@", maxSplits: 1)
             if parts.count == 2 {
@@ -28,13 +71,14 @@ struct NewChatView: View {
                     UserDefaults.standard.set(addr, forKey: "zaplivre.multiaddr.\(peerId)")
                 }
                 print("📱 Parsed QR: peerId=\(peerId), multiaddr=\(multiaddr ?? "nil")")
-                return
+                return true
             }
         }
         // Fallback: just peer ID
         peerId = data
         multiaddr = nil
         print("📱 Parsed QR: peerId=\(peerId) (no address)")
+        return true
     }
 
     var body: some View {
@@ -129,11 +173,13 @@ struct NewChatView: View {
             .sheet(isPresented: $showingQRScanner) {
                 QRScannerView { scannedData in
                     // Parse QR data: format is "peerId@multiaddr" or just "peerId"
-                    parseQRData(scannedData)
+                    let parsed = parseQRData(scannedData)
                     showingQRScanner = false
                     // Automatically start chat after scanning
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        startChat()
+                    if parsed {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            startChat()
+                        }
                     }
                 }
             }
@@ -165,19 +211,12 @@ struct NewChatView: View {
                     try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
                 }
 
-                // Send a test message to establish conversation
-                let testMessage = "👋 Olá! Conectado via QR Code"
-
-                try await ZapLivreCore.shared.sendMessage(
-                    to: peerId,
-                    content: testMessage
-                )
-
-                print("✅ Chat initiated with peer: \(peerId)")
-
-                // Navigate to conversations list (it will show the new chat)
+                // Scanning a contact must not depend on the offline message store.
+                // Open a transient conversation immediately; the first real
+                // message or call will establish/dial the P2P connection.
                 await MainActor.run {
                     isStartingChat = false
+                    appState.openConversation(peerId: peerId)
                     dismiss()
                 }
             } catch {
@@ -189,6 +228,10 @@ struct NewChatView: View {
             }
         }
     }
+}
+
+private enum QRCodeError: Error {
+    case invalidPayload
 }
 
 #Preview {

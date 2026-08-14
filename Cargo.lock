@@ -9309,6 +9309,7 @@ dependencies = [
  "chrono",
  "dotenvy",
  "ed25519-dalek",
+ "hex",
  "http-body-util",
  "rand 0.8.6",
  "redis 0.26.1",

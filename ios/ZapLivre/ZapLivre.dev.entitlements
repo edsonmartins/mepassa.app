@@ -6,7 +6,7 @@
 	<string>development</string>
 	<key>keychain-access-groups</key>
 	<array>
-		<string>app.zaplivre.ios</string>
+		<string>$(AppIdentifierPrefix)app.zaplivre.ios</string>
 	</array>
 </dict>
 </plist>

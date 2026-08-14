@@ -73,6 +73,37 @@ pub struct Client {
 }
 
 impl Client {
+    /// Stable, human-comparable fingerprint for this device identity.
+    pub async fn identity_fingerprint(&self) -> String {
+        let identity = self.identity.read().await;
+        format_identity_fingerprint(&identity.keypair().public_key_bytes())
+    }
+
+    /// Fingerprint of a contact's authenticated Ed25519 identity key.
+    pub fn contact_identity_fingerprint(&self, peer_id: &str) -> Result<String> {
+        let contact = self
+            .database
+            .get_contact_by_peer_id(peer_id)
+            .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
+        if contact.public_key.is_empty() {
+            return Err(ZapLivreError::Identity("Contact identity key is unavailable".to_string()));
+        }
+        Ok(format_identity_fingerprint(&contact.public_key))
+    }
+
+    /// Fetch the server's inclusion proof for a contact's identity key.
+    pub async fn contact_transparency_proof(&self, peer_id: &str) -> Result<String> {
+        let base_url = self.identity_server_url.as_deref().ok_or_else(|| {
+            ZapLivreError::Network("Identity server is not configured".to_string())
+        })?;
+        let client = crate::identity_client::IdentityClient::new(base_url)
+            .map_err(|e| ZapLivreError::Network(e.to_string()))?;
+        let proof = client
+            .transparency_proof(peer_id)
+            .await
+            .map_err(|e| ZapLivreError::Network(e.to_string()))?;
+        serde_json::to_string(&proof).map_err(|e| ZapLivreError::Network(e.to_string()))
+    }
     /// Create a new client (use ClientBuilder instead)
     #[allow(clippy::too_many_arguments)] // builder interno; refactor arriscado agora
     pub(crate) fn new(
@@ -561,10 +592,10 @@ impl Client {
             .as_ref()
             .and_then(|value| value.prekey_bundle_json.clone())
             .is_some();
-        let has_username = contact
-            .and_then(|value| value.username)
-            .is_some();
-        if has_bundle && has_username {
+        // A bundle imported from a contact QR is sufficient to establish the
+        // encrypted session. Username is optional display metadata and must
+        // never force an Identity Server lookup (or block offline/P2P sends).
+        if has_bundle {
             return Ok(());
         }
 
@@ -744,18 +775,15 @@ impl Client {
             });
         }
 
-        if self.message_store_url.is_some()
+        // Keep a local retry entry even when store-and-forward accepts the
+        // message. The direct P2P path must be retried as soon as the
+        // authenticated connection comes up; otherwise the UI remains stuck
+        // at "pending" until the peer sends something back.
+        let stored = self.message_store_url.is_some()
             && self
                 .store_offline_message(proto_message, message_type)
                 .await
-                .is_ok()
-        {
-            return Ok(DeliveryOutcome {
-                sent: false,
-                stored: true,
-                queued: false,
-            });
-        }
+                .is_ok();
 
         // Peer offline e sem store (ou store falhou): persistir na fila local de
         // retry em vez de descartar a mensagem. O worker (builder) drena com backoff.
@@ -773,7 +801,7 @@ impl Client {
         ) {
             Ok(()) => Ok(DeliveryOutcome {
                 sent: false,
-                stored: false,
+                stored,
                 queued: true,
             }),
             Err(e) => Err(ZapLivreError::Network(format!(
@@ -1735,6 +1763,32 @@ impl Client {
         Ok(messages)
     }
 
+    pub fn get_conversation_messages_before(
+        &self,
+        peer_id: &str,
+        limit: Option<usize>,
+        before_created_at: Option<i64>,
+        before_message_id: Option<&str>,
+    ) -> Result<Vec<crate::storage::Message>> {
+        let conversation_id = format!("1:1:{}", peer_id);
+        let mut messages = self.database.get_conversation_messages_before(
+            &conversation_id,
+            limit,
+            before_created_at,
+            before_message_id,
+        ).map_err(|e| ZapLivreError::Storage(e.to_string()))?;
+        for message in &mut messages {
+            if message.content_plaintext.is_none() {
+                if let Some(ref encrypted) = message.content_encrypted {
+                    if let Ok(plaintext) = self.decrypt_for_storage(encrypted) {
+                        message.content_plaintext = Some(plaintext);
+                    }
+                }
+            }
+        }
+        Ok(messages)
+    }
+
     // ═════════════════════════════════════════════════════════════════════
     // Message Actions (Delete & Forward)
     // ═════════════════════════════════════════════════════════════════════
@@ -2031,6 +2085,36 @@ impl Client {
     }
 
     #[cfg(feature = "voip")]
+    pub async fn send_webrtc_offer(&self, call_id: String, sdp: String) -> Result<()> {
+        self.voip_integration
+            .send_webrtc_offer(call_id, sdp)
+            .await
+            .map_err(|e| ZapLivreError::Other(format!("WebRTC signaling error: {}", e)))
+    }
+
+    #[cfg(feature = "voip")]
+    pub async fn send_webrtc_answer(&self, call_id: String, sdp: String) -> Result<()> {
+        self.voip_integration
+            .send_webrtc_answer(call_id, sdp)
+            .await
+            .map_err(|e| ZapLivreError::Other(format!("WebRTC signaling error: {}", e)))
+    }
+
+    #[cfg(feature = "voip")]
+    pub async fn send_webrtc_ice_candidate(
+        &self,
+        call_id: String,
+        candidate: String,
+        sdp_mid: Option<String>,
+        sdp_m_line_index: Option<u16>,
+    ) -> Result<()> {
+        self.voip_integration
+            .send_webrtc_ice_candidate(call_id, candidate, sdp_mid, sdp_m_line_index)
+            .await
+            .map_err(|e| ZapLivreError::Other(format!("WebRTC signaling error: {}", e)))
+    }
+
+    #[cfg(feature = "voip")]
     /// Reject an incoming call
     pub async fn reject_call(&self, call_id: String, reason: Option<String>) -> Result<()> {
         self.voip_integration
@@ -2184,6 +2268,16 @@ impl Client {
     ) {
         self.voip_integration
             .register_call_event_callback(callback)
+            .await;
+    }
+
+    #[cfg(any(feature = "voip", feature = "video"))]
+    pub async fn register_webrtc_signaling_callback(
+        &self,
+        callback: Box<dyn crate::FfiWebRtcSignalingCallback>,
+    ) {
+        self.voip_integration
+            .register_webrtc_signaling_callback(callback)
             .await;
     }
 
@@ -2800,6 +2894,37 @@ impl Client {
     /// Get a clone of the network Arc for spawning the event loop
     pub fn network_arc(&self) -> Arc<RwLock<NetworkManager>> {
         Arc::clone(&self.network)
+    }
+}
+
+/// SHA-256 fingerprint formatted in groups for visual/voice comparison.
+pub fn format_identity_fingerprint(public_key: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(b"zaplivre-identity-fingerprint-v1\0");
+    hasher.update(public_key);
+    let hex = hex::encode_upper(hasher.finalize());
+    hex.as_bytes()
+        .chunks(4)
+        .map(|chunk| std::str::from_utf8(chunk).unwrap_or("").to_string())
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+#[cfg(test)]
+mod identity_fingerprint_tests {
+    use super::format_identity_fingerprint;
+
+    #[test]
+    fn fingerprint_is_stable_and_grouped() {
+        let first = format_identity_fingerprint(&[7u8; 32]);
+        assert_eq!(first, format_identity_fingerprint(&[7u8; 32]));
+        assert_eq!(first.split_whitespace().count(), 16);
+        assert!(first.split_whitespace().all(|group| group.len() == 4));
+    }
+
+    #[test]
+    fn different_keys_have_different_fingerprints() {
+        assert_ne!(format_identity_fingerprint(&[1u8; 32]), format_identity_fingerprint(&[2u8; 32]));
     }
 }
 

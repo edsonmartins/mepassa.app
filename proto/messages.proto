@@ -34,6 +34,7 @@ message Message {
     MediaOffer media_offer = 15;
     MediaRequest media_request = 16;
     MediaChunk media_chunk = 17;
+    PreKeyBundleSync prekey_bundle_sync = 18;
   }
 }
 
@@ -48,6 +49,14 @@ enum MessageType {
   MESSAGE_TYPE_MEDIA_OFFER = 6;
   MESSAGE_TYPE_MEDIA_REQUEST = 7;
   MESSAGE_TYPE_MEDIA_CHUNK = 8;
+  MESSAGE_TYPE_PREKEY_BUNDLE_SYNC = 9;
+}
+
+// Public Signal prekeys exchanged automatically after the authenticated P2P
+// connection is established. This is control metadata and is never shown in
+// the conversation UI.
+message PreKeyBundleSync {
+  string bundle_json = 1;
 }
 
 // Text message

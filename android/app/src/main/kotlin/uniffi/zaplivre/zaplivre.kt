@@ -653,6 +653,15 @@ internal interface UniffiCallbackInterfaceFfiVoipEventCallbackMethod1 : com.sun.
 internal interface UniffiCallbackInterfaceFfiVoipEventCallbackMethod2 : com.sun.jna.Callback {
     fun callback(`uniffiHandle`: Long,`callId`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
 }
+internal interface UniffiCallbackInterfaceFfiWebRtcSignalingCallbackMethod0 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`callId`: RustBuffer.ByValue,`sdp`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+internal interface UniffiCallbackInterfaceFfiWebRtcSignalingCallbackMethod1 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`callId`: RustBuffer.ByValue,`sdp`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+internal interface UniffiCallbackInterfaceFfiWebRtcSignalingCallbackMethod2 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`callId`: RustBuffer.ByValue,`candidate`: RustBuffer.ByValue,`sdpMid`: RustBuffer.ByValue,`sdpMLineIndex`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
+}
 @Structure.FieldOrder("uniffiFree", "uniffiClone", "onAudioFrame")
 internal open class UniffiVTableCallbackInterfaceFfiAudioFrameCallback(
     @JvmField internal var `uniffiFree`: UniffiCallbackInterfaceFree? = null,
@@ -766,6 +775,31 @@ internal open class UniffiVTableCallbackInterfaceFfiVoipEventCallback(
     }
 
 }
+@Structure.FieldOrder("uniffiFree", "uniffiClone", "onOffer", "onAnswer", "onIceCandidate")
+internal open class UniffiVTableCallbackInterfaceFfiWebRtcSignalingCallback(
+    @JvmField internal var `uniffiFree`: UniffiCallbackInterfaceFree? = null,
+    @JvmField internal var `uniffiClone`: UniffiCallbackInterfaceClone? = null,
+    @JvmField internal var `onOffer`: UniffiCallbackInterfaceFfiWebRtcSignalingCallbackMethod0? = null,
+    @JvmField internal var `onAnswer`: UniffiCallbackInterfaceFfiWebRtcSignalingCallbackMethod1? = null,
+    @JvmField internal var `onIceCandidate`: UniffiCallbackInterfaceFfiWebRtcSignalingCallbackMethod2? = null,
+) : Structure() {
+    class UniffiByValue(
+        `uniffiFree`: UniffiCallbackInterfaceFree? = null,
+        `uniffiClone`: UniffiCallbackInterfaceClone? = null,
+        `onOffer`: UniffiCallbackInterfaceFfiWebRtcSignalingCallbackMethod0? = null,
+        `onAnswer`: UniffiCallbackInterfaceFfiWebRtcSignalingCallbackMethod1? = null,
+        `onIceCandidate`: UniffiCallbackInterfaceFfiWebRtcSignalingCallbackMethod2? = null,
+    ): UniffiVTableCallbackInterfaceFfiWebRtcSignalingCallback(`uniffiFree`,`uniffiClone`,`onOffer`,`onAnswer`,`onIceCandidate`,), Structure.ByValue
+
+   internal fun uniffiSetValue(other: UniffiVTableCallbackInterfaceFfiWebRtcSignalingCallback) {
+        `uniffiFree` = other.`uniffiFree`
+        `uniffiClone` = other.`uniffiClone`
+        `onOffer` = other.`onOffer`
+        `onAnswer` = other.`onAnswer`
+        `onIceCandidate` = other.`onIceCandidate`
+    }
+
+}
 
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
@@ -803,6 +837,10 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_connected_peers_count(
     ): Int
+    external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_contact_identity_fingerprint(
+    ): Int
+    external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_contact_transparency_proof(
+    ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_create_group(
     ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_delete_message(
@@ -819,6 +857,8 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_get_conversation_messages(
     ): Int
+    external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_get_conversation_messages_before(
+    ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_get_group_members(
     ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_get_group_messages(
@@ -834,6 +874,8 @@ internal object IntegrityCheckingUniffiLib {
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_get_prekey_bundle_json(
     ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_hangup_call(
+    ): Int
+    external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_identity_fingerprint(
     ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_join_group(
     ): Int
@@ -863,6 +905,8 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_register_voip_event_callback(
     ): Int
+    external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_register_webrtc_signaling_callback(
+    ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_reject_call(
     ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_remove_group_member(
@@ -886,6 +930,12 @@ internal object IntegrityCheckingUniffiLib {
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_send_video_message(
     ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_send_voice_message(
+    ): Int
+    external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_send_webrtc_answer(
+    ): Int
+    external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_send_webrtc_ice_candidate(
+    ): Int
+    external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_send_webrtc_offer(
     ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_set_contact_prekey_bundle(
     ): Int
@@ -925,6 +975,12 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_zaplivre_core_checksum_method_ffivoipeventcallback_on_camera_switch_requested(
     ): Int
+    external fun uniffi_zaplivre_core_checksum_method_ffiwebrtcsignalingcallback_on_offer(
+    ): Int
+    external fun uniffi_zaplivre_core_checksum_method_ffiwebrtcsignalingcallback_on_answer(
+    ): Int
+    external fun uniffi_zaplivre_core_checksum_method_ffiwebrtcsignalingcallback_on_ice_candidate(
+    ): Int
     external fun ffi_zaplivre_core_uniffi_contract_version(
     ): Int
 
@@ -946,6 +1002,7 @@ internal object UniffiLib {
         uniffiCallbackInterfaceFfiMessageEventCallback.register(this)
         uniffiCallbackInterfaceFfiVideoFrameCallback.register(this)
         uniffiCallbackInterfaceFfiVoipEventCallback.register(this)
+        uniffiCallbackInterfaceFfiWebRtcSignalingCallback.register(this)
         
     }
     external fun uniffi_zaplivre_core_fn_clone_zaplivreclient(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
@@ -968,6 +1025,10 @@ external fun uniffi_zaplivre_core_fn_method_zaplivreclient_connect_to_peer(`ptr`
 ): Long
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_connected_peers_count(`ptr`: Long,
 ): Long
+external fun uniffi_zaplivre_core_fn_method_zaplivreclient_contact_identity_fingerprint(`ptr`: Long,`peerId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_zaplivre_core_fn_method_zaplivreclient_contact_transparency_proof(`ptr`: Long,`peerId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_create_group(`ptr`: Long,`name`: RustBuffer.ByValue,`description`: RustBuffer.ByValue,
 ): Long
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_delete_message(`ptr`: Long,`messageId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -983,6 +1044,8 @@ external fun uniffi_zaplivre_core_fn_method_zaplivreclient_forward_message(`ptr`
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_get_conversation_media(`ptr`: Long,`conversationId`: RustBuffer.ByValue,`mediaType`: RustBuffer.ByValue,`limit`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_get_conversation_messages(`ptr`: Long,`peerId`: RustBuffer.ByValue,`limit`: RustBuffer.ByValue,`offset`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+external fun uniffi_zaplivre_core_fn_method_zaplivreclient_get_conversation_messages_before(`ptr`: Long,`peerId`: RustBuffer.ByValue,`limit`: RustBuffer.ByValue,`beforeCreatedAt`: RustBuffer.ByValue,`beforeMessageId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_get_group_members(`ptr`: Long,`groupId`: RustBuffer.ByValue,
 ): Long
@@ -1000,6 +1063,8 @@ external fun uniffi_zaplivre_core_fn_method_zaplivreclient_get_prekey_bundle_jso
 ): Long
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_hangup_call(`ptr`: Long,`callId`: RustBuffer.ByValue,
 ): Long
+external fun uniffi_zaplivre_core_fn_method_zaplivreclient_identity_fingerprint(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_join_group(`ptr`: Long,`groupId`: RustBuffer.ByValue,`groupName`: RustBuffer.ByValue,
 ): Long
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_leave_group(`ptr`: Long,`groupId`: RustBuffer.ByValue,
@@ -1028,6 +1093,8 @@ external fun uniffi_zaplivre_core_fn_method_zaplivreclient_register_video_frame_
 ): Unit
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_register_voip_event_callback(`ptr`: Long,`callback`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): Unit
+external fun uniffi_zaplivre_core_fn_method_zaplivreclient_register_webrtc_signaling_callback(`ptr`: Long,`callback`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Unit
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_reject_call(`ptr`: Long,`callId`: RustBuffer.ByValue,`reason`: RustBuffer.ByValue,
 ): Long
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_remove_group_member(`ptr`: Long,`groupId`: RustBuffer.ByValue,`peerId`: RustBuffer.ByValue,
@@ -1052,6 +1119,12 @@ external fun uniffi_zaplivre_core_fn_method_zaplivreclient_send_video_message(`p
 ): Long
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_send_voice_message(`ptr`: Long,`toPeerId`: RustBuffer.ByValue,`audioData`: RustBuffer.ByValue,`fileName`: RustBuffer.ByValue,`durationSeconds`: Int,
 ): Long
+external fun uniffi_zaplivre_core_fn_method_zaplivreclient_send_webrtc_answer(`ptr`: Long,`callId`: RustBuffer.ByValue,`sdp`: RustBuffer.ByValue,
+): Long
+external fun uniffi_zaplivre_core_fn_method_zaplivreclient_send_webrtc_ice_candidate(`ptr`: Long,`callId`: RustBuffer.ByValue,`candidate`: RustBuffer.ByValue,`sdpMid`: RustBuffer.ByValue,`sdpMLineIndex`: RustBuffer.ByValue,
+): Long
+external fun uniffi_zaplivre_core_fn_method_zaplivreclient_send_webrtc_offer(`ptr`: Long,`callId`: RustBuffer.ByValue,`sdp`: RustBuffer.ByValue,
+): Long
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_set_contact_prekey_bundle(`ptr`: Long,`peerId`: RustBuffer.ByValue,`prekeyBundleJson`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
 ): Unit
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_sign_auth_request(`ptr`: Long,`method`: RustBuffer.ByValue,`path`: RustBuffer.ByValue,`timestamp`: Long,`body`: RustBuffer.ByValue,
@@ -1075,6 +1148,8 @@ external fun uniffi_zaplivre_core_fn_init_callback_vtable_ffimessageeventcallbac
 external fun uniffi_zaplivre_core_fn_init_callback_vtable_ffivideoframecallback(`vtable`: UniffiVTableCallbackInterfaceFfiVideoFrameCallback,
 ): Unit
 external fun uniffi_zaplivre_core_fn_init_callback_vtable_ffivoipeventcallback(`vtable`: UniffiVTableCallbackInterfaceFfiVoipEventCallback,
+): Unit
+external fun uniffi_zaplivre_core_fn_init_callback_vtable_ffiwebrtcsignalingcallback(`vtable`: UniffiVTableCallbackInterfaceFfiWebRtcSignalingCallback,
 ): Unit
 external fun ffi_zaplivre_core_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
@@ -1216,6 +1291,12 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_connected_peers_count() != 15081) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_contact_identity_fingerprint() != 33518) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_contact_transparency_proof() != 25511) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_create_group() != 64155) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1240,6 +1321,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_get_conversation_messages() != 35816) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_get_conversation_messages_before() != 61924) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_get_group_members() != 6722) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1262,6 +1346,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_hangup_call() != 18803) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_identity_fingerprint() != 44568) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_join_group() != 61849) {
@@ -1306,6 +1393,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_register_voip_event_callback() != 38917) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_register_webrtc_signaling_callback() != 19409) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_reject_call() != 49457) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1340,6 +1430,15 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_send_voice_message() != 12496) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_send_webrtc_answer() != 11808) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_send_webrtc_ice_candidate() != 16338) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_send_webrtc_offer() != 7655) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_set_contact_prekey_bundle() != 40860) {
@@ -1397,6 +1496,15 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_zaplivre_core_checksum_method_ffivoipeventcallback_on_camera_switch_requested() != 7743) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_zaplivre_core_checksum_method_ffiwebrtcsignalingcallback_on_offer() != 55769) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_zaplivre_core_checksum_method_ffiwebrtcsignalingcallback_on_answer() != 25843) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_zaplivre_core_checksum_method_ffiwebrtcsignalingcallback_on_ice_candidate() != 25582) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
 }
@@ -1651,6 +1759,33 @@ public object FfiConverterUByte: FfiConverter<UByte, Byte> {
 
     override fun write(value: UByte, buf: ByteBuffer) {
         buf.put(value.toByte())
+    }
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterUShort: FfiConverter<UShort, Short> {
+    override fun lift(value: Short): UShort {
+        return value.toUShort()
+    }
+
+    fun lift(value: Int): UShort {
+        return value.toUShort()
+    }
+
+    override fun read(buf: ByteBuffer): UShort {
+        return lift(buf.getShort())
+    }
+
+    override fun lower(value: UShort): Short {
+        return value.toShort()
+    }
+
+    override fun allocationSize(value: UShort) = 2UL
+
+    override fun write(value: UShort, buf: ByteBuffer) {
+        buf.putShort(value.toShort())
     }
 }
 
@@ -1938,6 +2073,10 @@ public interface ZapLivreClientInterface {
     
     suspend fun `connectedPeersCount`(): kotlin.UInt
     
+    fun `contactIdentityFingerprint`(`peerId`: kotlin.String): kotlin.String
+    
+    fun `contactTransparencyProof`(`peerId`: kotlin.String): kotlin.String
+    
     suspend fun `createGroup`(`name`: kotlin.String, `description`: kotlin.String?): FfiGroup
     
     fun `deleteMessage`(`messageId`: kotlin.String)
@@ -1954,6 +2093,8 @@ public interface ZapLivreClientInterface {
     
     fun `getConversationMessages`(`peerId`: kotlin.String, `limit`: kotlin.UInt?, `offset`: kotlin.UInt?): List<FfiMessage>
     
+    fun `getConversationMessagesBefore`(`peerId`: kotlin.String, `limit`: kotlin.UInt?, `beforeCreatedAt`: kotlin.Long?, `beforeMessageId`: kotlin.String?): List<FfiMessage>
+    
     suspend fun `getGroupMembers`(`groupId`: kotlin.String): List<kotlin.String>
     
     fun `getGroupMessages`(`groupId`: kotlin.String, `limit`: kotlin.UInt?, `offset`: kotlin.UInt?): List<FfiMessage>
@@ -1969,6 +2110,8 @@ public interface ZapLivreClientInterface {
     suspend fun `getPrekeyBundleJson`(): kotlin.String
     
     suspend fun `hangupCall`(`callId`: kotlin.String)
+    
+    fun `identityFingerprint`(): kotlin.String
     
     suspend fun `joinGroup`(`groupId`: kotlin.String, `groupName`: kotlin.String)
     
@@ -1998,6 +2141,8 @@ public interface ZapLivreClientInterface {
     
     fun `registerVoipEventCallback`(`callback`: FfiVoipEventCallback)
     
+    fun `registerWebrtcSignalingCallback`(`callback`: FfiWebRtcSignalingCallback)
+    
     suspend fun `rejectCall`(`callId`: kotlin.String, `reason`: kotlin.String?)
     
     suspend fun `removeGroupMember`(`groupId`: kotlin.String, `peerId`: kotlin.String)
@@ -2021,6 +2166,12 @@ public interface ZapLivreClientInterface {
     suspend fun `sendVideoMessage`(`toPeerId`: kotlin.String, `videoData`: List<kotlin.UByte>, `fileName`: kotlin.String, `width`: kotlin.Int?, `height`: kotlin.Int?, `durationSeconds`: kotlin.Int, `thumbnailData`: List<kotlin.UByte>?): kotlin.String
     
     suspend fun `sendVoiceMessage`(`toPeerId`: kotlin.String, `audioData`: List<kotlin.UByte>, `fileName`: kotlin.String, `durationSeconds`: kotlin.Int): kotlin.String
+    
+    suspend fun `sendWebrtcAnswer`(`callId`: kotlin.String, `sdp`: kotlin.String)
+    
+    suspend fun `sendWebrtcIceCandidate`(`callId`: kotlin.String, `candidate`: kotlin.String, `sdpMid`: kotlin.String?, `sdpMLineIndex`: kotlin.UShort?)
+    
+    suspend fun `sendWebrtcOffer`(`callId`: kotlin.String, `sdp`: kotlin.String)
     
     fun `setContactPrekeyBundle`(`peerId`: kotlin.String, `prekeyBundleJson`: kotlin.String)
     
@@ -2288,6 +2439,34 @@ open class ZapLivreClient: Disposable, AutoCloseable, ZapLivreClientInterface
     }
 
     
+    @Throws(ZapLivreFfiException::class)override fun `contactIdentityFingerprint`(`peerId`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    callWithHandle {
+    uniffiRustCallWithError(ZapLivreFfiException) { _status ->
+    UniffiLib.uniffi_zaplivre_core_fn_method_zaplivreclient_contact_identity_fingerprint(
+        it,
+        FfiConverterString.lower(`peerId`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    @Throws(ZapLivreFfiException::class)override fun `contactTransparencyProof`(`peerId`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    callWithHandle {
+    uniffiRustCallWithError(ZapLivreFfiException) { _status ->
+    UniffiLib.uniffi_zaplivre_core_fn_method_zaplivreclient_contact_transparency_proof(
+        it,
+        FfiConverterString.lower(`peerId`),_status)
+}
+    }
+    )
+    }
+    
+
+    
     @Throws(ZapLivreFfiException::class)
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
     override suspend fun `createGroup`(`name`: kotlin.String, `description`: kotlin.String?) : FfiGroup {
@@ -2429,6 +2608,20 @@ open class ZapLivreClient: Disposable, AutoCloseable, ZapLivreClientInterface
     UniffiLib.uniffi_zaplivre_core_fn_method_zaplivreclient_get_conversation_messages(
         it,
         FfiConverterString.lower(`peerId`),FfiConverterOptionalUInt.lower(`limit`),FfiConverterOptionalUInt.lower(`offset`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    @Throws(ZapLivreFfiException::class)override fun `getConversationMessagesBefore`(`peerId`: kotlin.String, `limit`: kotlin.UInt?, `beforeCreatedAt`: kotlin.Long?, `beforeMessageId`: kotlin.String?): List<FfiMessage> {
+            return FfiConverterSequenceTypeFfiMessage.lift(
+    callWithHandle {
+    uniffiRustCallWithError(ZapLivreFfiException) { _status ->
+    UniffiLib.uniffi_zaplivre_core_fn_method_zaplivreclient_get_conversation_messages_before(
+        it,
+        FfiConverterString.lower(`peerId`),FfiConverterOptionalUInt.lower(`limit`),FfiConverterOptionalLong.lower(`beforeCreatedAt`),FfiConverterOptionalString.lower(`beforeMessageId`),_status)
 }
     }
     )
@@ -2582,6 +2775,20 @@ open class ZapLivreClient: Disposable, AutoCloseable, ZapLivreClientInterface
         ZapLivreFfiException.ErrorHandler,
     )
     }
+
+    
+    @Throws(ZapLivreFfiException::class)override fun `identityFingerprint`(): kotlin.String {
+            return FfiConverterString.lift(
+    callWithHandle {
+    uniffiRustCallWithError(ZapLivreFfiException) { _status ->
+    UniffiLib.uniffi_zaplivre_core_fn_method_zaplivreclient_identity_fingerprint(
+        it,
+        _status)
+}
+    }
+    )
+    }
+    
 
     
     @Throws(ZapLivreFfiException::class)
@@ -2813,6 +3020,19 @@ open class ZapLivreClient: Disposable, AutoCloseable, ZapLivreClientInterface
     UniffiLib.uniffi_zaplivre_core_fn_method_zaplivreclient_register_voip_event_callback(
         it,
         FfiConverterTypeFfiVoipEventCallback.lower(`callback`),_status)
+}
+    }
+    
+    
+
+    
+    @Throws(ZapLivreFfiException::class)override fun `registerWebrtcSignalingCallback`(`callback`: FfiWebRtcSignalingCallback)
+        = 
+    callWithHandle {
+    uniffiRustCallWithError(ZapLivreFfiException) { _status ->
+    UniffiLib.uniffi_zaplivre_core_fn_method_zaplivreclient_register_webrtc_signaling_callback(
+        it,
+        FfiConverterTypeFfiWebRtcSignalingCallback.lower(`callback`),_status)
 }
     }
     
@@ -3054,6 +3274,72 @@ open class ZapLivreClient: Disposable, AutoCloseable, ZapLivreClientInterface
         { future -> UniffiLib.ffi_zaplivre_core_rust_future_free_rust_buffer(future) },
         // lift function
         { FfiConverterString.lift(it) },
+        // Error FFI converter
+        ZapLivreFfiException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(ZapLivreFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `sendWebrtcAnswer`(`callId`: kotlin.String, `sdp`: kotlin.String) {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_zaplivre_core_fn_method_zaplivreclient_send_webrtc_answer(
+                uniffiHandle,
+                FfiConverterString.lower(`callId`),FfiConverterString.lower(`sdp`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_zaplivre_core_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_zaplivre_core_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.ffi_zaplivre_core_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+        
+        // Error FFI converter
+        ZapLivreFfiException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(ZapLivreFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `sendWebrtcIceCandidate`(`callId`: kotlin.String, `candidate`: kotlin.String, `sdpMid`: kotlin.String?, `sdpMLineIndex`: kotlin.UShort?) {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_zaplivre_core_fn_method_zaplivreclient_send_webrtc_ice_candidate(
+                uniffiHandle,
+                FfiConverterString.lower(`callId`),FfiConverterString.lower(`candidate`),FfiConverterOptionalString.lower(`sdpMid`),FfiConverterOptionalUShort.lower(`sdpMLineIndex`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_zaplivre_core_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_zaplivre_core_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.ffi_zaplivre_core_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+        
+        // Error FFI converter
+        ZapLivreFfiException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(ZapLivreFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `sendWebrtcOffer`(`callId`: kotlin.String, `sdp`: kotlin.String) {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_zaplivre_core_fn_method_zaplivreclient_send_webrtc_offer(
+                uniffiHandle,
+                FfiConverterString.lower(`callId`),FfiConverterString.lower(`sdp`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_zaplivre_core_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_zaplivre_core_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.ffi_zaplivre_core_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+        
         // Error FFI converter
         ZapLivreFfiException.ErrorHandler,
     )
@@ -4704,6 +4990,133 @@ internal object uniffiCallbackInterfaceFfiVoipEventCallback {
  * @suppress
  */
 public object FfiConverterTypeFfiVoipEventCallback: FfiConverterCallbackInterface<FfiVoipEventCallback>()
+
+
+
+
+
+public interface FfiWebRtcSignalingCallback {
+    
+    fun `onOffer`(`callId`: kotlin.String, `sdp`: kotlin.String)
+    
+    fun `onAnswer`(`callId`: kotlin.String, `sdp`: kotlin.String)
+    
+    fun `onIceCandidate`(`callId`: kotlin.String, `candidate`: kotlin.String, `sdpMid`: kotlin.String?, `sdpMLineIndex`: kotlin.UShort?)
+    
+    companion object
+}
+
+
+
+// Put the implementation in an object so we don't pollute the top-level namespace
+internal object uniffiCallbackInterfaceFfiWebRtcSignalingCallback {
+    internal object `onOffer`: UniffiCallbackInterfaceFfiWebRtcSignalingCallbackMethod0 {
+        override fun callback(`uniffiHandle`: Long,`callId`: RustBuffer.ByValue,`sdp`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeFfiWebRtcSignalingCallback.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`onOffer`(
+                    FfiConverterString.lift(`callId`),
+                    FfiConverterString.lift(`sdp`),
+                )
+            }
+            val writeReturn = { _: Unit -> Unit }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+    internal object `onAnswer`: UniffiCallbackInterfaceFfiWebRtcSignalingCallbackMethod1 {
+        override fun callback(`uniffiHandle`: Long,`callId`: RustBuffer.ByValue,`sdp`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeFfiWebRtcSignalingCallback.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`onAnswer`(
+                    FfiConverterString.lift(`callId`),
+                    FfiConverterString.lift(`sdp`),
+                )
+            }
+            val writeReturn = { _: Unit -> Unit }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+    internal object `onIceCandidate`: UniffiCallbackInterfaceFfiWebRtcSignalingCallbackMethod2 {
+        override fun callback(`uniffiHandle`: Long,`callId`: RustBuffer.ByValue,`candidate`: RustBuffer.ByValue,`sdpMid`: RustBuffer.ByValue,`sdpMLineIndex`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeFfiWebRtcSignalingCallback.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`onIceCandidate`(
+                    FfiConverterString.lift(`callId`),
+                    FfiConverterString.lift(`candidate`),
+                    FfiConverterOptionalString.lift(`sdpMid`),
+                    FfiConverterOptionalUShort.lift(`sdpMLineIndex`),
+                )
+            }
+            val writeReturn = { _: Unit -> Unit }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+
+    internal object uniffiFree: UniffiCallbackInterfaceFree {
+        override fun callback(handle: Long) {
+            FfiConverterTypeFfiWebRtcSignalingCallback.handleMap.remove(handle)
+        }
+    }
+
+    internal object uniffiClone: UniffiCallbackInterfaceClone {
+        override fun callback(handle: Long): Long {
+            return FfiConverterTypeFfiWebRtcSignalingCallback.handleMap.clone(handle)
+        }
+    }
+
+    internal var vtable = UniffiVTableCallbackInterfaceFfiWebRtcSignalingCallback.UniffiByValue(
+        uniffiFree,
+        uniffiClone,
+        `onOffer`,
+        `onAnswer`,
+        `onIceCandidate`,
+    )
+
+    // Registers the foreign callback with the Rust side.
+    // This method is generated for each callback interface.
+    internal fun register(lib: UniffiLib) {
+        lib.uniffi_zaplivre_core_fn_init_callback_vtable_ffiwebrtcsignalingcallback(vtable)
+    }
+}
+
+/**
+ * The ffiConverter which transforms the Callbacks in to handles to pass to Rust.
+ *
+ * @suppress
+ */
+public object FfiConverterTypeFfiWebRtcSignalingCallback: FfiConverterCallbackInterface<FfiWebRtcSignalingCallback>()
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterOptionalUShort: FfiConverterRustBuffer<kotlin.UShort?> {
+    override fun read(buf: ByteBuffer): kotlin.UShort? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterUShort.read(buf)
+    }
+
+    override fun allocationSize(value: kotlin.UShort?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterUShort.allocationSize(value)
+        }
+    }
+
+    override fun write(value: kotlin.UShort?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterUShort.write(value, buf)
+        }
+    }
+}
 
 
 

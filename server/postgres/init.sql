@@ -143,6 +143,17 @@ CREATE TABLE IF NOT EXISTS usernames (
 CREATE INDEX IF NOT EXISTS idx_usernames_peer_id ON usernames(peer_id);
 CREATE INDEX IF NOT EXISTS idx_usernames_created_at ON usernames(created_at DESC);
 
+-- Append-only identity log used for key-transparency proofs.
+CREATE TABLE IF NOT EXISTS key_transparency_log (
+    sequence BIGSERIAL PRIMARY KEY,
+    peer_id TEXT NOT NULL,
+    public_key BYTEA NOT NULL,
+    previous_hash BYTEA NOT NULL,
+    entry_hash BYTEA NOT NULL UNIQUE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_key_transparency_peer ON key_transparency_log(peer_id, sequence DESC);
+
 -- ============================================================================
 -- FUNCTIONS
 -- ============================================================================

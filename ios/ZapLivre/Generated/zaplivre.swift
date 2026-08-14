@@ -441,6 +441,22 @@ fileprivate struct FfiConverterUInt8: FfiConverterPrimitive {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterUInt16: FfiConverterPrimitive {
+    typealias FfiType = UInt16
+    typealias SwiftType = UInt16
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UInt16 {
+        return try lift(readInt(&buf))
+    }
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterUInt32: FfiConverterPrimitive {
     typealias FfiType = UInt32
     typealias SwiftType = UInt32
@@ -591,6 +607,10 @@ public protocol ZapLivreClientProtocol: AnyObject, Sendable {
     
     func connectedPeersCount() async throws  -> UInt32
     
+    func contactIdentityFingerprint(peerId: String) throws  -> String
+    
+    func contactTransparencyProof(peerId: String) throws  -> String
+    
     func createGroup(name: String, description: String?) async throws  -> FfiGroup
     
     func deleteMessage(messageId: String) throws 
@@ -607,6 +627,8 @@ public protocol ZapLivreClientProtocol: AnyObject, Sendable {
     
     func getConversationMessages(peerId: String, limit: UInt32?, offset: UInt32?) throws  -> [FfiMessage]
     
+    func getConversationMessagesBefore(peerId: String, limit: UInt32?, beforeCreatedAt: Int64?, beforeMessageId: String?) throws  -> [FfiMessage]
+    
     func getGroupMembers(groupId: String) async throws  -> [String]
     
     func getGroupMessages(groupId: String, limit: UInt32?, offset: UInt32?) throws  -> [FfiMessage]
@@ -615,11 +637,15 @@ public protocol ZapLivreClientProtocol: AnyObject, Sendable {
     
     func getGroups() async throws  -> [FfiGroup]
     
+    func getMessageMedia(messageId: String) throws  -> [FfiMedia]
+    
     func getMessageReactions(messageId: String) throws  -> [FfiReaction]
     
     func getPrekeyBundleJson() async throws  -> String
     
     func hangupCall(callId: String) async throws 
+    
+    func identityFingerprint() throws  -> String
     
     func joinGroup(groupId: String, groupName: String) async throws 
     
@@ -633,6 +659,8 @@ public protocol ZapLivreClientProtocol: AnyObject, Sendable {
     
     func localPeerId() throws  -> String
     
+    func lookupUsername(username: String) async throws  -> String
+    
     func markConversationRead(peerId: String) throws 
     
     func registerAudioFrameCallback(callback: FfiAudioFrameCallback) throws 
@@ -642,10 +670,12 @@ public protocol ZapLivreClientProtocol: AnyObject, Sendable {
     func registerMessageEventCallback(callback: FfiMessageEventCallback) throws 
     
     func registerUsername(username: String) async throws  -> String
-
+    
     func registerVideoFrameCallback(callback: FfiVideoFrameCallback) throws 
     
     func registerVoipEventCallback(callback: FfiVoipEventCallback) throws 
+    
+    func registerWebrtcSignalingCallback(callback: FfiWebRtcSignalingCallback) throws 
     
     func rejectCall(callId: String, reason: String?) async throws 
     
@@ -671,10 +701,16 @@ public protocol ZapLivreClientProtocol: AnyObject, Sendable {
     
     func sendVoiceMessage(toPeerId: String, audioData: [UInt8], fileName: String, durationSeconds: Int32) async throws  -> String
     
+    func sendWebrtcAnswer(callId: String, sdp: String) async throws 
+    
+    func sendWebrtcIceCandidate(callId: String, candidate: String, sdpMid: String?, sdpMLineIndex: UInt16?) async throws 
+    
+    func sendWebrtcOffer(callId: String, sdp: String) async throws 
+    
     func setContactPrekeyBundle(peerId: String, prekeyBundleJson: String) throws 
     
     func signAuthRequest(method: String, path: String, timestamp: Int64, body: [UInt8]) async throws  -> String
-
+    
     func startCall(toPeerId: String) async throws  -> String
     
     func switchCamera(callId: String) async throws 
@@ -858,6 +894,24 @@ open func connectedPeersCount()async throws  -> UInt32  {
         )
 }
     
+open func contactIdentityFingerprint(peerId: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeZapLivreFfiError_lift) {
+    uniffi_zaplivre_core_fn_method_zaplivreclient_contact_identity_fingerprint(
+            self.uniffiCloneHandle(),
+        FfiConverterString.lower(peerId),$0
+    )
+})
+}
+    
+open func contactTransparencyProof(peerId: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeZapLivreFfiError_lift) {
+    uniffi_zaplivre_core_fn_method_zaplivreclient_contact_transparency_proof(
+            self.uniffiCloneHandle(),
+        FfiConverterString.lower(peerId),$0
+    )
+})
+}
+    
 open func createGroup(name: String, description: String?)async throws  -> FfiGroup  {
     return
         try  await uniffiRustCallAsync(
@@ -973,6 +1027,18 @@ open func getConversationMessages(peerId: String, limit: UInt32?, offset: UInt32
 })
 }
     
+open func getConversationMessagesBefore(peerId: String, limit: UInt32?, beforeCreatedAt: Int64?, beforeMessageId: String?)throws  -> [FfiMessage]  {
+    return try  FfiConverterSequenceTypeFfiMessage.lift(try rustCallWithError(FfiConverterTypeZapLivreFfiError_lift) {
+    uniffi_zaplivre_core_fn_method_zaplivreclient_get_conversation_messages_before(
+            self.uniffiCloneHandle(),
+        FfiConverterString.lower(peerId),
+        FfiConverterOptionUInt32.lower(limit),
+        FfiConverterOptionInt64.lower(beforeCreatedAt),
+        FfiConverterOptionString.lower(beforeMessageId),$0
+    )
+})
+}
+    
 open func getGroupMembers(groupId: String)async throws  -> [String]  {
     return
         try  await uniffiRustCallAsync(
@@ -1035,6 +1101,15 @@ open func getGroups()async throws  -> [FfiGroup]  {
         )
 }
     
+open func getMessageMedia(messageId: String)throws  -> [FfiMedia]  {
+    return try  FfiConverterSequenceTypeFfiMedia.lift(try rustCallWithError(FfiConverterTypeZapLivreFfiError_lift) {
+    uniffi_zaplivre_core_fn_method_zaplivreclient_get_message_media(
+            self.uniffiCloneHandle(),
+        FfiConverterString.lower(messageId),$0
+    )
+})
+}
+    
 open func getMessageReactions(messageId: String)throws  -> [FfiReaction]  {
     return try  FfiConverterSequenceTypeFfiReaction.lift(try rustCallWithError(FfiConverterTypeZapLivreFfiError_lift) {
     uniffi_zaplivre_core_fn_method_zaplivreclient_get_message_reactions(
@@ -1076,6 +1151,14 @@ open func hangupCall(callId: String)async throws   {
             liftFunc: { $0 },
             errorHandler: FfiConverterTypeZapLivreFfiError_lift
         )
+}
+    
+open func identityFingerprint()throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeZapLivreFfiError_lift) {
+    uniffi_zaplivre_core_fn_method_zaplivreclient_identity_fingerprint(
+            self.uniffiCloneHandle(),$0
+    )
+})
 }
     
 open func joinGroup(groupId: String, groupName: String)async throws   {
@@ -1162,6 +1245,23 @@ open func localPeerId()throws  -> String  {
 })
 }
     
+open func lookupUsername(username: String)async throws  -> String  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_zaplivre_core_fn_method_zaplivreclient_lookup_username(
+                    self.uniffiCloneHandle(),
+                    FfiConverterString.lower(username)
+                )
+            },
+            pollFunc: ffi_zaplivre_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_zaplivre_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_zaplivre_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterString.lift,
+            errorHandler: FfiConverterTypeZapLivreFfiError_lift
+        )
+}
+    
 open func markConversationRead(peerId: String)throws   {try rustCallWithError(FfiConverterTypeZapLivreFfiError_lift) {
     uniffi_zaplivre_core_fn_method_zaplivreclient_mark_conversation_read(
             self.uniffiCloneHandle(),
@@ -1210,7 +1310,7 @@ open func registerUsername(username: String)async throws  -> String  {
             errorHandler: FfiConverterTypeZapLivreFfiError_lift
         )
 }
-
+    
 open func registerVideoFrameCallback(callback: FfiVideoFrameCallback)throws   {try rustCallWithError(FfiConverterTypeZapLivreFfiError_lift) {
     uniffi_zaplivre_core_fn_method_zaplivreclient_register_video_frame_callback(
             self.uniffiCloneHandle(),
@@ -1223,6 +1323,14 @@ open func registerVoipEventCallback(callback: FfiVoipEventCallback)throws   {try
     uniffi_zaplivre_core_fn_method_zaplivreclient_register_voip_event_callback(
             self.uniffiCloneHandle(),
         FfiConverterCallbackInterfaceFfiVoipEventCallback_lower(callback),$0
+    )
+}
+}
+    
+open func registerWebrtcSignalingCallback(callback: FfiWebRtcSignalingCallback)throws   {try rustCallWithError(FfiConverterTypeZapLivreFfiError_lift) {
+    uniffi_zaplivre_core_fn_method_zaplivreclient_register_webrtc_signaling_callback(
+            self.uniffiCloneHandle(),
+        FfiConverterCallbackInterfaceFfiWebRtcSignalingCallback_lower(callback),$0
     )
 }
 }
@@ -1416,6 +1524,57 @@ open func sendVoiceMessage(toPeerId: String, audioData: [UInt8], fileName: Strin
         )
 }
     
+open func sendWebrtcAnswer(callId: String, sdp: String)async throws   {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_zaplivre_core_fn_method_zaplivreclient_send_webrtc_answer(
+                    self.uniffiCloneHandle(),
+                    FfiConverterString.lower(callId),FfiConverterString.lower(sdp)
+                )
+            },
+            pollFunc: ffi_zaplivre_core_rust_future_poll_void,
+            completeFunc: ffi_zaplivre_core_rust_future_complete_void,
+            freeFunc: ffi_zaplivre_core_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeZapLivreFfiError_lift
+        )
+}
+    
+open func sendWebrtcIceCandidate(callId: String, candidate: String, sdpMid: String?, sdpMLineIndex: UInt16?)async throws   {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_zaplivre_core_fn_method_zaplivreclient_send_webrtc_ice_candidate(
+                    self.uniffiCloneHandle(),
+                    FfiConverterString.lower(callId),FfiConverterString.lower(candidate),FfiConverterOptionString.lower(sdpMid),FfiConverterOptionUInt16.lower(sdpMLineIndex)
+                )
+            },
+            pollFunc: ffi_zaplivre_core_rust_future_poll_void,
+            completeFunc: ffi_zaplivre_core_rust_future_complete_void,
+            freeFunc: ffi_zaplivre_core_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeZapLivreFfiError_lift
+        )
+}
+    
+open func sendWebrtcOffer(callId: String, sdp: String)async throws   {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_zaplivre_core_fn_method_zaplivreclient_send_webrtc_offer(
+                    self.uniffiCloneHandle(),
+                    FfiConverterString.lower(callId),FfiConverterString.lower(sdp)
+                )
+            },
+            pollFunc: ffi_zaplivre_core_rust_future_poll_void,
+            completeFunc: ffi_zaplivre_core_rust_future_complete_void,
+            freeFunc: ffi_zaplivre_core_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeZapLivreFfiError_lift
+        )
+}
+    
 open func setContactPrekeyBundle(peerId: String, prekeyBundleJson: String)throws   {try rustCallWithError(FfiConverterTypeZapLivreFfiError_lift) {
     uniffi_zaplivre_core_fn_method_zaplivreclient_set_contact_prekey_bundle(
             self.uniffiCloneHandle(),
@@ -1441,7 +1600,7 @@ open func signAuthRequest(method: String, path: String, timestamp: Int64, body: 
             errorHandler: FfiConverterTypeZapLivreFfiError_lift
         )
 }
-
+    
 open func startCall(toPeerId: String)async throws  -> String  {
     return
         try  await uniffiRustCallAsync(
@@ -3863,6 +4022,227 @@ public func FfiConverterCallbackInterfaceFfiVoipEventCallback_lower(_ v: FfiVoip
     return FfiConverterCallbackInterfaceFfiVoipEventCallback.lower(v)
 }
 
+
+
+
+public protocol FfiWebRtcSignalingCallback: AnyObject, Sendable {
+    
+    func onOffer(callId: String, sdp: String) 
+    
+    func onAnswer(callId: String, sdp: String) 
+    
+    func onIceCandidate(callId: String, candidate: String, sdpMid: String?, sdpMLineIndex: UInt16?) 
+    
+}
+
+
+// Put the implementation in a struct so we don't pollute the top-level namespace
+fileprivate struct UniffiCallbackInterfaceFfiWebRtcSignalingCallback {
+
+    // Create the VTable using a series of closures.
+    // Swift automatically converts these into C callback functions.
+    //
+    // Store the vtable directly.
+    static let vtable: UniffiVTableCallbackInterfaceFfiWebRtcSignalingCallback = UniffiVTableCallbackInterfaceFfiWebRtcSignalingCallback(
+        uniffiFree: { (uniffiHandle: UInt64) -> () in
+            do {
+                try FfiConverterCallbackInterfaceFfiWebRtcSignalingCallback.handleMap.remove(handle: uniffiHandle)
+            } catch {
+                print("Uniffi callback interface FfiWebRtcSignalingCallback: handle missing in uniffiFree")
+            }
+        },
+        uniffiClone: { (uniffiHandle: UInt64) -> UInt64 in
+            do {
+                return try FfiConverterCallbackInterfaceFfiWebRtcSignalingCallback.handleMap.clone(handle: uniffiHandle)
+            } catch {
+                fatalError("Uniffi callback interface FfiWebRtcSignalingCallback: handle missing in uniffiClone")
+            }
+        },
+        onOffer: { (
+            uniffiHandle: UInt64,
+            callId: RustBuffer,
+            sdp: RustBuffer,
+            uniffiOutReturn: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> () in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceFfiWebRtcSignalingCallback.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.onOffer(
+                     callId: try FfiConverterString.lift(callId),
+                     sdp: try FfiConverterString.lift(sdp)
+                )
+            }
+
+            
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        onAnswer: { (
+            uniffiHandle: UInt64,
+            callId: RustBuffer,
+            sdp: RustBuffer,
+            uniffiOutReturn: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> () in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceFfiWebRtcSignalingCallback.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.onAnswer(
+                     callId: try FfiConverterString.lift(callId),
+                     sdp: try FfiConverterString.lift(sdp)
+                )
+            }
+
+            
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        onIceCandidate: { (
+            uniffiHandle: UInt64,
+            callId: RustBuffer,
+            candidate: RustBuffer,
+            sdpMid: RustBuffer,
+            sdpMLineIndex: RustBuffer,
+            uniffiOutReturn: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> () in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceFfiWebRtcSignalingCallback.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.onIceCandidate(
+                     callId: try FfiConverterString.lift(callId),
+                     candidate: try FfiConverterString.lift(candidate),
+                     sdpMid: try FfiConverterOptionString.lift(sdpMid),
+                     sdpMLineIndex: try FfiConverterOptionUInt16.lift(sdpMLineIndex)
+                )
+            }
+
+            
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        }
+    )
+
+    // Rust stores this pointer for future callback invocations, so it must live
+    // for the process lifetime (not just for the init function call).
+    //
+    // `nonisolated(unsafe)` is needed under Swift 6 strict concurrency.
+    // This is safe because the pointee is initialized once during static init
+    // and never mutated by either side of the FFI.  Its fields are C function pointers.
+    nonisolated(unsafe) static let vtablePtr: UnsafePointer<UniffiVTableCallbackInterfaceFfiWebRtcSignalingCallback> = {
+        let ptr = UnsafeMutablePointer<UniffiVTableCallbackInterfaceFfiWebRtcSignalingCallback>.allocate(capacity: 1)
+        ptr.initialize(to: vtable)
+        return UnsafePointer(ptr)
+    }()
+}
+
+private func uniffiCallbackInitFfiWebRtcSignalingCallback() {
+    uniffi_zaplivre_core_fn_init_callback_vtable_ffiwebrtcsignalingcallback(UniffiCallbackInterfaceFfiWebRtcSignalingCallback.vtablePtr)
+}
+
+// FfiConverter protocol for callback interfaces
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterCallbackInterfaceFfiWebRtcSignalingCallback {
+    fileprivate static let handleMap = UniffiHandleMap<FfiWebRtcSignalingCallback>()
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+extension FfiConverterCallbackInterfaceFfiWebRtcSignalingCallback : FfiConverter {
+    typealias SwiftType = FfiWebRtcSignalingCallback
+    typealias FfiType = UInt64
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func lift(_ handle: UInt64) throws -> SwiftType {
+        try handleMap.get(handle: handle)
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func lower(_ v: SwiftType) -> UInt64 {
+        return handleMap.insert(obj: v)
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func write(_ v: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(v))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterCallbackInterfaceFfiWebRtcSignalingCallback_lift(_ handle: UInt64) throws -> FfiWebRtcSignalingCallback {
+    return try FfiConverterCallbackInterfaceFfiWebRtcSignalingCallback.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterCallbackInterfaceFfiWebRtcSignalingCallback_lower(_ v: FfiWebRtcSignalingCallback) -> UInt64 {
+    return FfiConverterCallbackInterfaceFfiWebRtcSignalingCallback.lower(v)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionUInt16: FfiConverterRustBuffer {
+    typealias SwiftType = UInt16?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterUInt16.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterUInt16.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
@@ -4290,6 +4670,12 @@ private let initializationResult: InitializationResult = {
     if (uniffi_zaplivre_core_checksum_method_zaplivreclient_connected_peers_count() != 15081) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_zaplivre_core_checksum_method_zaplivreclient_contact_identity_fingerprint() != 33518) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_zaplivre_core_checksum_method_zaplivreclient_contact_transparency_proof() != 25511) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_zaplivre_core_checksum_method_zaplivreclient_create_group() != 64155) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -4314,6 +4700,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_zaplivre_core_checksum_method_zaplivreclient_get_conversation_messages() != 35816) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_zaplivre_core_checksum_method_zaplivreclient_get_conversation_messages_before() != 61924) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_zaplivre_core_checksum_method_zaplivreclient_get_group_members() != 6722) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -4326,6 +4715,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_zaplivre_core_checksum_method_zaplivreclient_get_groups() != 30978) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_zaplivre_core_checksum_method_zaplivreclient_get_message_media() != 6336) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_zaplivre_core_checksum_method_zaplivreclient_get_message_reactions() != 13689) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -4333,6 +4725,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_zaplivre_core_checksum_method_zaplivreclient_hangup_call() != 18803) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_zaplivre_core_checksum_method_zaplivreclient_identity_fingerprint() != 44568) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_zaplivre_core_checksum_method_zaplivreclient_join_group() != 61849) {
@@ -4351,6 +4746,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_zaplivre_core_checksum_method_zaplivreclient_local_peer_id() != 10820) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_zaplivre_core_checksum_method_zaplivreclient_lookup_username() != 53185) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_zaplivre_core_checksum_method_zaplivreclient_mark_conversation_read() != 53235) {
@@ -4372,6 +4770,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_zaplivre_core_checksum_method_zaplivreclient_register_voip_event_callback() != 38917) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_zaplivre_core_checksum_method_zaplivreclient_register_webrtc_signaling_callback() != 19409) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_zaplivre_core_checksum_method_zaplivreclient_reject_call() != 49457) {
@@ -4408,6 +4809,15 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_zaplivre_core_checksum_method_zaplivreclient_send_voice_message() != 12496) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_zaplivre_core_checksum_method_zaplivreclient_send_webrtc_answer() != 11808) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_zaplivre_core_checksum_method_zaplivreclient_send_webrtc_ice_candidate() != 16338) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_zaplivre_core_checksum_method_zaplivreclient_send_webrtc_offer() != 7655) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_zaplivre_core_checksum_method_zaplivreclient_set_contact_prekey_bundle() != 40860) {
@@ -4467,12 +4877,22 @@ private let initializationResult: InitializationResult = {
     if (uniffi_zaplivre_core_checksum_method_ffivoipeventcallback_on_camera_switch_requested() != 7743) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_zaplivre_core_checksum_method_ffiwebrtcsignalingcallback_on_offer() != 55769) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_zaplivre_core_checksum_method_ffiwebrtcsignalingcallback_on_answer() != 25843) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_zaplivre_core_checksum_method_ffiwebrtcsignalingcallback_on_ice_candidate() != 25582) {
+        return InitializationResult.apiChecksumMismatch
+    }
 
     uniffiCallbackInitFfiAudioFrameCallback()
     uniffiCallbackInitFfiCallEventCallback()
     uniffiCallbackInitFfiMessageEventCallback()
     uniffiCallbackInitFfiVideoFrameCallback()
     uniffiCallbackInitFfiVoipEventCallback()
+    uniffiCallbackInitFfiWebRtcSignalingCallback()
     return InitializationResult.ok
 }()
 

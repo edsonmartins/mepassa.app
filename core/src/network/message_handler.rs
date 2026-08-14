@@ -18,8 +18,8 @@ use crate::{
     media::MediaEnvelope,
     protocol::{
         pb::message::Payload, AckMessage, AckStatus, EncryptedMessage as ProtoEncryptedMessage,
-        MediaChunk, MediaOffer, MediaRequest, Message, MessageType, ReadReceipt, TextMessage,
-        TypingIndicator,
+        MediaChunk, MediaOffer, MediaRequest, Message, MessageType, PreKeyBundleSync,
+        ReadReceipt, TextMessage, TypingIndicator,
     },
     reactions::ReactionEnvelope,
     storage::{
@@ -115,6 +115,9 @@ impl MessageHandler {
             }
             Some(Payload::MediaOffer(ref offer)) => self.handle_media_offer(&message, offer).await,
             Some(Payload::MediaChunk(ref chunk)) => self.handle_media_chunk(&message, chunk).await,
+            Some(Payload::PrekeyBundleSync(ref sync)) => {
+                self.handle_prekey_bundle_sync(&message, from_peer, sync).await
+            }
             Some(Payload::MediaRequest(_)) => {
                 // Media requests are handled in NetworkManager to enable chunk sending.
                 Ok(())
@@ -134,6 +137,93 @@ impl MessageHandler {
                 Ok(self.create_ack(&message.id, AckStatus::Error, Some(e.to_string())))
             }
         }
+    }
+
+    /// Build the private control message sent after a P2P connection is
+    /// authenticated. Only the public bundle is serialized; private Signal
+    /// material never leaves the local identity store.
+    pub async fn create_prekey_bundle_sync(&self, peer_id: &PeerId) -> Result<Message> {
+        let mut identity = self.identity.write().await;
+        identity.init_prekey_pool(100);
+        let pool = identity
+            .prekey_pool_mut()
+            .ok_or_else(|| ZapLivreError::Identity("Prekey pool not initialized".into()))?;
+        let bundle_json = serde_json::to_string(&pool.get_bundle()?)
+            .map_err(|e| ZapLivreError::Identity(format!("Failed to serialize prekeys: {}", e)))?;
+        Ok(Message {
+            id: uuid::Uuid::new_v4().to_string(),
+            sender_peer_id: self.local_peer_id.clone(),
+            recipient_peer_id: peer_id.to_string(),
+            timestamp: chrono::Utc::now().timestamp_millis(),
+            r#type: MessageType::PrekeyBundleSync as i32,
+            payload: Some(Payload::PrekeyBundleSync(PreKeyBundleSync { bundle_json })),
+        })
+    }
+
+    /// Wake messages queued while this peer was offline. This is deliberately
+    /// tied to the authenticated connection event so the user never has to
+    /// send a second message to bootstrap delivery.
+    pub fn wake_pending_outbound(&self, peer_id: &PeerId) {
+        match self.database.wake_outbound_for_peer(&peer_id.to_string()) {
+            Ok(count) if count > 0 => {
+                tracing::info!("📤 Woke {} queued messages for {}", count, peer_id);
+            }
+            Ok(_) => {}
+            Err(e) => tracing::warn!("Failed to wake queued messages for {}: {}", peer_id, e),
+        }
+    }
+
+    async fn handle_prekey_bundle_sync(
+        &self,
+        message: &Message,
+        from_peer: PeerId,
+        sync: &PreKeyBundleSync,
+    ) -> Result<()> {
+        if message.sender_peer_id != from_peer.to_string() {
+            return Err(ZapLivreError::Protocol("Prekey sender mismatch".into()));
+        }
+        // Validate and normalize before persisting. New peers send the native
+        // core format; older clients may still send the identity-server DTO.
+        // Persisting one canonical format keeps subsequent session setup
+        // independent of which client initiated the connection.
+        let bundle_json = match serde_json::from_str::<crate::identity::PreKeyBundle>(
+            &sync.bundle_json,
+        ) {
+            Ok(_) => sync.bundle_json.clone(),
+            Err(_) => {
+                let dto: crate::identity_client::PreKeyBundle =
+                    serde_json::from_str(&sync.bundle_json).map_err(|e| {
+                        ZapLivreError::Identity(format!("Invalid prekey bundle: {}", e))
+                    })?;
+                let core_bundle = dto.to_core().map_err(|e| {
+                    ZapLivreError::Identity(format!("Invalid prekey bundle: {}", e))
+                })?;
+                serde_json::to_string(&core_bundle).map_err(|e| {
+                    ZapLivreError::Identity(format!("Failed to normalize prekey bundle: {}", e))
+                })?
+            }
+        };
+        let peer_id = from_peer.to_string();
+        let update = crate::storage::UpdateContact {
+            prekey_bundle_json: Some(Some(bundle_json.clone())),
+            last_seen_at: Some(chrono::Utc::now()),
+            ..Default::default()
+        };
+        match self.database.update_contact(&peer_id, &update) {
+            Ok(()) => {}
+            Err(crate::storage::StorageError::NotFound(_)) => {
+                self.database.insert_contact(&crate::storage::NewContact {
+                    peer_id,
+                    username: None,
+                    display_name: None,
+                    public_key: Vec::new(),
+                    prekey_bundle_json: Some(bundle_json),
+                })?;
+            }
+            Err(e) => return Err(e.into()),
+        }
+        tracing::info!("🔑 Automatically synchronized prekeys for {}", from_peer);
+        Ok(())
     }
 
     /// Handle acknowledgment for an outgoing message

@@ -15,18 +15,9 @@ struct ZapLivreApp: App {
     @StateObject private var appState = AppState()
     @StateObject private var callManager = CallManager()
     @StateObject private var pushManager = PushNotificationManager()
+    @State private var didStartExistingIdentity = false
 
     init() {
-        // IDN-02: só inicializar automaticamente quando JÁ existe identidade.
-        // Na primeira execução a LoginView decide entre criar nova identidade
-        // e restaurar backup (o auto-init tornava o import impossível -
-        // "Import requires app restart").
-        if Self.hasExistingIdentity() {
-            initializeZapLivreCore()
-        } else {
-            print("ℹ️ No identity yet - LoginView will handle create/restore")
-        }
-
         // Setup CallKit
         setupCallKit()
     }
@@ -57,6 +48,17 @@ struct ZapLivreApp: App {
 
                     // Request push notification permissions
                     pushManager.requestAuthorization()
+
+                    // StateObject só possui identidade estável depois que a
+                    // view entra na hierarquia. Inicializar no App.init()
+                    // atualizava uma instância transitória de AppState: o core
+                    // fazia login, mas ContentView permanecia no onboarding.
+                    if !didStartExistingIdentity && Self.hasExistingIdentity() {
+                        didStartExistingIdentity = true
+                        initializeZapLivreCore()
+                    } else if !didStartExistingIdentity {
+                        print("ℹ️ No identity yet - LoginView will handle create/restore")
+                    }
                 }
                 // IDN-02: quando a LoginView cria/restaura a identidade
                 // (primeira execução), completar o setup (bootstrap, handlers,
@@ -112,6 +114,7 @@ struct ZapLivreApp: App {
                 let callHandler = CallEventHandler(callManager: callManager)
                 appState.callEventHandler = callHandler
                 try await ZapLivreCore.shared.registerCallEventCallback(callHandler)
+                try ZapLivreCore.shared.registerWebRtcSignalingCallback(WebRtcSignalingBridge.shared)
 
                 let audioHandler = AudioFrameHandler(callManager: callManager)
                 appState.audioFrameHandler = audioHandler
