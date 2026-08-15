@@ -29,8 +29,8 @@ services:
     environment:
       # Expõe a senha ao healthcheck (que usa $$REDIS_PASSWORD no shell)
       REDIS_PASSWORD: ${REDIS_PASSWORD:-zaplivre_redis_dev}
-    ports:
-      - "6379:6379"
+    # Redis is consumed only through zaplivre-network. Do not publish the
+    # default host port, which may already be used by another local stack.
     volumes:
       - redis_data:/data
     healthcheck:
