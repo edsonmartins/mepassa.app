@@ -102,6 +102,13 @@ impl Client {
             .transparency_proof(peer_id)
             .await
             .map_err(|e| ZapLivreError::Network(e.to_string()))?;
+        let contact = self
+            .database
+            .get_contact_by_peer_id(peer_id)
+            .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
+        verify_transparency_proof(&client, &proof, &contact.public_key)
+            .await
+            .map_err(ZapLivreError::Network)?;
         serde_json::to_string(&proof).map_err(|e| ZapLivreError::Network(e.to_string()))
     }
     /// Create a new client (use ClientBuilder instead)
@@ -2929,6 +2936,86 @@ pub fn format_identity_fingerprint(public_key: &[u8]) -> String {
         .map(|chunk| std::str::from_utf8(chunk).unwrap_or("").to_string())
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+async fn verify_transparency_proof(
+    client: &crate::identity_client::IdentityClient,
+    proof: &crate::identity_client::TransparencyProof,
+    contact_key: &[u8],
+) -> std::result::Result<(), String> {
+    if contact_key.is_empty() {
+        return Err("Contact identity key is unavailable".to_string());
+    }
+    let published_key = general_purpose::STANDARD
+        .decode(&proof.public_key)
+        .map_err(|_| "Invalid transparency public key".to_string())?;
+    if published_key != contact_key {
+        return Err("Transparency key does not match authenticated contact key".to_string());
+    }
+    if proof.fingerprint != format_identity_fingerprint(&published_key) {
+        return Err("Transparency fingerprint mismatch".to_string());
+    }
+    let expected_root = general_purpose::STANDARD
+        .decode(&proof.log_root_hash)
+        .map_err(|_| "Invalid transparency root".to_string())?;
+    let mut next_sequence = proof.sequence;
+    let mut previous_hash = general_purpose::STANDARD
+        .decode(&proof.previous_hash)
+        .map_err(|_| "Invalid transparency predecessor".to_string())?;
+    let mut verified_entry = false;
+
+    while next_sequence <= proof.log_root_sequence {
+        let entries = client
+            .transparency_log_segment(next_sequence, 1000)
+            .await
+            .map_err(|e| e.to_string())?;
+        if entries.is_empty() {
+            return Err("Transparency log segment is incomplete".to_string());
+        }
+        for entry in entries {
+            if entry.sequence != next_sequence {
+                return Err("Transparency log sequence gap or reordering".to_string());
+            }
+            let advertised_previous = general_purpose::STANDARD
+                .decode(&entry.previous_hash)
+                .map_err(|_| "Invalid transparency predecessor".to_string())?;
+            if advertised_previous != previous_hash {
+                return Err(format!("Transparency predecessor mismatch at {}", entry.sequence));
+            }
+            let public_key = general_purpose::STANDARD
+                .decode(&entry.public_key)
+                .map_err(|_| "Invalid transparency public key".to_string())?;
+            let entry_hash = general_purpose::STANDARD
+                .decode(&entry.entry_hash)
+                .map_err(|_| "Invalid transparency entry hash".to_string())?;
+            let mut hasher = Sha256::new();
+            hasher.update(b"zaplivre-key-transparency-v1\0");
+            hasher.update(&previous_hash);
+            hasher.update(entry.peer_id.as_bytes());
+            hasher.update(&public_key);
+            if entry_hash != hasher.finalize().to_vec() {
+                return Err(format!("Transparency entry hash mismatch at {}", entry.sequence));
+            }
+            if entry.sequence == proof.sequence {
+                if entry.peer_id != proof.peer_id
+                    || entry.entry_hash != proof.entry_hash
+                    || public_key != published_key
+                {
+                    return Err("Transparency inclusion proof mismatch".to_string());
+                }
+                verified_entry = true;
+            }
+            previous_hash = entry_hash;
+            next_sequence += 1;
+            if next_sequence > proof.log_root_sequence {
+                break;
+            }
+        }
+    }
+    if !verified_entry || previous_hash != expected_root {
+        return Err("Transparency root verification failed".to_string());
+    }
+    Ok(())
 }
 
 #[cfg(test)]

@@ -163,6 +163,16 @@ pub struct TransparencyProof {
     pub log_root_hash: String,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct TransparencyLogEntry {
+    pub sequence: i64,
+    pub peer_id: String,
+    pub public_key: String,
+    pub previous_hash: String,
+    pub entry_hash: String,
+    pub created_at: DateTime<Utc>,
+}
+
 /// Error response from Identity Server
 #[derive(Debug, Deserialize)]
 struct ErrorResponse {
@@ -221,6 +231,24 @@ impl IdentityClient {
     /// Fetch the identity's inclusion proof and current transparency root.
     pub async fn transparency_proof(&self, peer_id: &str) -> Result<TransparencyProof> {
         let url = format!("{}/api/v1/transparency/keys/{}", self.base_url, peer_id);
+        let response = self.client.get(url).send().await?;
+        if !response.status().is_success() {
+            return Err(Self::error_from_response(response).await);
+        }
+        Ok(response.json().await?)
+    }
+
+    pub async fn transparency_log_segment(
+        &self,
+        from_sequence: i64,
+        limit: i64,
+    ) -> Result<Vec<TransparencyLogEntry>> {
+        let url = format!(
+            "{}/api/v1/transparency/log?from={}&limit={}",
+            self.base_url,
+            from_sequence.max(1),
+            limit.clamp(1, 1000)
+        );
         let response = self.client.get(url).send().await?;
         if !response.status().is_success() {
             return Err(Self::error_from_response(response).await);
